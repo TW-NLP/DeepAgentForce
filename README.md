@@ -119,13 +119,13 @@ python -m http.server 8080
 
 ## 📖 操作指南
 
-### 🔧 初始化配置 (System Config)
+### 🔧 模型配置 (Model Config)
 
-首次启动后，点击界面右上角的 **"设置" (Settings)** 图标：
+首次启动后，点击界面左侧的 **"模型配置"** 图标：
 
-1. **LLM Config**: 填入您的模型服务商信息 (API Key, Base URL, Model Name)。
-2. **GraphRAG Config**: 配置 Embedding 模型参数（这是构建知识图谱的关键）。
-3. 点击 **Save**。系统会自动测试连接并持久化保存配置。
+1. **LLM Config**: 填入您的模型服务商信息 (API Key, URL, Model Name)。
+2. **GraphRAG Config**: 配置 Embedding 模型参数（RAG服务）。
+3. 点击 **保存配置**。系统会自动测试连接并持久化保存配置。
 
 ### 📚 构建知识库 (Knowledge Base)
 
@@ -134,14 +134,14 @@ python -m http.server 8080
 1. 进入 **"知识库" (Knowledge)** 标签页。
 2. 拖拽上传文档 (PDF/Markdown/TXT)。
 3. 观察控制台，AgentForce 会自动执行 **ETL 流程**：`文本分块` -> `实体提取` -> `关系构建` -> `社区检出`。
-4. 当状态变更为 `Indexed` 时，知识已注入 Agent 大脑。
+4. 知识已注入 Agent 大脑。
 
 ### 💬 智能交互 (Chat)
 
 回到首页对话框：
 
 * **提问**: "根据上传的财报，分析该公司去年的主要风险点。"
-* **Agent 响应**: Agent 将自动识别意图，调用 GraphRAG 进行全局检索，并综合生成深度回答。
+* **Agent 响应**: Agent 将自动识别意图，调用不同的agent进行回复，并综合生成深度回答。
 
 ---
 
