@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能研究助手 - AI Research Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* 白色主题配色 */
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #f1f3f5;
+            --bg-elevated: #e9ecef;
+            
+            /* 文字颜色 */
+            --text-primary: #1a1a1a;
+            --text-secondary: #6c757d;
+            --text-tertiary: #adb5bd;
+            --text-accent: #3b82f6;
+            
+            /* 强调色 */
+            --accent-primary: #3b82f6;
+            --accent-secondary: #2563eb;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-error: #ef4444;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            
+            /* 边框 */
+            --border-subtle: #e9ecef;
+            --border-light: #dee2e6;
+            --border-medium: #ced4da;
+            
+            /* 阴影 */
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.2);
+            
+            /* 圆角 */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ============ 左侧导航栏 ============ */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50; /* 确保层级 */
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-purple));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: var(--shadow-glow);
+            color: white;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-menu {
+            flex: 1;
+            padding: 16px 12px;
+            overflow-y: auto;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-tertiary);
+            padding: 8px 12px;
+            margin-top: 16px;
+        }
+
+        .nav-section-title:first-child {
+            margin-top: 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            margin-bottom: 4px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--accent-primary);
+            transform: scaleY(0);
+            transition: transform 0.2s;
+        }
+
+        .nav-item:hover {
+            background: rgba(59, 130, 246, 0.08);
+            color: var(--text-accent);
+        }
+
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--accent-primary);
+        }
+
+        .nav-item.active::before {
+            transform: scaleY(1);
+        }
+
+        .nav-icon {
+            font-size: 18px;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* ============ 主内容区 ============ */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+            position: relative;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            padding: 16px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 68px;
+            backdrop-filter: blur(12px);
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-icon {
+            font-size: 24px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+        }
+
+        .status-indicator.connected {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: var(--accent-success);
+        }
+
+        .status-indicator.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--accent-error);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.85); }
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+            font-size: 18px;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-elevated);
+            border-color: var(--border-medium);
+            color: var(--text-accent);
+            transform: translateY(-1px);
+        }
+
+        /* ============ 页面容器 ============ */
+        .page {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .page.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ============ 对话页面 ============ */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .history-sidebar {
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .history-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            list-style: none; /* 去除列表点 */
+        }
+        
+        /* 历史记录项样式 (新增) */
+        .history-item {
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: all 0.2s;
+        }
+        
+        .history-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px 24px;
+            scroll-behavior: smooth;
+        }
+
+        .messages-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages-area::-webkit-scrollbar-thumb {
+            background: var(--border-medium);
+            border-radius: 3px;
+        }
+
+        .messages-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            padding-bottom: 20px;
+        }
+
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        .welcome-icon {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-purple));
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin-bottom: 28px;
+            box-shadow: var(--shadow-glow);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-12px); }
+        }
+
+        .welcome-title {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .welcome-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .quick-prompts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .quick-prompt-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: left;
+        }
+
+        .quick-prompt-card:hover {
+            border-color: var(--accent-primary);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-4px);
+            background: var(--bg-tertiary);
+        }
+
+        .quick-prompt-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .quick-prompt-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+
+        .quick-prompt-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* ============ 消息样式 ============ */
+        .message {
+            margin-bottom: 28px;
+            animation: messageSlide 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-primary));
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-cyan));
+        }
+
+        .message-author {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-left: auto;
+        }
+
+        .message-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 18px 20px;
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-size: 14px;
+        }
+
+        /* Markdown 样式适配 */
+        .message-content p { margin-bottom: 10px; }
+        .message-content p:last-child { margin-bottom: 0; }
+        .message-content code { background: #e0e0e0; padding: 2px 4px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; }
+        .message-content pre { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0; }
+        .message-content pre code { background: transparent; padding: 0; color: inherit; }
+
+        .message.user .message-content {
+            background: rgba(59, 130, 246, 0.08);
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        /* ============ 思考过程样式 - 可折叠 ============ */
+        .thinking-process {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+            padding: 4px 0;
+        }
+
+        .thinking-toggle {
+            font-size: 14px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--text-secondary);
+        }
+
+        .thinking-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .thinking-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .thinking-icon {
+            font-size: 18px;
+        }
+
+        .thinking-content {
+            max-height: 800px;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                        opacity 0.3s ease,
+                        margin-top 0.3s ease;
+            margin-top: 12px;
+            opacity: 1;
+        }
+
+        .thinking-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+        }
+
+        .thinking-step {
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            background: var(--bg-primary);
+            border-left: 3px solid var(--accent-primary);
+            border-radius: 6px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            animation: stepFadeIn 0.4s ease;
+        }
+
+        .thinking-step:last-child {
+            margin-bottom: 0;
+        }
+
+        @keyframes stepFadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .thinking-step .step-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+
+        .thinking-step .step-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .thinking-step .step-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .thinking-step .step-description {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .thinking-step.analyzing {
+            border-left-color: var(--accent-cyan);
+        }
+
+        .thinking-step.planning {
+            border-left-color: var(--accent-warning);
+        }
+
+        .thinking-step.complete {
+            border-left-color: var(--accent-success);
+        }
+
+        .thinking-step.chatting {
+            border-left-color: var(--accent-purple);
+        }
+
+        /* ============ 回复内容渐变动画 ============ */
+        .message.assistant .message-content {
+            animation: fadeInGradient 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeInGradient {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+                filter: blur(4px);
+            }
+            50% {
+                opacity: 0.5;
+                transform: translateY(10px);
+                filter: blur(2px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+                filter: blur(0);
+            }
+        }
+
+        .message.assistant .message-content.streaming {
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% {
+                box-shadow: 0 0 0 rgba(59, 130, 246, 0);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+            }
+        }
+
+        /* ============ 输入区域 ============ */
+        .input-area {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-light);
+            padding: 20px 24px;
+        }
+
+        .input-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            padding: 10px 10px 10px 20px;
+            transition: all 0.3s;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .input-container:focus-within {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .message-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-primary);
+            resize: none;
+            min-height: 20px;
+            max-height: 200px;
+            padding: 6px 0;
+            outline: none;
+        }
+
+        .message-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .send-button {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: var(--shadow-md);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ============ 知识库页面 ============ */
+        .knowledge-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+        }
+
+        .knowledge-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .kb-header {
+            margin-bottom: 28px;
+        }
+
+        .kb-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .kb-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .kb-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .stat-info {
+            flex: 1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .kb-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .kb-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .section-body {
+            padding: 24px;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border-medium);
+            border-radius: var(--radius-md);
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragging {
+            border-color: var(--accent-primary);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .upload-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .upload-hint {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .upload-button, .rebuild-button {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .upload-button:hover, .rebuild-button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .upload-button:disabled, .rebuild-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .documents-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .document-item {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: background 0.2s;
+        }
+
+        .document-item:last-child {
+            border-bottom: none;
+        }
+
+        .document-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .doc-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .doc-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .doc-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .doc-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 14px;
+        }
+
+        .doc-action-btn {
+            width: 36px;
+            height: 36px;
+            background: transparent;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        .doc-action-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--accent-error);
+            color: var(--accent-error);
+        }
+
+        /* ============ 配置页面 ============ */
+        .config-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+        }
+
+        .config-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .config-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            margin-bottom: 20px;
+        }
+
+        .config-section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .config-section-icon {
+            font-size: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-primary);
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        .save-button {
+            background: linear-gradient(135deg, var(--accent-success), #059669);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 24px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+        }
+
+        .save-button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .save-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ============ Toast 通知 ============ */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 16px 24px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 300px;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--accent-success);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--accent-error);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .toast-message {
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .empty-state {
+            padding: 60px 24px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 56px;
+            margin-bottom: 14px;
+            opacity: 0.4;
+        }
+
+        .empty-text {
+            font-size: 14px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 1024px) {
+            .kb-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar, .history-sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 100;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open, .history-sidebar.open {
+                transform: translateX(0);
+            }
+
+            .quick-prompts {
+                grid-template-columns: 1fr;
+            }
+
+            .kb-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">🚀</div>
+                    <span class="logo-text">AI Research</span>
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-section-title">功能</div>
+                <div class="nav-item active" data-page="chat">
+                    <span class="nav-icon">💬</span>
+                    <span>智能对话</span>
+                </div>
+                <div class="nav-item" data-page="knowledge">
+                    <span class="nav-icon">📚</span>
+                    <span>知识库</span>
+                </div>
+                
+                <div class="nav-section-title">设置</div>
+                <div class="nav-item" data-page="config">
+                    <span class="nav-icon">⚙️</span>
+                    <span>模型配置</span>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <h1 class="header-title">
+                    <span class="header-icon" id="headerIcon">💬</span>
+                    <span id="headerTitle">智能对话</span>
+                </h1>
+                <div class="header-actions">
+                    <div class="status-indicator disconnected" id="statusIndicator">
+                        <div class="status-dot"></div>
+                        <span id="statusText">未连接</span>
+                    </div>
+                    <button class="icon-btn" id="newChatBtn" title="新对话">➕</button>
+                </div>
+            </header>
+
+            <div class="page active" id="chatPage">
+                <div class="chat-container">
+                    <aside class="history-sidebar">
+                        <div class="history-header">
+                            <div class="history-title">历史对话</div>
+                            <button class="icon-btn" id="sidebarNewChatBtn" style="width: 32px; height: 32px; font-size: 14px;" title="新建对话">➕</button>
+                        </div>
+                        <div class="history-list" id="historyList">
+                            </div>
+                    </aside>
+
+                    <div class="chat-area">
+                        <div class="messages-area" id="messagesArea">
+                            <div class="messages-wrapper" id="messagesWrapper">
+                                <div class="welcome-screen" id="welcomeScreen">
+                                    <div class="welcome-icon">🚀</div>
+                                    <h1 class="welcome-title">你好，我是智能研究助手</h1>
+                                    <p class="welcome-subtitle">
+                                        我可以帮你搜索网络信息、查询知识库文档，并为你生成深入的研究报告。
+                                    </p>
+                                    
+                                    <div class="quick-prompts">
+                                        <div class="quick-prompt-card" data-prompt="查询公司考勤制度">
+                                            <span class="quick-prompt-icon">📋</span>
+                                            <div class="quick-prompt-title">查询内部文档</div>
+                                            <div class="quick-prompt-desc">搜索知识库中的文档资料</div>
+                                        </div>
+                                        
+                                        <div class="quick-prompt-card" data-prompt="Python 3.13 有哪些新特性？">
+                                            <span class="quick-prompt-icon">💻</span>
+                                            <div class="quick-prompt-title">技术研究</div>
+                                            <div class="quick-prompt-desc">了解最新的技术动态</div>
+                                        </div>
+                                        
+                                        <div class="quick-prompt-card" data-prompt="对比 GPT-4 和 Claude 的能力">
+                                            <span class="quick-prompt-icon">⚖️</span>
+                                            <div class="quick-prompt-title">对比分析</div>
+                                            <div class="quick-prompt-desc">深入对比不同产品</div>
+                                        </div>
+                                        
+                                        <div class="quick-prompt-card" data-prompt="分析 2024 AI 发展趋势">
+                                            <span class="quick-prompt-icon">📊</span>
+                                            <div class="quick-prompt-title">趋势分析</div>
+                                            <div class="quick-prompt-desc">生成行业分析报告</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="input-area">
+                            <div class="input-wrapper">
+                                <div class="input-container">
+                                    <textarea 
+                                        class="message-input" 
+                                        id="messageInput" 
+                                        placeholder="输入你的问题..."
+                                        rows="1"
+                                    ></textarea>
+                                    <button class="send-button" id="sendButton">➤</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page" id="knowledgePage">
+                <div class="knowledge-container">
+                    <div class="knowledge-content">
+                        <div class="kb-header">
+                            <h1 class="kb-title">知识库管理</h1>
+                            <p class="kb-subtitle">上传文档构建知识库，支持 PDF、Word、TXT、Markdown、CSV 格式</p>
+                        </div>
+
+                        <div class="kb-stats">
+                            <div class="stat-card">
+                                <div class="stat-icon">📄</div>
+                                <div class="stat-info">
+                                    <div class="stat-label">文档总数</div>
+                                    <div class="stat-value" id="statDocs">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">🏷️</div>
+                                <div class="stat-info">
+                                    <div class="stat-label">实体数量</div>
+                                    <div class="stat-value" id="statEntities">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">🔗</div>
+                                <div class="stat-info">
+                                    <div class="stat-label">关系数量</div>
+                                    <div class="stat-value" id="statRelationships">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">🗂️</div>
+                                <div class="stat-info">
+                                    <div class="stat-label">社区数量</div>
+                                    <div class="stat-value" id="statCommunities">0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="kb-grid">
+                            <div class="kb-section">
+                                <div class="section-header">
+                                    <div class="section-title">📤 上传文档</div>
+                                </div>
+                                <div class="section-body">
+                                    <div class="upload-area" id="uploadArea">
+                                        <div class="upload-icon">📁</div>
+                                        <div class="upload-title">点击或拖拽上传</div>
+                                        <div class="upload-hint">支持 PDF, DOCX, TXT, MD, CSV</div>
+                                        <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+                                            选择文件
+                                        </button>
+                                        <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.txt,.md,.markdown,.csv" multiple>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="kb-section">
+                                <div class="section-header">
+                                    <div class="section-title">📚 文档列表</div>
+                                    <button class="rebuild-button" id="rebuildButton">🔄 重建索引</button>
+                                </div>
+                                <div class="documents-list" id="documentsList">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">📭</div>
+                                        <div class="empty-text">暂无文档</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page" id="configPage">
+                <div class="config-container">
+                    <div class="config-content">
+                        <div class="kb-header">
+                            <h1 class="kb-title">模型配置</h1>
+                            <p class="kb-subtitle">配置 LLM 模型、搜索服务和网页爬取服务的 API 密钥</p>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="config-section-title">
+                                <span class="config-section-icon">🤖</span>
+                                <span>LLM 模型配置</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API Key</label>
+                                <input type="password" class="form-input" id="llmApiKey" placeholder="sk-xxxxxxxxxxxxxxxx">
+                                <div class="form-hint">用于调用大语言模型的 API 密钥</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API URL</label>
+                                <input type="text" class="form-input" id="llmUrl" placeholder="https://api.openai.com/v1">
+                                <div class="form-hint">LLM API 端点地址</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">模型名称</label>
+                                <input type="text" class="form-input" id="llmModel" placeholder="gpt-4">
+                                <div class="form-hint">使用的模型名称</div>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="config-section-title">
+                                <span class="config-section-icon">🔍</span>
+                                <span>Tavily 搜索配置</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API Key</label>
+                                <input type="password" class="form-input" id="tavilyApiKey" placeholder="tvly-xxxxxxxxxxxxxxxx">
+                                <div class="form-hint">Tavily 搜索服务的 API 密钥</div>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="config-section-title">
+                                <span class="config-section-icon">🔥</span>
+                                <span>Firecrawl 爬取配置</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API Key</label>
+                                <input type="password" class="form-input" id="firecrawlApiKey" placeholder="fc-xxxxxxxxxxxxxxxx">
+                                <div class="form-hint">Firecrawl 网页爬取服务的 API 密钥</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API URL</label>
+                                <input type="text" class="form-input" id="firecrawlUrl" placeholder="https://api.firecrawl.dev">
+                                <div class="form-hint">Firecrawl API 端点地址</div>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="config-section-title">
+                                <span class="config-section-icon">🧬</span>
+                                <span>Embedding 模型配置</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API Key</label>
+                                <input type="password" class="form-input" id="embeddingApiKey" placeholder="EMPTY (如使用本地模型)">
+                                <div class="form-hint">Embedding 模型的 API 密钥</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API URL</label>
+                                <input type="text" class="form-input" id="embeddingUrl" placeholder="http://localhost:8083/v1">
+                                <div class="form-hint">Embedding API 端点地址</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">模型名称</label>
+                                <input type="text" class="form-input" id="embeddingModel" placeholder="qwen3_embedding">
+                                <div class="form-hint">使用的 Embedding 模型名称</div>
+                            </div>
+                        </div>
+
+                        <button class="save-button" id="saveConfigBtn">
+                            <span>💾</span>
+                            <span>保存配置</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="knowledge.js"></script>
+    <script src="config.js"></script>
+    <script src="chat.js"></script>
+    <script>
+        // 页面切换
+        const pageIcons = {
+            'chat': '💬',
+            'knowledge': '📚',
+            'config': '⚙️'
+        };
+
+        const pageTitles = {
+            'chat': '智能对话',
+            'knowledge': '知识库管理',
+            'config': '模型配置'
+        };
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.getAttribute('data-page');
+                
+                // 更新导航状态
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                
+                // 切换页面
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                document.getElementById(page + 'Page').classList.add('active');
+                
+                // 更新标题
+                document.getElementById('headerIcon').textContent = pageIcons[page];
+                document.getElementById('headerTitle').textContent = pageTitles[page];
+                
+                // 刷新对应页面数据
+                if (page === 'knowledge') {
+                    if (typeof loadKnowledgeBaseStats === 'function') loadKnowledgeBaseStats();
+                    if (typeof loadDocuments === 'function') loadDocuments();
+                } else if (page === 'config') {
+                    if (typeof loadConfig === 'function') loadConfig();
+                }
+            });
+        });
+
+        // ============ 思考过程折叠功能 ============
+        function toggleThinking(element) {
+            const header = element.closest('.thinking-header');
+            const toggle = header.querySelector('.thinking-toggle');
+            const content = header.nextElementSibling;
+            
+            toggle.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+        }
+        
+        // 全局暴露折叠函数
+        window.toggleThinking = toggleThinking;
+
+        // Toast 通知
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${type === 'success' ? '✅' : '❌'}</span>
+                <span class="toast-message">${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 全局暴露 showToast
+        window.showToast = showToast;
+    </script>
+</body>
+</html>
