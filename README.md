@@ -135,7 +135,7 @@ Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获
 <div align="center">
   <img src="images/model_config.jpg" alt="模型配置" width="80%">
   <br>
-  <em>模式注册</em>
+  <em>模型配置</em>
 </div>
 
 ### 📚 构建知识库 (Knowledge Base)
@@ -146,9 +146,9 @@ Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获
 2. 拖拽上传文档 (PDF/Markdown/TXT)。
 3. 观察控制台，AgentForce 会自动执行 **ETL 流程**：`文本分块` -> `实体提取` -> `关系构建` -> `社区检出`。
 <div align="center">
-  <img src="images/rag.jpg" alt="模型配置" width="80%">
+  <img src="images/rag.jpg" alt="知识库上传" width="80%">
   <br>
-  <em>模式注册</em>
+  <em>知识库上传</em>
 </div>
 
 ### 💬 智能交互 (Chat)
@@ -159,9 +159,9 @@ Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获
 * **Agent 响应**: Agent 将自动识别意图，调用不同的agent进行回复，并综合生成深度回答。
 
 <div align="center">
-  <img src="images/chat.jpg" alt="模型配置" width="80%">
+  <img src="images/chat.jpg" alt="智能交互" width="80%">
   <br>
-  <em>模式注册</em>
+  <em>智能交互</em>
 </div>
 ---
 
