@@ -77,15 +77,18 @@ AgentForce/
 git clone https://github.com/TW-NLP/AgentForce
 cd AgentForce
 
-# 2. 创建虚拟环境 (建议)
-python -m venv venv
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
+# 2. 环境的准备
 
-# 3. 安装核心依赖
+- Install Conda: please see https://docs.conda.io/en/latest/miniconda.html
+- Create Conda env:
+
+``` sh
+conda create -n agent -y python=3.12
+conda activate agent
 pip install -r requirements.txt
+# If you are in mainland China, you can set the mirror as follows:
+pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+```
 
 ```
 
