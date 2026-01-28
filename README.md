@@ -175,9 +175,9 @@ Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获
   <br>
   <em>智能交互</em>
 </div>
----
 
-### 用户画像 (User Persona)
+
+### 👤 用户画像 (User Persona)
 
 回到首页对话框：
 
