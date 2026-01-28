@@ -46,6 +46,7 @@ async def plan_node(state: AgentState) -> Dict[str, Any]:
     if isinstance(last_message, HumanMessage):
         query = last_message.content
         conversation_history = state.get("conversation_history", [])
+        user_profile = state.get("user_profile", "暂无用户偏好信息")
         
         # 格式化对话历史
         history_context = prompts.format_history_context(
@@ -56,6 +57,7 @@ async def plan_node(state: AgentState) -> Dict[str, Any]:
         # 构建规划提示词
         plan_prompt = prompts.TASK_PLANNING.format(
             history_context=history_context,
+            user_profile=user_profile,
             query=query
         )
         
@@ -544,7 +546,7 @@ async def chat_node(state: AgentState) -> Dict[str, Any]:
         ))
     
     query = state["search_query"]
-    conversation_history = state.get("conversation_history", [])
+    conversation_history = [{'role':"system","content":"用户偏好："+state.get('user_profile') if state.get('user_profile') else "用户无任何偏好 正常回答"}]+state.get("conversation_history", [])
     
     # 格式化上下文
     history_context = prompts.format_history_context(conversation_history)

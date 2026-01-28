@@ -11,6 +11,7 @@ from typing_extensions import TypedDict, Annotated
 from langchain.messages import AnyMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 
+from src.services.person_like_service import UserPreferenceMining
 from src.workflow.callbacks import StatusCallback
 from src.workflow.nodes import (
     plan_node,
@@ -42,6 +43,8 @@ class AgentState(TypedDict):
     status_callback: Optional[StatusCallback]
     execution_plan: Dict[str, Any]
     collected_data: Dict[str, Any]
+    user_profile: str
+
 
 
 # ==================== 路由函数 ====================
@@ -177,6 +180,7 @@ class ConversationalAgent:
         self.app = build_intelligent_workflow()
         self.conversation_history: List[Dict[str, str]] = []
         self.status_callback = status_callback
+        self.user_profile = UserPreferenceMining().get_frontend_format()
         
         logger.info("✅ ConversationalAgent 初始化成功")
         
@@ -226,7 +230,8 @@ class ConversationalAgent:
                 "conversation_history": self.conversation_history,
                 "status_callback": self.status_callback,
                 "execution_plan": {},
-                "collected_data": {}
+                "collected_data": {},
+                "user_profile": self.user_profile.get("summary", "")
             }
             
             # 执行工作流

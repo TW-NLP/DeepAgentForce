@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # 加载已有的配置
     CONFIG_FILE: ClassVar[Path] = Path("data/saved_config.json")
     HISTORY_FILE: ClassVar[Path] = Path("data/history")
+    PERSON_LIKE_FILE: ClassVar[Path] = Path("data/person_like.json")
 
 
     

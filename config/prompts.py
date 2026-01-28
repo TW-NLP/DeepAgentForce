@@ -12,7 +12,7 @@ class PromptTemplates:
 {history_context}
 
 当前任务: {query}
-
+用户偏好: {user_profile}
 请分析这个任务需要哪些步骤,并以 JSON 格式返回执行计划:
 
 {{

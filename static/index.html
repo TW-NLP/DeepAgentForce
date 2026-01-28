@@ -1150,6 +1150,62 @@
             min-width: 300px;
         }
 
+        .preference-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            transition: all 0.2s;
+        }
+        
+        .preference-item:hover {
+            background: var(--bg-elevated);
+            transform: translateX(4px);
+        }
+        
+        .preference-item .rank {
+            font-weight: 700;
+            color: var(--accent-primary);
+            min-width: 32px;
+        }
+        
+        .preference-item .entity {
+            font-weight: 600;
+            flex: 1;
+        }
+        
+        .preference-item .type {
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        .preference-item .score-bar {
+            flex: 0 0 100px;
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .preference-item .score-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-cyan));
+            transition: width 0.3s;
+        }
+        
+        .preference-item .score {
+            font-weight: 600;
+            color: var(--accent-primary);
+            min-width: 48px;
+            text-align: right;
+        }
+
         @keyframes slideIn {
             from {
                 transform: translateX(400px);
@@ -1243,6 +1299,11 @@
                 <div class="nav-item" data-page="knowledge">
                     <span class="nav-icon">📚</span>
                     <span>知识库</span>
+                </div>
+                <!-- ⭐ 新增：用户画像按钮 -->
+                <div class="nav-item" data-page="personlike">
+                    <span class="nav-icon">👤</span>
+                    <span>用户画像</span>
                 </div>
                 
                 <div class="nav-section-title">设置</div>
@@ -1497,6 +1558,76 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- ⭐ 新增：用户画像页面 -->
+            <div class="page" id="personlikePage">
+                <div class="config-container">
+                    <div class="config-content">
+                        <div class="kb-header">
+                            <h1 class="kb-title">👤 用户画像</h1>
+                            <p class="kb-subtitle">基于对话历史的知识图谱分析</p>
+                        </div>
+                        
+                        <button class="upload-button" id="analyzePersonLikeBtn" style="margin-bottom: 24px;">
+                            🔍 开始分析
+                        </button>
+                        
+                        <!-- 分析结果容器 -->
+                        <div id="personLikeResult" style="display: none;">
+                            <!-- 知识图谱 -->
+                            <div class="kb-section" style="margin-bottom: 20px;">
+                                <div class="section-header">
+                                    <div class="section-title">🕸️ 知识图谱</div>
+                                </div>
+                                <div class="section-body">
+                                    <canvas id="graphCanvas" width="800" height="500" style="width: 100%; border: 1px solid var(--border-light); border-radius: 8px;"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Top偏好 -->
+                            <div class="kb-section" style="margin-bottom: 20px;">
+                                <div class="section-header">
+                                    <div class="section-title">💡 Top 用户偏好</div>
+                                </div>
+                                <div class="section-body">
+                                    <div id="preferenceList"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- 统计信息 -->
+                            <div class="kb-stats">
+                                <div class="stat-card">
+                                    <div class="stat-icon">📊</div>
+                                    <div class="stat-info">
+                                        <div class="stat-label">总节点数</div>
+                                        <div class="stat-value" id="statNodes">0</div>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon">🔗</div>
+                                    <div class="stat-info">
+                                        <div class="stat-label">总边数</div>
+                                        <div class="stat-value" id="statEdges">0</div>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon">👤</div>
+                                    <div class="stat-info">
+                                        <div class="stat-label">用户连接</div>
+                                        <div class="stat-value" id="statConnections">0</div>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon">🎯</div>
+                                    <div class="stat-info">
+                                        <div class="stat-label">聚类系数</div>
+                                        <div class="stat-value" id="statClustering">0</div>
+                                    </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>    
         </main>
     </div>
 
@@ -1504,16 +1635,229 @@
     <script src="config.js"></script>
     <script src="chat.js"></script>
     <script>
+/**
+ * 用户画像 - 最终美化版
+ * 集成：防缓存逻辑 + Canvas 高级渲染 + 错误处理
+ */
+const PERSON_API_BASE = 'http://localhost:8000/api';
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('analyzePersonLikeBtn');
+    
+    if (btn) {
+        // 使用 cloneNode 清除之前可能绑定的所有事件，防止重复触发
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        newBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await runAnalysis(newBtn);
+        });
+        console.log('✅ 用户画像模块就绪');
+    }
+});
+
+async function runAnalysis(btn) {
+    const resultContainer = document.getElementById('personLikeResult');
+    const originalText = btn.innerHTML;
+    
+    try {
+        // 1. 锁定按钮状态
+        btn.disabled = true;
+        btn.innerHTML = '<span class="status-dot"></span> 正在构建图谱...';
+        btn.style.opacity = '0.7';
+
+        // 2. 请求数据
+        console.log(`📡 请求: ${PERSON_API_BASE}/person_like`);
+        const response = await fetch(`${PERSON_API_BASE}/person_like`);
+        
+        if (!response.ok) throw new Error(`API 错误: ${response.status}`);
+        
+        const data = await response.json();
+        console.log('📦 数据获取成功', data);
+
+        // 3. 显示区域并渲染
+        if (resultContainer) {
+            resultContainer.style.display = 'block';
+            // 滚动到结果区域
+            resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        renderStats(data.statistics);
+        renderPreferences(data.preferences);
+        
+        // 延迟渲染 Canvas 确保容器宽度已计算
+        requestAnimationFrame(() => renderBeautifulGraph(data.graph));
+        
+        if(window.showToast) window.showToast('用户画像构建完成', 'success');
+
+    } catch (err) {
+        console.error('❌ 分析失败:', err);
+        alert(`分析失败: ${err.message}\n请确保后端已启动且允许跨域(CORS)`);
+    } finally {
+        // 4. 恢复按钮
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        btn.style.opacity = '1';
+    }
+}
+
+// ================= 渲染逻辑 =================
+
+function renderStats(stats) {
+    if (!stats) return;
+    const setText = (id, v) => {
+        const el = document.getElementById(id);
+        if(el) el.textContent = v;
+    };
+    setText('statNodes', stats.total_nodes || 0);
+    setText('statEdges', stats.total_edges || 0);
+    setText('statConnections', stats.user_connections || 0);
+    setText('statClustering', (stats.avg_clustering || 0).toFixed(2));
+}
+
+function renderPreferences(prefs) {
+    const container = document.getElementById('preferenceList');
+    if (!container) return;
+    
+    if (!prefs || prefs.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;padding:20px">暂无明显偏好</div>';
+        return;
+    }
+
+    // 按分数降序
+    prefs.sort((a, b) => b.score - a.score);
+
+    container.innerHTML = prefs.map((pref, i) => {
+        const width = Math.min(pref.score * 10, 100); // 假设满分10分
+        return `
+        <div class="preference-item" style="animation: slideIn 0.3s ease ${i * 0.1}s backwards">
+            <span class="rank" style="color:${i < 3 ? '#ff6b6b' : '#666'}">#${i + 1}</span>
+            <span class="entity">${pref.entity}</span>
+            <span class="type">${pref.type}</span>
+            <div class="score-bar">
+                <div class="score-fill" style="width: ${width}%; background: linear-gradient(90deg, #4ECDC4, #556270);"></div>
+            </div>
+            <span class="score">${pref.score.toFixed(1)}</span>
+        </div>`;
+    }).join('');
+}
+
+function renderBeautifulGraph(graphData) {
+    const canvas = document.getElementById('graphCanvas');
+    if (!canvas || !graphData) return;
+
+    // 自适应宽高
+    const container = canvas.parentElement;
+    const width = canvas.width = container.clientWidth || 800;
+    const height = canvas.height = 500;
+    const ctx = canvas.getContext('2d');
+
+    const nodes = graphData.nodes || [];
+    const edges = graphData.edges || [];
+
+    // 布局计算 (星形布局: 用户在中心)
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = Math.min(width, height) / 3;
+
+    const positions = {};
+    const userNode = nodes.find(n => n.type === 'user' || n.id === 'USER');
+    const entities = nodes.filter(n => n !== userNode);
+
+    // 设置坐标
+    if (userNode) positions[userNode.id] = { x: centerX, y: centerY };
+    else positions['USER'] = { x: centerX, y: centerY }; // 容错
+
+    entities.forEach((node, i) => {
+        const angle = (2 * Math.PI * i) / entities.length;
+        positions[node.id] = {
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle)
+        };
+    });
+
+    // --- 开始绘制 ---
+    ctx.clearRect(0, 0, width, height);
+
+    // 1. 绘制连线
+    ctx.lineWidth = 1.5;
+    edges.forEach(edge => {
+        const start = positions[edge.source];
+        const end = positions[edge.target];
+        if (start && end) {
+            // 创建渐变连线
+            const grad = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+            grad.addColorStop(0, "rgba(200,200,200,0.2)");
+            grad.addColorStop(0.5, "rgba(78, 205, 196, 0.6)");
+            grad.addColorStop(1, "rgba(200,200,200,0.2)");
+            ctx.strokeStyle = grad;
+            
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+        }
+    });
+
+    // 2. 绘制节点
+    nodes.forEach(node => {
+        const pos = positions[node.id] || {x: centerX, y: centerY};
+        const isUser = node.type === 'user';
+        const nodeRadius = isUser ? 35 : 20;
+
+        // 阴影
+        ctx.shadowColor = "rgba(0,0,0,0.15)";
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 4;
+
+        // 节点背景
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
+        ctx.fillStyle = isUser ? '#FF6B6B' : '#ffffff';
+        ctx.fill();
+
+        // 边框
+        ctx.shadowBlur = 0; // 关闭阴影画边框
+        ctx.shadowOffsetY = 0;
+        ctx.lineWidth = isUser ? 0 : 2;
+        ctx.strokeStyle = isUser ? 'transparent' : '#4ECDC4';
+        ctx.stroke();
+
+        // 文字
+        ctx.fillStyle = isUser ? '#fff' : '#333';
+        ctx.font = isUser ? 'bold 14px Inter' : '12px Inter';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // 处理长文字截断
+        let label = node.label || node.id;
+        if (!isUser && label.length > 5) label = label.substring(0,5) + '..';
+        
+        ctx.fillText(label, pos.x, pos.y);
+        
+        // 如果是实体，下方显示完整标签
+        if (!isUser) {
+            ctx.fillStyle = '#999';
+            ctx.font = '10px Inter';
+            ctx.fillText(node.label || node.id, pos.x, pos.y + 30);
+        }
+    });
+}
+</script>
+    <script>
         // 页面切换
         const pageIcons = {
             'chat': '💬',
             'knowledge': '📚',
+            'personlike': '👤',  // ⭐ 新增
             'config': '⚙️'
         };
 
         const pageTitles = {
             'chat': '智能对话',
             'knowledge': '知识库管理',
+            'personlike': '用户画像',  // ⭐ 新增
             'config': '模型配置'
         };
 

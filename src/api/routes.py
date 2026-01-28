@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel
 import json
 from config.settings import settings
+from src.services.person_like_service import UserPreferenceMining
 
 # GraphRAG 导入
 try:
@@ -826,3 +827,8 @@ async def get_stats():
         "config_loaded": CONFIG_FILE.exists(),
         "timestamp": datetime.now().isoformat()
     }
+
+@router.get("/person_like", tags=["个人偏好挖掘"])
+async def get_person_like():
+    mining_enginer=UserPreferenceMining()
+    return mining_enginer.get_frontend_format()

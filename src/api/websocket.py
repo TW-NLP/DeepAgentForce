@@ -3,12 +3,15 @@ WebSocket 处理模块
 支持实时流式对话 + 会话级别的对话历史管理
 """
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import uuid
 from datetime import datetime
 from fastapi import WebSocket, WebSocketDisconnect, FastAPI
 from typing import Dict
 from config import settings
+from src.services.person_like_service import UserPreferenceMining
 from src.workflow.agent import ConversationalAgent
 from src.workflow.callbacks import StatusCallback, EventType
 import json
@@ -17,7 +20,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-
+mining_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="MiningWorker")
 # ==================== WebSocket Session 管理 ====================
 
 class WebSocketSessionManager:
@@ -179,6 +182,17 @@ def setup_websocket_routes(app: FastAPI):
         """
         await websocket.accept()
         session_id = None
+
+        def run_mining_bg_task(sid: str):
+            try:
+                logger.info(f"[{sid}] ⏳ 触发后台任务: 开始挖掘用户偏好...")
+                # 实例化挖掘服务
+                service = UserPreferenceMining()
+                # 执行耗时操作
+                service.person_like_save()
+                logger.info(f"[{sid}] ✅ 后台任务完成: 用户画像已更新")
+            except Exception as e:
+                logger.error(f"[{sid}] ❌ 后台挖掘任务失败: {str(e)}", exc_info=True)
         
         try:
             # 创建状态回调
@@ -221,10 +235,14 @@ def setup_websocket_routes(app: FastAPI):
             # 创建 Agent
             session_id, agent = ws_session_manager.create_session(status_callback)
             
+
+
             while True:
                 # 接收消息
                 data = await websocket.receive_json()
                 message = data.get("message", "")
+
+                
                 
                 if not message:
                     continue
@@ -267,7 +285,15 @@ def setup_websocket_routes(app: FastAPI):
             logger.info(f"WebSocket 断开连接: {session_id}")
             if session_id:
                 ws_session_manager.delete_session(session_id)
-                # 注意：不删除会话历史文件，保留记录
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.run_in_executor(
+                        mining_executor, 
+                        run_mining_bg_task, 
+                        session_id
+                    )
+                except Exception as e:
+                    logger.error(f"无法启动后台挖掘任务: {e}")
         except Exception as e:
             logger.error(f"WebSocket 错误: {str(e)}", exc_info=True)
             if session_id:
