@@ -187,16 +187,14 @@ Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获
 <div align="center">
   <img src="images/person_like.jpg" alt="用户画像的展示" width="80%">
   <br>
-  <em>用户画像的展示</em>
+  <em>用户画像</em>
 </div>
----
 
 <div align="center">
   <img src="images/chat_example.jpg" alt="效果展示" width="80%">
   <br>
-  <em>效果展示</em>
+  <em>问答效果展示</em>
 </div>
----
 
 
 ## 🔌 API 开发文档
