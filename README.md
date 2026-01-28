@@ -37,6 +37,15 @@
 
 ---
 
+### 4. User Persona (用户画像)
+沉淀对话记忆，构建越用越懂你的专属知识图谱：
+
+- **深度偏好挖掘**: 结合 LLM 语义分析与 NetworkX 图算法 (PageRank)，量化提取用户关注的核心实体与关系。
+
+- **无感异步更新**: 采用 Fire-and-Forget 机制，在会话结束时通过后台线程池静默更新画像，零延迟不阻塞对话。
+
+- **动态侧写生成**: 实时将挖掘结果转化为结构化标签与自然语言摘要，持久化至 data/person_like.json 供前端可视化展示。
+
 ## 📂 项目架构
 
 ```text
@@ -167,6 +176,28 @@ Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获
   <em>智能交互</em>
 </div>
 ---
+
+### 用户画像 (User Persona)
+
+回到首页对话框：
+
+* **提问**: "你好 你知道 我喜欢什么吗"
+* **Agent 响应**: 你好！😊 根据我们的对话历史，我注意到你是一位深耕自然语言处理（NLP）领域的核心AI实践者——对NLP兴趣浓厚
+
+<div align="center">
+  <img src="images/person_like.jpg" alt="用户画像的展示" width="80%">
+  <br>
+  <em>用户画像的展示</em>
+</div>
+---
+
+<div align="center">
+  <img src="images/chat_example.jpg" alt="效果展示" width="80%">
+  <br>
+  <em>效果展示</em>
+</div>
+---
+
 
 ## 🔌 API 开发文档
 
