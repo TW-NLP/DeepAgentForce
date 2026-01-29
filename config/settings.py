@@ -8,19 +8,25 @@ from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import Optional
 from functools import lru_cache
-from pydantic_settings import BaseSettings
-from pydantic import Field
-from functools import lru_cache
 import json
 from typing import ClassVar
 
 
 class Settings(BaseSettings):
     """应用配置"""
-    # 加载已有的配置
-    CONFIG_FILE: ClassVar[Path] = Path("data/saved_config.json")
-    HISTORY_FILE: ClassVar[Path] = Path("data/history")
-    PERSON_LIKE_FILE: ClassVar[Path] = Path("data/person_like.json")
+    PROJECT_ROOT: ClassVar[Path] = Path(__file__).parent.parent
+    
+    CONFIG_FILE: ClassVar[Path] = PROJECT_ROOT / "data" / "saved_config.json"
+    HISTORY_FILE: ClassVar[Path] = PROJECT_ROOT / "data" / "history"
+    PERSON_LIKE_FILE: ClassVar[Path] = PROJECT_ROOT / "data" / "person_like.json"
+    
+    @classmethod
+    def ensure_data_dir(cls):
+        """确保 data 目录存在"""
+        data_dir = cls.PROJECT_ROOT / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir
+
 
 
     
@@ -189,6 +195,7 @@ def get_settings() -> Settings:
 
 # 导出配置实例
 settings = get_settings()
+settings.ensure_data_dir()
 
 
 # ==================== 配置验证 ====================
