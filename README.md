@@ -8,7 +8,7 @@
 
 不同于传统的 RAG 系统，AgentForce 不仅能“检索”片段，更能通过构建知识图谱“理解”全貌，并通过自主代理规划“执行”复杂任务。系统采用现代化的前后端分离架构，旨在为开发者提供开箱即用的深度问答与知识库构建解决方案。
 <div align="center">
-  <img src="workflow_graph.png" alt="agent执行流程" width="80%">
+  <img src="images/agentic.png" alt="agent执行流程" width="80%">
   <br>
   <em>AgentForce 智能执行流程图</em>
 </div>
