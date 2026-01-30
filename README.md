@@ -220,5 +220,9 @@ Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获
 * **Frontend**: Vanilla JS (ES6+), HTML5, CSS3
 * **Async Task**: Python `asyncio` & FastAPI `BackgroundTasks`
 
+## Contact
 
+**微信：** NLP技术交流群。
+
+<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/wechat.JPG" width="200" />
 
