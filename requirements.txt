@@ -157,7 +157,6 @@ pyparsing==3.2.5
 pypdf==6.2.0
 pypdfium2==5.1.0
 pyperclip==1.11.0
-pyppeteer==2.0.0
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
 python-dotenv==1.2.1
@@ -204,7 +203,6 @@ urllib3==1.26.20
 uuid_utils==0.14.0
 uv==0.9.22
 uvicorn==0.40.0
-uvloop==0.22.1
 watchfiles==1.1.1
 wcmatch==10.1
 wcwidth==0.2.14
