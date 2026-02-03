@@ -63,10 +63,6 @@ class Settings(BaseSettings):
         if not cls.CONFIG_FILE.exists():
             cls.CONFIG_FILE.write_text(json.dumps({}, ensure_ascii=False, indent=2))
         
-        if not cls.HISTORY_FILE.exists():
-            # 如果是文件
-            cls.HISTORY_FILE.touch()
-        
         # 确保 PERSON_LIKE_FILE 存在
         if not cls.PERSON_LIKE_FILE.exists():
             cls.PERSON_LIKE_FILE.write_text(json.dumps({}, ensure_ascii=False, indent=2))

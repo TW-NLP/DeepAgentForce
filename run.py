@@ -3,17 +3,6 @@
 """
 import sys
 import io
-
-# 强制设置 UTF-8 编码
-if sys.stdout.encoding != 'utf-8':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-if sys.stderr.encoding != 'utf-8':
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
-# 设置默认编码
-import locale
-locale.setlocale(locale.LC_ALL, 'zh_CN.UTF-8')
-
 import logging
 from pathlib import Path
 
