@@ -1,22 +1,13 @@
-"""
-Deep Agent 实现版本
-替换原有的显式 StateGraph
-"""
-
 import logging
 import os
 from pathlib import Path
 from typing import List, Dict, Optional, Any
-
-# DeepAgents & LangChain
 from deepagents import create_deep_agent
 from deepagents.backends.filesystem import FilesystemBackend
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.chat_models import init_chat_model
 from langchain_community.tools import ShellTool
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-
-# 业务依赖
 from src.services.base import BaseConfigurableService
 from src.services.person_like_service import UserPreferenceMining
 from src.workflow.callbacks import StatusCallback
@@ -26,26 +17,21 @@ logger = logging.getLogger(__name__)
 class ConversationalAgent(BaseConfigurableService):
     """
     基于 DeepAgents 重构的智能 Agent
-    """
-    
+    """    
     def __init__(self, status_callback: Optional[StatusCallback] = None):
         super().__init__()
         
         self.status_callback = status_callback
         self.workspace = self.settings.SERVICE_DIR
-
-        
-        # 1. 准备用户画像 (作为上下文注入)
+        # 1. 准备用户画像
         self.user_profile_data = UserPreferenceMining().get_frontend_format()
         self.user_summary = self.user_profile_data.get("summary", "No specific preference.")
-        
         # 2. 基础设施工具 (Shell)
         self.exec_tool = ShellTool()
         self.exec_tool.description = (
             "Execute shell commands. Use this ONLY when a Skill documentation "
             "instructs you to run a specific python script."
         )
-
         # 3. 确定技能目录
         self.skills_dir = self.workspace / "skills"
 
@@ -61,16 +47,12 @@ class ConversationalAgent(BaseConfigurableService):
             api_key=self.settings.LLM_API_KEY,
             base_url=self.settings.LLM_URL
         )
-        
-        # 2.显式命名 Shell 工具
         self.exec_tool = ShellTool()
         self.exec_tool.name = "shell"
         self.exec_tool.description = (
             f"Run python scripts. ALL commands must be relative to: {self.workspace}. "
             "DO NOT use absolute paths. DO NOT use 'cd' or 'ls'."
         )
-
-        # 极简且强力的 System Prompt
         system_prompt = f"""你是一个精确执行的智能体，需要判断是否进行工具的调用，如果是闲聊，则直接回答用户的问题，如果是需要使用技能，则严格按照下面的规范执行。 
 # 🛠 执行规范（严格）
 
@@ -83,8 +65,7 @@ class ConversationalAgent(BaseConfigurableService):
 # 👤 用户上下文
 {self.user_summary}
 """
-
-
+        
         return create_deep_agent(
             model=model,
             backend=FilesystemBackend(root_dir=str(self.workspace)),
@@ -93,8 +74,7 @@ class ConversationalAgent(BaseConfigurableService):
             checkpointer=MemorySaver(),
             system_prompt=system_prompt
         )
-
-
+    
     async def chat(self, user_input: str, thread_id: str = "default_thread") -> str:
         """
         处理对话，兼容旧接口，并适配 StatusCallback
@@ -106,9 +86,7 @@ class ConversationalAgent(BaseConfigurableService):
         if self.status_callback:
             # 模拟旧版回调结构
             await self.status_callback.on_agent_start({"input": user_input})
-
         final_response = ""
-        
         try:
             logger.info(f"处理用户输入: {user_input[:50]}...")
             
@@ -138,18 +116,15 @@ class ConversationalAgent(BaseConfigurableService):
                         if self.status_callback:
                             await self.status_callback.on_tool_end(
                                 {"output": str(last_msg.content)[:200] + "..."}
-                            )
-                    
+                            )               
                     elif isinstance(last_msg, AIMessage) and not last_msg.tool_calls:
                         final_response = last_msg.content
-
             # 触发回调：结束
             if self.status_callback:
-                await self.status_callback.on_agent_finish({"output": final_response})
-            
+                await self.status_callback.on_agent_finish({"output": final_response})       
             logger.info(f"生成回答: {final_response}...")
             return final_response
-
         except Exception as e:
             logger.error(f"处理对话失败: {e}", exc_info=True)
+
             return f"系统错误: {str(e)}"

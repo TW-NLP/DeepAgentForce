@@ -25,6 +25,8 @@
 - **热加载**: 支持运行时动态加载，无需重启服务
 
 #### 📝 Skill 开发规范
+[Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)
+
 每个 Skill 只需包含：
 - `SKILL.md` - 技能说明文档，定义能力和使用方法
 - （可选）Python 脚本 - 实现复杂逻辑
