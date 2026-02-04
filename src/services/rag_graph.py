@@ -1,12 +1,8 @@
-"""
-GraphRAG 核心实现 
-
-"""
-
+import asyncio
+import httpx
 import faiss
 import numpy as np
-from openai import OpenAI
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set, Tuple
 import networkx as nx
 from collections import defaultdict
 import tiktoken
@@ -18,21 +14,119 @@ from datetime import datetime
 import hashlib
 import uuid
 import logging
-
-# 文档解析库
+from dataclasses import dataclass
+from difflib import SequenceMatcher
 from pypdf import PdfReader
 import pdfplumber
 from docx import Document as DocxDocument
 import pandas as pd
 import re
-from config.settings import settings
-
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class EntityAlignment:
+    """实体对齐结果"""
+    canonical_name: str  # 标准名称
+    aliases: List[str]   # 别名列表
+    similarity: float    # 相似度
+
+
+class AsyncLLMClient:
+    """异步 LLM 客户端"""
+    
+    def __init__(self, base_url: str, api_key: str, model: str, max_concurrent: int = 10):
+        self.base_url = base_url.rstrip('/')
+        self.api_key = api_key
+        self.model = model
+        self.semaphore = asyncio.Semaphore(max_concurrent)
+        
+        # 使用连接池
+        self.client = httpx.AsyncClient(
+            timeout=httpx.Timeout(60.0, connect=10.0),
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
+        )
+    
+    async def chat(self, messages: List[Dict], temperature: float = 0, 
+                   max_tokens: int = 10000, response_format: Optional[Dict] = None) -> str:
+        """异步聊天补全"""
+        async with self.semaphore:
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            }
+            
+            if response_format:
+                payload["response_format"] = response_format
+            
+            try:
+                response = await self.client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json=payload
+                )
+                response.raise_for_status()
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            except Exception as e:
+                logger.error(f"LLM 调用失败: {e}")
+                raise
+    
+    async def close(self):
+        """关闭客户端"""
+        await self.client.aclose()
+
+
+class AsyncEmbeddingClient:
+    """异步 Embedding 客户端"""
+    
+    def __init__(self, base_url: str, api_key: str, model: str, max_concurrent: int = 20):
+        self.base_url = base_url.rstrip('/')
+        self.api_key = api_key
+        self.model = model
+        self.semaphore = asyncio.Semaphore(max_concurrent)
+        
+        self.client = httpx.AsyncClient(
+            timeout=httpx.Timeout(60.0, connect=10.0),
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
+        )
+    
+    async def embed(self, texts: List[str]) -> List[np.ndarray]:
+        """批量生成 embeddings"""
+        async with self.semaphore:
+            try:
+                response = await self.client.post(
+                    f"{self.base_url}/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "input": texts
+                    }
+                )
+                response.raise_for_status()
+                result = response.json()
+                return [np.array(item['embedding'], dtype='float32') 
+                       for item in result['data']]
+            except Exception as e:
+                logger.error(f"Embedding 调用失败: {e}")
+                raise
+    
+    async def close(self):
+        """关闭客户端"""
+        await self.client.aclose()
+
+
 class DocumentParser:
-    """文档解析器：支持 PDF、DOCX、TXT、MD、CSV 等格式"""
+    """文档解析器 (保持同步，IO 密集型)"""
     
     @staticmethod
     def parse_pdf(file_path: str) -> str:
@@ -56,38 +150,32 @@ class DocumentParser:
                 return "\n\n".join(text_parts)
         except Exception as e:
             logger.warning(f"pdfplumber 解析失败，使用 pypdf: {e}")
-            try:
-                reader = PdfReader(file_path)
-                text_parts = []
-                for page_num, page in enumerate(reader.pages, 1):
-                    text = page.extract_text()
-                    if text:
-                        text_parts.append(f"[Page {page_num}]\n{text}")
-                return "\n\n".join(text_parts)
-            except Exception as e2:
-                raise Exception(f"PDF 解析完全失败: {e2}")
+            reader = PdfReader(file_path)
+            text_parts = []
+            for page_num, page in enumerate(reader.pages, 1):
+                text = page.extract_text()
+                if text:
+                    text_parts.append(f"[Page {page_num}]\n{text}")
+            return "\n\n".join(text_parts)
     
     @staticmethod
     def parse_docx(file_path: str) -> str:
         """解析 DOCX 文件"""
-        try:
-            doc = DocxDocument(file_path)
-            text_parts = []
-            
-            for para in doc.paragraphs:
-                if para.text.strip():
-                    text_parts.append(para.text)
-            
-            for table_num, table in enumerate(doc.tables, 1):
-                table_text = f"\n[Table {table_num}]\n"
-                for row in table.rows:
-                    row_text = " | ".join([cell.text for cell in row.cells])
-                    table_text += row_text + "\n"
-                text_parts.append(table_text)
-            
-            return "\n\n".join(text_parts)
-        except Exception as e:
-            raise Exception(f"DOCX 解析失败: {e}")
+        doc = DocxDocument(file_path)
+        text_parts = []
+        
+        for para in doc.paragraphs:
+            if para.text.strip():
+                text_parts.append(para.text)
+        
+        for table_num, table in enumerate(doc.tables, 1):
+            table_text = f"\n[Table {table_num}]\n"
+            for row in table.rows:
+                row_text = " | ".join([cell.text for cell in row.cells])
+                table_text += row_text + "\n"
+            text_parts.append(table_text)
+        
+        return "\n\n".join(text_parts)
     
     @staticmethod
     def parse_txt(file_path: str) -> str:
@@ -104,13 +192,10 @@ class DocumentParser:
     @staticmethod
     def parse_csv(file_path: str) -> str:
         """解析 CSV 文件"""
-        try:
-            df = pd.read_csv(file_path)
-            text = f"CSV Data ({len(df)} rows x {len(df.columns)} columns)\n\n"
-            text += df.to_string(index=False)
-            return text
-        except Exception as e:
-            raise Exception(f"CSV 解析失败: {e}")
+        df = pd.read_csv(file_path)
+        text = f"CSV Data ({len(df)} rows x {len(df.columns)} columns)\n\n"
+        text += df.to_string(index=False)
+        return text
     
     @classmethod
     def parse_document(cls, file_path: str) -> str:
@@ -183,22 +268,94 @@ class TextChunker:
         return self.chunk_by_sentences(text)
 
 
+class EntityAligner:
+    """实体对齐器 - 合并相似实体"""
+    
+    def __init__(self, similarity_threshold: float = 0.85):
+        self.similarity_threshold = similarity_threshold
+    
+    def calculate_similarity(self, name1: str, name2: str) -> float:
+        """计算两个实体名的相似度"""
+        # 1. 完全匹配
+        if name1.lower() == name2.lower():
+            return 1.0
+        
+        # 2. 字符串相似度
+        seq_similarity = SequenceMatcher(None, name1.lower(), name2.lower()).ratio()
+        
+        # 3. 包含关系
+        if name1.lower() in name2.lower() or name2.lower() in name1.lower():
+            return max(seq_similarity, 0.9)
+        
+        # 4. 词集相似度 (Jaccard)
+        words1 = set(name1.lower().split())
+        words2 = set(name2.lower().split())
+        if words1 and words2:
+            jaccard = len(words1 & words2) / len(words1 | words2)
+            return max(seq_similarity, jaccard)
+        
+        return seq_similarity
+    
+    def align_entities(self, entities: Dict[str, Dict]) -> Dict[str, EntityAlignment]:
+        """对齐实体，返回映射关系"""
+        entity_names = list(entities.keys())
+        alignments = {}
+        processed = set()
+        
+        for i, name1 in enumerate(entity_names):
+            if name1 in processed:
+                continue
+            
+            # 查找相似实体
+            similar_entities = [name1]
+            
+            for name2 in entity_names[i+1:]:
+                if name2 in processed:
+                    continue
+                
+                similarity = self.calculate_similarity(name1, name2)
+                
+                if similarity >= self.similarity_threshold:
+                    similar_entities.append(name2)
+                    processed.add(name2)
+            
+            # 选择最具代表性的名称作为标准名
+            canonical_name = max(similar_entities, key=len)  # 选最长的
+            
+            alignment = EntityAlignment(
+                canonical_name=canonical_name,
+                aliases=similar_entities,
+                similarity=1.0
+            )
+            
+            for entity_name in similar_entities:
+                alignments[entity_name] = alignment
+            
+            processed.add(name1)
+        
+        return alignments
+
+
 class GraphRAGPipeline:
     """
-    GraphRAG Pipeline
+    异步 GraphRAG Pipeline
     
-    1. 添加文档后自动保存
-    2. 初始化时自动加载已有数据
-    3. text_chunks 为空的问题
+    优化:
+    1. 全面异步化
+    2. 增量构建：新文档只触发局部更新
+    3. 实体对齐：智能合并相似实体
+    4. 批量并发处理
     """
 
     def __init__(self, llm_api_key: str, embedding_api_key: str, llm_url: str, 
                  embedding_url: str, embedding_name: str, embedding_dim: int,
-                 llm_name: str, storage_dir: str = "./graphrag_storage"):
+                 llm_name: str, storage_dir: str = "./graphrag_storage",
+                 max_llm_concurrent: int = 10, max_embed_concurrent: int = 20):
         
-        self.llm_client = OpenAI(base_url=llm_url, api_key=llm_api_key)
-        self.embedding_client = OpenAI(base_url=embedding_url, api_key=embedding_api_key)
-
+        self.llm_client = AsyncLLMClient(llm_url, llm_api_key, llm_name, max_llm_concurrent)
+        self.embedding_client = AsyncEmbeddingClient(embedding_url, embedding_api_key, 
+                                                     embedding_name, max_embed_concurrent)
+        
         self.embedding_name = embedding_name
         self.llm_name = llm_name
         self.dimension = embedding_dim
@@ -210,6 +367,8 @@ class GraphRAGPipeline:
         # 文档管理
         self.document_parser = DocumentParser()
         self.text_chunker = TextChunker()
+        self.entity_aligner = EntityAligner(similarity_threshold=0.85)
+        
         self.documents = {}
         
         # UUID 映射
@@ -220,6 +379,7 @@ class GraphRAGPipeline:
         self.text_chunks = []
         self.chunk_to_doc = {}
         self.entities = {}
+        self.entity_alignments = {}  # 实体对齐映射
         self.relationships = []
         self.claims = []
         
@@ -236,12 +396,19 @@ class GraphRAGPipeline:
         
         self.encoding = tiktoken.get_encoding("cl100k_base")
         
-        self._auto_load_if_exists()
+        # 增量构建标记
+        self.needs_rebuild = {
+            'entities': False,
+            'graph': False,
+            'communities': False,
+            'summaries': False,
+            'index': False
+        }
     
-    def _auto_load_if_exists(self):
-        """初始化时自动加载已有数据"""
+    async def initialize(self):
+        """异步初始化 - 自动加载已有数据"""
         try:
-            self.load("default")
+            await self.load("default")
             logger.info(f"✅ 自动加载知识库成功: {len(self.documents)} 个文档, {len(self.text_chunks)} 个chunks")
         except FileNotFoundError:
             logger.info("📝 未找到已有知识库，将创建新的")
@@ -255,10 +422,10 @@ class GraphRAGPipeline:
         with open(file_path, 'rb') as f:
             return hashlib.md5(f.read()).hexdigest()
     
-    def add_document(self, file_path: str, metadata: Optional[Dict] = None, 
-                    doc_uuid: Optional[str] = None) -> str:
+    async def add_document(self, file_path: str, metadata: Optional[Dict] = None, 
+                          doc_uuid: Optional[str] = None) -> str:
         """
-        添加文档
+        异步添加文档 (增量模式)
         
         Returns:
             文档的 UUID
@@ -279,15 +446,16 @@ class GraphRAGPipeline:
         
         logger.info(f"📄 添加文档: {file_path.name} (UUID: {doc_uuid})")
         
-        # 解析文档
-        text = self.document_parser.parse_document(str(file_path))
+        # 1. 解析文档 (在线程池中执行，避免阻塞事件循环)
+        loop = asyncio.get_event_loop()
+        text = await loop.run_in_executor(None, self.document_parser.parse_document, str(file_path))
         logger.info(f"  📝 文档解析完成，文本长度: {len(text)} 字符")
         
-        # 分块
-        chunks = self.text_chunker.chunk_text(text)
+        # 2. 分块
+        chunks = await loop.run_in_executor(None, self.text_chunker.chunk_text, text)
         logger.info(f"  ✂️ 分块完成: {len(chunks)} 个chunks")
         
-        # 记录文档信息
+        # 3. 记录文档信息
         doc_info = {
             'uuid': doc_uuid,
             'path': str(file_path),
@@ -303,39 +471,41 @@ class GraphRAGPipeline:
         self.uuid_to_docid[doc_uuid] = file_hash
         self.docid_to_uuid[file_hash] = doc_uuid
         
-        # ★★★提取图元素并添加到 text_chunks ★★★
+        # 4. 异步并发提取图元素
         chunk_start_id = len(self.text_chunks)
-        logger.info(f"  🔍 开始提取图元素 (起始ID: {chunk_start_id})...")
+        logger.info(f"  🔍 开始异步提取图元素 (起始ID: {chunk_start_id})...")
         
+        # 并发提取所有 chunks
+        tasks = []
         for chunk_id, chunk in enumerate(chunks):
             global_chunk_id = chunk_start_id + chunk_id
-            
-            # 提取图元素
-            logger.info(f"    处理 chunk {chunk_id + 1}/{len(chunks)}...")
-            elements = self.extract_graph_elements(chunk, global_chunk_id)
-            
-            # ★ 关键：添加到 text_chunks
+            task = self.extract_graph_elements(chunk, global_chunk_id)
+            tasks.append(task)
+        
+        # 等待所有提取任务完成
+        chunk_elements = await asyncio.gather(*tasks)
+        
+        # 5. 添加到数据结构
+        for chunk_id, elements in enumerate(chunk_elements):
+            global_chunk_id = chunk_start_id + chunk_id
             self.text_chunks.append(elements)
             self.chunk_to_doc[global_chunk_id] = file_hash
             doc_info['chunk_ids'].append(global_chunk_id)
-            
-            logger.info(f"      提取: {len(elements.get('entities', []))} 实体, "
-                       f"{len(elements.get('relationships', []))} 关系")
         
         logger.info(f"  ✅ 完成: 提取了 {len(chunks)} 个文本块")
         logger.info(f"  📊 当前总计: {len(self.text_chunks)} 个chunks")
         
-        # ★★★ 添加文档后自动保存 ★★★
-        try:
-            self.save("default")
-            logger.info(f"  💾 知识库已自动保存")
-        except Exception as e:
-            logger.error(f"  ❌ 自动保存失败: {e}")
+        # 6. 标记需要增量更新
+        self._mark_needs_rebuild(['entities', 'graph', 'communities', 'summaries', 'index'])
+        
+        # 7. 自动保存
+        await self.save("default")
+        logger.info(f"  💾 知识库已自动保存")
         
         return doc_uuid
     
-    def remove_document(self, doc_id: str):
-        """删除文档（支持 UUID 或内部 ID）"""
+    async def remove_document(self, doc_id: str):
+        """异步删除文档"""
         if doc_id in self.uuid_to_docid:
             internal_doc_id = self.uuid_to_docid[doc_id]
             doc_uuid = doc_id
@@ -361,13 +531,12 @@ class GraphRAGPipeline:
         
         del self.documents[internal_doc_id]
         
-        # 自动保存
-        try:
-            self.save("default")
-            logger.info("  💾 删除后已自动保存")
-        except Exception as e:
-            logger.error(f"  ❌ 自动保存失败: {e}")
+        # 标记需要重建
+        self._mark_needs_rebuild(['entities', 'graph', 'communities', 'summaries', 'index'])
         
+        # 自动保存
+        await self.save("default")
+        logger.info("  💾 删除后已自动保存")
         logger.info("  ✅ 文档已删除")
     
     def list_documents(self) -> List[Dict]:
@@ -385,12 +554,29 @@ class GraphRAGPipeline:
             for doc_id, info in self.documents.items()
         ]
     
-    # ==================== 图元素提取 ====================
+    # ==================== 图元素提取 (异步) ====================
+    @staticmethod
+    def safe_json_loads(text: str):
+        logger.info(f"大模型结果：{text}")
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            # 1️⃣ 去掉 markdown fence
+            cleaned = re.sub(r"```json|```", "", text, flags=re.I).strip()
+            try:
+                return json.loads(cleaned)
+            except json.JSONDecodeError:
+                # 2️⃣ 尝试截取第一个 { ... }
+                match = re.search(r"\{.*\}", cleaned, re.S)
+                if match:
+                    return json.loads(match.group())
+                raise
+
     
-    def extract_graph_elements(self, text: str, chunk_id: int) -> Dict:
-        """从文本提取图元素"""
+    async def extract_graph_elements(self, text: str, chunk_id: int) -> Dict:
+        """异步提取图元素"""
         
-        prompt = f"""从以下文本中提取结构化信息，返回JSON格式。
+        prompt = f"""从以下文本中提取结构化信息，必须返回JSON格式，格式完整。
 
 文本:
 {text}
@@ -400,12 +586,11 @@ class GraphRAGPipeline:
 2. relationships: [{{"source": "源实体", "target": "目标实体", "description": "关系", "strength": 1-10}}]
 3. claims: [{{"subject": "主体", "object": "客体", "type": "FACT/OPINION", "description": "描述", "date": "时间"}}]
 
-只返回JSON，不要其他内容。
+只返回JSON，不要其他内容，格式必须完整。
 """
 
         try:
-            response = self.llm_client.chat.completions.create(
-                model=self.llm_name,
+            response_text = await self.llm_client.chat(
                 messages=[
                     {"role": "system", "content": "你是知识图谱专家。"},
                     {"role": "user", "content": prompt}
@@ -414,7 +599,7 @@ class GraphRAGPipeline:
                 response_format={"type": "json_object"}
             )
             
-            result = json.loads(response.choices[0].message.content)
+            result = self.safe_json_loads(response_text) 
             logger.debug(f"Chunk {chunk_id} 提取结果: {len(result.get('entities', []))} 实体")
             return result
             
@@ -422,8 +607,8 @@ class GraphRAGPipeline:
             logger.error(f"提取失败 (chunk {chunk_id}): {e}")
             return {"entities": [], "relationships": [], "claims": []}
     
-    def summarize_entity(self, entity_name: str, descriptions: List[str]) -> str:
-        """合并实体描述"""
+    async def summarize_entity(self, entity_name: str, descriptions: List[str]) -> str:
+        """异步合并实体描述"""
         if len(descriptions) == 1:
             return descriptions[0]
         
@@ -435,36 +620,52 @@ class GraphRAGPipeline:
 
 只返回摘要。"""
 
-        response = self.llm_client.chat.completions.create(
-            model=self.llm_name,
+        response_text = await self.llm_client.chat(
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             max_tokens=300
         )
         
-        return response.choices[0].message.content.strip()
+        return response_text.strip()
     
-    # ==================== 图谱构建 ====================
+    # ==================== 图谱构建 (异步 + 增量) ====================
     
-    def merge_entities_and_relationships(self):
-        """合并实体和关系"""
-        logger.info(f"📊 开始合并实体和关系 (text_chunks数量: {len(self.text_chunks)})...")
+    def _mark_needs_rebuild(self, stages: List[str]):
+        """标记需要重建的阶段"""
+        for stage in stages:
+            self.needs_rebuild[stage] = True
+    
+    async def merge_entities_and_relationships(self, incremental: bool = True):
+        """
+        异步合并实体和关系
         
-        self.entities = {}
-        self.relationships = []
+        Args:
+            incremental: 是否增量模式（仅处理新数据）
+        """
+        logger.info(f"📊 开始{'增量' if incremental else '全量'}合并实体和关系...")
         
-        entity_descriptions = defaultdict(list)
-        entity_types = {}
-        entity_sources = defaultdict(set)
-        
-        # ★★★  text_chunks 是否为空 ★★★
         if not self.text_chunks:
             logger.warning("⚠️ text_chunks 为空！请先添加文档。")
             return
         
+        # 如果是增量模式且已有实体，保留原有数据
+        if incremental and self.entities:
+            logger.info("  使用增量模式，保留已有实体")
+            entity_descriptions = defaultdict(list, {
+                name: [data['description']] for name, data in self.entities.items()
+            })
+            entity_types = {name: data['type'] for name, data in self.entities.items()}
+            entity_sources = defaultdict(set, {
+                name: set(data['source_ids']) for name, data in self.entities.items()
+            })
+        else:
+            entity_descriptions = defaultdict(list)
+            entity_types = {}
+            entity_sources = defaultdict(set)
+        
+        # 收集新实体
         for chunk_id, chunk_data in enumerate(self.text_chunks):
             entities = chunk_data.get('entities', [])
-            logger.debug(f"  Chunk {chunk_id}: {len(entities)} 实体")
             
             for entity in entities:
                 name = entity['name']
@@ -473,26 +674,71 @@ class GraphRAGPipeline:
                 entity_sources[name].add(chunk_id)
         
         logger.info(f"  发现 {len(entity_descriptions)} 个唯一实体")
+        
+        # ★★★ 实体对齐 ★★★
+        logger.info("  🔄 执行实体对齐...")
+        self.entity_alignments = self.entity_aligner.align_entities(
+            {name: {} for name in entity_descriptions.keys()}
+        )
+        
+        # 统计对齐结果
+        aligned_groups = defaultdict(list)
+        for original_name, alignment in self.entity_alignments.items():
+            aligned_groups[alignment.canonical_name].append(original_name)
+        
+        merged_count = sum(1 for aliases in aligned_groups.values() if len(aliases) > 1)
+        logger.info(f"  对齐完成: {len(entity_descriptions)} 个实体 → {len(aligned_groups)} 个标准实体 (合并了 {merged_count} 组)")
+        
+        # 使用对齐后的实体
+        aligned_descriptions = defaultdict(list)
+        aligned_types = {}
+        aligned_sources = defaultdict(set)
+        
+        for original_name, alignment in self.entity_alignments.items():
+            canonical = alignment.canonical_name
+            aligned_descriptions[canonical].extend(entity_descriptions[original_name])
+            aligned_types[canonical] = entity_types[original_name]
+            aligned_sources[canonical].update(entity_sources[original_name])
+        
+        # 异步生成实体摘要
         logger.info("  生成实体摘要...")
+        tasks = []
+        entity_names = []
         
-        for entity_name, descriptions in entity_descriptions.items():
-            summary = self.summarize_entity(entity_name, descriptions)
-            self.entities[entity_name] = {
-                'description': summary,
-                'type': entity_types[entity_name],
-                'source_ids': list(entity_sources[entity_name])
-            }
+        for entity_name, descriptions in aligned_descriptions.items():
+            if len(descriptions) > 1 or not incremental or entity_name not in self.entities:
+                tasks.append(self.summarize_entity(entity_name, descriptions))
+                entity_names.append(entity_name)
         
-        # 合并关系
+        if tasks:
+            summaries = await asyncio.gather(*tasks)
+            
+            for entity_name, summary in zip(entity_names, summaries):
+                self.entities[entity_name] = {
+                    'description': summary,
+                    'type': aligned_types[entity_name],
+                    'source_ids': list(aligned_sources[entity_name]),
+                    'aliases': [alias for alias, align in self.entity_alignments.items() 
+                               if align.canonical_name == entity_name and alias != entity_name]
+                }
+        
+        # 合并关系 (使用对齐后的实体名)
         relationship_map = defaultdict(lambda: {'descriptions': [], 'strengths': [], 'sources': set()})
         
         for chunk_id, chunk_data in enumerate(self.text_chunks):
             for rel in chunk_data.get('relationships', []):
-                key = (rel['source'], rel['target'])
+                # 获取对齐后的实体名
+                source = self.entity_alignments.get(rel['source'], 
+                        EntityAlignment(rel['source'], [rel['source']], 1.0)).canonical_name
+                target = self.entity_alignments.get(rel['target'], 
+                        EntityAlignment(rel['target'], [rel['target']], 1.0)).canonical_name
+                
+                key = (source, target)
                 relationship_map[key]['descriptions'].append(rel['description'])
                 relationship_map[key]['strengths'].append(rel.get('strength', 5))
                 relationship_map[key]['sources'].add(chunk_id)
         
+        self.relationships = []
         for (source, target), data in relationship_map.items():
             if source in self.entities and target in self.entities:
                 self.relationships.append({
@@ -504,10 +750,12 @@ class GraphRAGPipeline:
                 })
         
         logger.info(f"  ✅ 完成: {len(self.entities)} 实体, {len(self.relationships)} 关系")
+        self.needs_rebuild['entities'] = False
     
-    def build_graph(self):
-        """构建知识图谱"""
+    async def build_graph(self):
+        """异步构建知识图谱"""
         logger.info("🕸️ 构建知识图谱...")
+        
         self.graph = nx.Graph()
         
         for entity_name, entity_data in self.entities.items():
@@ -526,9 +774,10 @@ class GraphRAGPipeline:
             )
         
         logger.info(f"  ✅ 图谱: {self.graph.number_of_nodes()} 节点, {self.graph.number_of_edges()} 边")
+        self.needs_rebuild['graph'] = False
     
     def detect_hierarchical_communities(self, max_level: int = 3):
-        """层次化社区检测"""
+        """层次化社区检测 (保持同步，因为 community_louvain 是同步的)"""
         logger.info("👥 社区检测...")
         
         self.communities = {}
@@ -567,9 +816,11 @@ class GraphRAGPipeline:
                         next_graph.add_edge(*edge_key, weight=data.get('weight', 1))
             
             current_graph = next_graph
+        
+        self.needs_rebuild['communities'] = False
     
-    def generate_community_summary(self, level: int, community_id: int) -> str:
-        """生成社区摘要"""
+    async def generate_community_summary(self, level: int, community_id: int) -> str:
+        """异步生成社区摘要"""
         nodes = self.communities[level][community_id]
         
         entities_info = []
@@ -597,29 +848,37 @@ class GraphRAGPipeline:
 
 包括：主题、关键实体、关键发现、连接性。只返回摘要。"""
 
-        response = self.llm_client.chat.completions.create(
-            model=self.llm_name,
+        response_text = await self.llm_client.chat(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=500
         )
         
-        return response.choices[0].message.content.strip()
+        return response_text.strip()
     
-    def generate_all_community_summaries(self):
-        """生成所有社区摘要"""
+    async def generate_all_community_summaries(self):
+        """异步生成所有社区摘要"""
         logger.info("📝 生成社区摘要...")
+        
         self.community_summaries = {}
+        tasks = []
+        keys = []
         
         for level, communities in self.communities.items():
             for comm_id in communities.keys():
-                summary = self.generate_community_summary(level, comm_id)
-                self.community_summaries[(level, comm_id)] = summary
+                tasks.append(self.generate_community_summary(level, comm_id))
+                keys.append((level, comm_id))
+        
+        summaries = await asyncio.gather(*tasks)
+        
+        for key, summary in zip(keys, summaries):
+            self.community_summaries[key] = summary
         
         logger.info(f"  ✅ 生成了 {len(self.community_summaries)} 个社区摘要")
+        self.needs_rebuild['summaries'] = False
     
-    def build_community_summary_index(self):
-        """构建向量索引"""
+    async def build_community_summary_index(self):
+        """异步构建向量索引"""
         logger.info("🔍 构建向量索引...")
         
         summaries = []
@@ -637,19 +896,14 @@ class GraphRAGPipeline:
             logger.warning("⚠️ 没有社区摘要可索引")
             return
         
-        # 生成 embeddings
-        embeddings = []
+        # 批量生成 embeddings
         batch_size = 100
+        embeddings = []
         
         logger.info(f"  生成 {len(summaries)} 个摘要的向量...")
         for i in range(0, len(summaries), batch_size):
             batch = summaries[i:i + batch_size]
-            response = self.embedding_client.embeddings.create(
-                model=self.embedding_name,
-                input=batch
-            )
-            batch_embeddings = [np.array(item.embedding, dtype='float32') 
-                              for item in response.data]
+            batch_embeddings = await self.embedding_client.embed(batch)
             embeddings.extend(batch_embeddings)
         
         self.community_embeddings = summary_metadata
@@ -661,64 +915,84 @@ class GraphRAGPipeline:
         self.community_summary_index.add(embeddings_array)
         
         logger.info(f"  ✅ 索引完成: {len(embeddings)} 个社区")
+        self.needs_rebuild['index'] = False
     
-    # ==================== 索引构建 ====================
+    # ==================== 索引构建 (智能增量) ====================
     
-    def rebuild_index(self):
-        """重建索引"""
+    async def rebuild_index(self, force_full: bool = False):
+        """
+        智能重建索引
+        
+        Args:
+            force_full: 强制全量重建
+        """
         logger.info("=" * 60)
-        logger.info("🔄 重建 GraphRAG 索引")
+        logger.info(f"🔄 {'全量' if force_full else '增量'}重建 GraphRAG 索引")
         logger.info("=" * 60)
         
-        # ★★★ 检查是否有数据 ★★★
         if not self.text_chunks:
             logger.error("❌ text_chunks 为空！请先添加文档。")
             raise RuntimeError("没有文档可以索引，请先上传文档")
         
         logger.info(f"📊 数据统计: {len(self.text_chunks)} chunks, {len(self.documents)} 文档")
         
-        logger.info("[1/5] 合并实体和关系...")
-        self.merge_entities_and_relationships()
-        logger.info(f"  完成: {len(self.entities)} 实体, {len(self.relationships)} 关系")
+        # 根据标记决定执行哪些阶段
+        if force_full or self.needs_rebuild['entities']:
+            logger.info("[1/5] 合并实体和关系...")
+            await self.merge_entities_and_relationships(incremental=not force_full)
+            logger.info(f"  完成: {len(self.entities)} 实体, {len(self.relationships)} 关系")
+        else:
+            logger.info("[1/5] 跳过 (实体已是最新)")
         
         if not self.entities:
             logger.error("❌ 没有提取到实体！请检查文档内容或 LLM 配置")
             raise RuntimeError("未能提取实体，索引构建失败")
         
-        logger.info("[2/5] 构建知识图谱...")
-        self.build_graph()
-        logger.info(f"  完成: {self.graph.number_of_nodes()} 节点, {self.graph.number_of_edges()} 边")
+        if force_full or self.needs_rebuild['graph']:
+            logger.info("[2/5] 构建知识图谱...")
+            await self.build_graph()
+            logger.info(f"  完成: {self.graph.number_of_nodes()} 节点, {self.graph.number_of_edges()} 边")
+        else:
+            logger.info("[2/5] 跳过 (图谱已是最新)")
         
-        logger.info("[3/5] 社区检测...")
-        self.detect_hierarchical_communities()
+        if force_full or self.needs_rebuild['communities']:
+            logger.info("[3/5] 社区检测...")
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self.detect_hierarchical_communities)
+        else:
+            logger.info("[3/5] 跳过 (社区已是最新)")
         
-        logger.info("[4/5] 生成社区摘要...")
-        self.generate_all_community_summaries()
+        if force_full or self.needs_rebuild['summaries']:
+            logger.info("[4/5] 生成社区摘要...")
+            await self.generate_all_community_summaries()
+        else:
+            logger.info("[4/5] 跳过 (摘要已是最新)")
         
-        logger.info("[5/5] 构建向量索引...")
-        self.build_community_summary_index()
+        if force_full or self.needs_rebuild['index']:
+            logger.info("[5/5] 构建向量索引...")
+            await self.build_community_summary_index()
+        else:
+            logger.info("[5/5] 跳过 (索引已是最新)")
         
-        # ★★★重建索引后自动保存 ★★★
-        try:
-            self.save("default")
-            logger.info("💾 索引重建后已自动保存")
-        except Exception as e:
-            logger.error(f"❌ 自动保存失败: {e}")
+        # 自动保存
+        await self.save("default")
+        logger.info("💾 索引重建后已自动保存")
         
         logger.info("=" * 60)
         logger.info("✅ 索引重建完成!")
         logger.info("=" * 60)
     
-    # ==================== 查询 ====================
+    # ==================== 查询 (异步) ====================
     
-    def global_query(self, question: str, top_k_communities: int = 10, return_sample=False) -> str:
-        """查询知识库"""
+    async def global_query(self, question: str, top_k_communities: int = 10, 
+                          simple_mode: bool = False) -> str:
+        """异步查询知识库"""
         if self.community_summary_index is None:
             raise RuntimeError("索引未构建，请先上传文档并重建索引")
         
         # 检索社区
-        query_embedding = self._get_embedding(question)
-        query_embedding = np.array([query_embedding], dtype='float32')
+        query_embeddings = await self.embedding_client.embed([question])
+        query_embedding = np.array(query_embeddings, dtype='float32')
         faiss.normalize_L2(query_embedding)
         
         scores, indices = self.community_summary_index.search(
@@ -727,9 +1001,9 @@ class GraphRAGPipeline:
         )
         
         # 简单模式：直接返回社区摘要
-        if getattr(settings, 'SIMPLE_RAG', False) or return_sample:
+        if simple_mode:
             search_results = []
-            threshold = getattr(settings, 'T_SCORE', 0.5)
+            threshold = 0.5
             
             for idx, score in zip(indices[0], scores[0]):
                 if score >= threshold:
@@ -738,21 +1012,23 @@ class GraphRAGPipeline:
             if not search_results:
                 return "抱歉，未找到相关信息。"
             
-            end_str = ""
-            for i, res in enumerate(search_results):
-                end_str += f"社区摘要 {i+1}\n{res}\n\n"
-            return end_str
+            return "\n\n".join([f"社区摘要 {i+1}\n{res}" 
+                              for i, res in enumerate(search_results)])
         
         # Map-Reduce 模式
-        community_answers = []
+        tasks = []
+        valid_indices = []
         
         for idx, score in zip(indices[0], scores[0]):
-            if idx >= len(self.community_embeddings):
-                continue
-            
-            comm_data = self.community_embeddings[idx]
-            answer = self._ask_community(question, comm_data['summary'])
-            
+            if idx < len(self.community_embeddings):
+                comm_data = self.community_embeddings[idx]
+                tasks.append(self._ask_community(question, comm_data['summary']))
+                valid_indices.append((idx, score, comm_data))
+        
+        answers = await asyncio.gather(*tasks)
+        
+        community_answers = []
+        for (idx, score, comm_data), answer in zip(valid_indices, answers):
             if answer and len(answer.strip()) > 10:
                 community_answers.append({
                     'level': comm_data['level'],
@@ -761,10 +1037,10 @@ class GraphRAGPipeline:
                     'score': float(score)
                 })
         
-        return self._reduce_answers(question, community_answers)
+        return await self._reduce_answers(question, community_answers)
     
-    def _ask_community(self, question: str, community_summary: str) -> str:
-        """询问单个社区"""
+    async def _ask_community(self, question: str, community_summary: str) -> str:
+        """异步询问单个社区"""
         prompt = f"""基于社区信息回答问题（2-3句话）。如果无关，回答"无相关信息"。
 
 社区信息:
@@ -775,19 +1051,18 @@ class GraphRAGPipeline:
 只返回答案。"""
         
         try:
-            response = self.llm_client.chat.completions.create(
-                model=self.llm_name,
+            response_text = await self.llm_client.chat(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.5,
                 max_tokens=150
             )
-            return response.choices[0].message.content.strip()
+            return response_text.strip()
         except Exception as e:
             logger.error(f"社区查询失败: {e}")
             return ""
     
-    def _reduce_answers(self, question: str, community_answers: List[Dict]) -> str:
-        """综合答案"""
+    async def _reduce_answers(self, question: str, community_answers: List[Dict]) -> str:
+        """异步综合答案"""
         if not community_answers:
             return "抱歉，在知识图谱中没有找到相关信息。"
         
@@ -814,32 +1089,32 @@ class GraphRAGPipeline:
 
 只返回最终答案。"""
 
-        response = self.llm_client.chat.completions.create(
-            model=self.llm_name,
+        response_text = await self.llm_client.chat(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=600
         )
         
-        return response.choices[0].message.content.strip()
+        return response_text.strip()
     
-    def _get_embedding(self, text: str) -> np.ndarray:
-        """获取文本 embedding"""
-        response = self.embedding_client.embeddings.create(
-            model=self.embedding_name,
-            input=text
-        )
-        return np.array(response.data[0].embedding, dtype='float32')
+    # ==================== 持久化 (异步) ====================
     
-    # ==================== 持久化 ====================
-    
-    def save(self, name: str = "default"):
-        """保存知识库"""
+    async def save(self, name: str = "default"):
+        """异步保存知识库"""
         save_dir = self.storage_dir / name
         save_dir.mkdir(parents=True, exist_ok=True)
         
         logger.info(f"💾 保存知识库: {save_dir}")
         
+        loop = asyncio.get_event_loop()
+        
+        # 在线程池中执行 IO 操作
+        await loop.run_in_executor(None, self._save_sync, save_dir)
+        
+        logger.info(f"  ✅ 保存完成: {len(self.documents)} 文档, {len(self.text_chunks)} chunks")
+    
+    def _save_sync(self, save_dir: Path):
+        """同步保存逻辑"""
         # 保存文档
         with open(save_dir / "documents.json", 'w', encoding='utf-8') as f:
             json.dump(self.documents, f, ensure_ascii=False, indent=2)
@@ -857,11 +1132,14 @@ class GraphRAGPipeline:
                 'text_chunks': self.text_chunks,
                 'chunk_to_doc': self.chunk_to_doc,
                 'entities': self.entities,
+                'entity_alignments': {k: (v.canonical_name, v.aliases, v.similarity) 
+                                     for k, v in self.entity_alignments.items()},
                 'relationships': self.relationships,
                 'claims': self.claims,
                 'communities': self.communities,
                 'community_summaries': self.community_summaries,
                 'community_embeddings': self.community_embeddings,
+                'needs_rebuild': self.needs_rebuild,
             }, f)
         
         # 保存图
@@ -872,11 +1150,9 @@ class GraphRAGPipeline:
         if self.community_summary_index:
             faiss.write_index(self.community_summary_index, 
                             str(save_dir / "faiss_index.bin"))
-        
-        logger.info(f"  ✅ 保存完成: {len(self.documents)} 文档, {len(self.text_chunks)} chunks")
     
-    def load(self, name: str = "default"):
-        """加载知识库"""
+    async def load(self, name: str = "default"):
+        """异步加载知识库"""
         load_dir = self.storage_dir / name
         
         if not load_dir.exists():
@@ -884,6 +1160,14 @@ class GraphRAGPipeline:
         
         logger.info(f"📂 加载知识库: {load_dir}")
         
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._load_sync, load_dir)
+        
+        logger.info(f"  ✅ 加载完成: {len(self.documents)} 文档, "
+                   f"{len(self.text_chunks)} chunks, {len(self.entities)} 实体")
+    
+    def _load_sync(self, load_dir: Path):
+        """同步加载逻辑"""
         # 加载文档
         with open(load_dir / "documents.json", 'r', encoding='utf-8') as f:
             self.documents = json.load(f)
@@ -902,11 +1186,22 @@ class GraphRAGPipeline:
             self.text_chunks = data['text_chunks']
             self.chunk_to_doc = data['chunk_to_doc']
             self.entities = data['entities']
+            
+            # 恢复实体对齐
+            if 'entity_alignments' in data:
+                self.entity_alignments = {
+                    k: EntityAlignment(v[0], v[1], v[2]) 
+                    for k, v in data['entity_alignments'].items()
+                }
+            
             self.relationships = data['relationships']
             self.claims = data['claims']
             self.communities = data['communities']
             self.community_summaries = data['community_summaries']
             self.community_embeddings = data['community_embeddings']
+            
+            if 'needs_rebuild' in data:
+                self.needs_rebuild = data['needs_rebuild']
         
         # 加载图
         with open(load_dir / "graph.gpickle", 'rb') as f:
@@ -916,6 +1211,10 @@ class GraphRAGPipeline:
         index_path = load_dir / "faiss_index.bin"
         if index_path.exists():
             self.community_summary_index = faiss.read_index(str(index_path))
-        
-        logger.info(f"  ✅ 加载完成: {len(self.documents)} 文档, "
-                   f"{len(self.text_chunks)} chunks, {len(self.entities)} 实体")
+    
+    async def close(self):
+        """关闭客户端连接"""
+        await self.llm_client.close()
+        await self.embedding_client.close()
+
+

@@ -463,7 +463,7 @@ async def rebuild_index_background():
     try:
         logger.info("📊 开始重建 GraphRAG 索引...")
         pipeline = graphrag_manager.get_pipeline()
-        pipeline.rebuild_index()
+        await pipeline.rebuild_index()
         graphrag_manager.save()
         logger.info("✅ GraphRAG 索引重建完成")
     except Exception as e:
@@ -590,7 +590,7 @@ async def upload_document(
         
         # ★ 使用统一的 pipeline
         pipeline = graphrag_manager.get_pipeline()
-        doc_uuid = pipeline.add_document(str(file_path), metadata)
+        doc_uuid = await pipeline.add_document(str(file_path), metadata)
         doc_info = pipeline.documents[pipeline.uuid_to_docid[doc_uuid]]
         
         # 后台重建索引
@@ -619,7 +619,7 @@ async def list_documents():
     try:
         # ★ 使用统一的 pipeline
         pipeline = graphrag_manager.get_pipeline()
-        docs = pipeline.list_documents()
+        docs =  pipeline.list_documents()
         
         documents = [
             DocumentInfo(
@@ -698,7 +698,7 @@ async def query_knowledge_base(request: QueryRequest):
         
         # ★ 使用统一的 pipeline
         pipeline = graphrag_manager.get_pipeline()
-        answer = pipeline.global_query(
+        answer = await pipeline.global_query(
             request.question,
             top_k_communities=request.top_k_communities
         )

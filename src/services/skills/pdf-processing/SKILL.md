@@ -38,7 +38,7 @@ Only introduce when user explicitly needs them.
 
 ## Available Scripts
 
-All scripts are in the `./scripts/` directory. Execute them using bash or python.
+All scripts are in the `src/services/skills/pdf-processing/scripts` directory. Execute them using bash or python.
 
 ### 1. Extract Text: `extract_text.py`
 
@@ -46,7 +46,7 @@ All scripts are in the `./scripts/` directory. Execute them using bash or python
 
 **Usage**:
 ```bash
-python ./scripts/extract_text.py <pdf_path> [--pages PAGES] [--output OUTPUT]
+python src/services/skills/pdf-processing/scripts/extract_text.py <pdf_path> [--pages PAGES] [--output OUTPUT]
 ```
 
 **Parameters**:
@@ -57,13 +57,13 @@ python ./scripts/extract_text.py <pdf_path> [--pages PAGES] [--output OUTPUT]
 **Example**:
 ```bash
 # Extract all text
-python ./scripts/extract_text.py report.pdf
+python src/services/skills/pdf-processing/scripts/extract_text.py report.pdf
 
 # Extract specific pages
-python ./scripts/extract_text.py report.pdf --pages "1-5"
+python src/services/skills/pdf-processing/scripts/extract_text.py report.pdf --pages "1-5"
 
 # Save to file
-python ./scripts/extract_text.py report.pdf --output extracted.txt
+python src/services/skills/pdf-processing/scripts/extract_text.py report.pdf --output extracted.txt
 ```
 
 **Progressive disclosure**: Start with just the pdf_path, add options only if user needs them.
@@ -74,7 +74,7 @@ python ./scripts/extract_text.py report.pdf --output extracted.txt
 
 **Usage**:
 ```bash
-python ./scripts/extract_tables.py <pdf_path> [--format FORMAT] [--output OUTPUT]
+python src/services/skills/pdf-processing/scripts/extract_tables.py <pdf_path> [--format FORMAT] [--output OUTPUT]
 ```
 
 **Parameters**:
@@ -85,13 +85,13 @@ python ./scripts/extract_tables.py <pdf_path> [--format FORMAT] [--output OUTPUT
 **Example**:
 ```bash
 # Extract to Excel (default)
-python ./scripts/extract_tables.py financial_report.pdf
+python src/services/skills/pdf-processing/scripts/extract_tables.py financial_report.pdf
 
 # Extract to CSV
-python ./scripts/extract_tables.py data.pdf --format csv
+python src/services/skills/pdf-processing/scripts/extract_tables.py data.pdf --format csv
 
 # Custom output path
-python ./scripts/extract_tables.py data.pdf --output results/tables.xlsx
+python src/services/skills/pdf-processing/scripts/extract_tables.py data.pdf --output results/tables.xlsx
 ```
 
 **Progressive disclosure**: Default to Excel format unless user specifies otherwise.
@@ -102,7 +102,7 @@ python ./scripts/extract_tables.py data.pdf --output results/tables.xlsx
 
 **Usage**:
 ```bash
-python ./scripts/merge_pdfs.py <output_path> <pdf1> <pdf2> [pdf3 ...]
+python src/services/skills/pdf-processing/scripts/merge_pdfs.py <output_path> <pdf1> <pdf2> [pdf3 ...]
 ```
 
 **Parameters**:
@@ -112,10 +112,10 @@ python ./scripts/merge_pdfs.py <output_path> <pdf1> <pdf2> [pdf3 ...]
 **Example**:
 ```bash
 # Merge PDFs
-python ./scripts/merge_pdfs.py merged.pdf doc1.pdf doc2.pdf doc3.pdf
+python src/services/skills/pdf-processing/scripts/merge_pdfs.py merged.pdf doc1.pdf doc2.pdf doc3.pdf
 
 # Merge all PDFs in directory
-python ./scripts/merge_pdfs.py combined.pdf *.pdf
+python src/services/skills/pdf-processing/scripts/merge_pdfs.py combined.pdf *.pdf
 ```
 
 ### 4. Split PDF: `split_pdf.py`
@@ -124,7 +124,7 @@ python ./scripts/merge_pdfs.py combined.pdf *.pdf
 
 **Usage**:
 ```bash
-python ./scripts/split_pdf.py <pdf_path> [--mode MODE] [--output-dir OUTPUT_DIR]
+python src/services/skills/pdf-processing/scripts/split_pdf.py <pdf_path> [--mode MODE] [--output-dir OUTPUT_DIR]
 ```
 
 **Parameters**:
@@ -135,10 +135,10 @@ python ./scripts/split_pdf.py <pdf_path> [--mode MODE] [--output-dir OUTPUT_DIR]
 **Example**:
 ```bash
 # Split into individual pages
-python ./scripts/split_pdf.py document.pdf
+python src/services/skills/pdf-processing/scripts/split_pdf.py document.pdf
 
 # Split into custom directory
-python ./scripts/split_pdf.py document.pdf --output-dir pages/
+python src/services/skills/pdf-processing/scripts/split_pdf.py document.pdf --output-dir pages/
 ```
 
 ### 5. Create PDF: `create_pdf.py`
@@ -147,7 +147,7 @@ python ./scripts/split_pdf.py document.pdf --output-dir pages/
 
 **Usage**:
 ```bash
-python ./scripts/create_pdf.py <output_path> [--title TITLE] [--content CONTENT] [--input INPUT_FILE]
+python src/services/skills/pdf-processing/scripts/create_pdf.py <output_path> [--title TITLE] [--content CONTENT] [--input INPUT_FILE]
 ```
 
 **Parameters**:
@@ -159,10 +159,10 @@ python ./scripts/create_pdf.py <output_path> [--title TITLE] [--content CONTENT]
 **Example**:
 ```bash
 # From text content
-python ./scripts/create_pdf.py report.pdf --title "Monthly Report" --content "Report content here..."
+python src/services/skills/pdf-processing/scripts/create_pdf.py report.pdf --title "Monthly Report" --content "Report content here..."
 
 # From text file
-python ./scripts/create_pdf.py report.pdf --title "Report" --input content.txt
+python src/services/skills/pdf-processing/scripts/create_pdf.py report.pdf --title "Report" --input content.txt
 ```
 
 ### 6. Fill PDF Form: `fill_form.py`
@@ -171,7 +171,7 @@ python ./scripts/create_pdf.py report.pdf --title "Report" --input content.txt
 
 **Usage**:
 ```bash
-python ./scripts/fill_form.py <form_path> <data_file> <output_path>
+python src/services/skills/pdf-processing/scripts/fill_form.py <form_path> <data_file> <output_path>
 ```
 
 **Parameters**:
@@ -182,7 +182,7 @@ python ./scripts/fill_form.py <form_path> <data_file> <output_path>
 **Example**:
 ```bash
 # Fill form with data from JSON
-python ./scripts/fill_form.py application.pdf data.json filled_application.pdf
+python src/services/skills/pdf-processing/scripts/fill_form.py application.pdf data.json filled_application.pdf
 ```
 
 **See**: `./references/form-filling.md` for data format details.
@@ -193,7 +193,7 @@ python ./scripts/fill_form.py application.pdf data.json filled_application.pdf
 
 **Usage**:
 ```bash
-python ./scripts/ocr_pdf.py <pdf_path> [--lang LANG] [--output OUTPUT]
+python src/services/skills/pdf-processing/scripts/ocr_pdf.py <pdf_path> [--lang LANG] [--output OUTPUT]
 ```
 
 **Parameters**:
@@ -204,10 +204,10 @@ python ./scripts/ocr_pdf.py <pdf_path> [--lang LANG] [--output OUTPUT]
 **Example**:
 ```bash
 # OCR English document
-python ./scripts/ocr_pdf.py scanned.pdf
+python src/services/skills/pdf-processing/scripts/ocr_pdf.py scanned.pdf
 
 # OCR with different language
-python ./scripts/ocr_pdf.py document.pdf --lang chi_sim
+python src/services/skills/pdf-processing/scripts/ocr_pdf.py document.pdf --lang chi_sim
 ```
 
 **Note**: Requires tesseract-ocr installed on system.
@@ -220,7 +220,7 @@ python ./scripts/ocr_pdf.py document.pdf --lang chi_sim
 User: "I need to read a PDF"
 Agent: "I'll help you extract the text. What's the PDF file path?"
 User: "report.pdf"
-Agent: [Executes] python ./scripts/extract_text.py report.pdf
+Agent: [Executes] python src/services/skills/pdf-processing/scripts/extract_text.py report.pdf
 Agent: "✅ Extracted text from 5 pages. Here's a preview: [shows first 500 chars]
        Would you like to see the full text or extract tables?"
 ```

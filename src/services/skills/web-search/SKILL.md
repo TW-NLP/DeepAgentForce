@@ -8,7 +8,7 @@ version: 2.0.0
 
 ## 🚀 Standard Execution Command
 **IMPORTANT**: Always run from the project root using this exact path structure:
-`python skills/web-search/scripts/web_search.py --query "<query>"`
+`python src/services/skills/pdf-processing/scripts/web_search.py "<query>"`
 
 ## Available Scripts
 
@@ -16,5 +16,5 @@ version: 2.0.0
 **Purpose**: Get quick facts or search snippets.
 **Command**:
 ```bash
-python skills/web-search/scripts/web_search.py --query "<query>" --max-results 3
+python src/services/skills/pdf-processing/scripts/web_search.py "<query>"
 ```

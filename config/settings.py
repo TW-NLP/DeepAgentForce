@@ -22,8 +22,9 @@ class Settings(BaseSettings):
     HISTORY_FILE: ClassVar[Path] = PROJECT_ROOT / "data" / "history"
     # user profile file
     PERSON_LIKE_FILE: ClassVar[Path] = PROJECT_ROOT / "data" / "person_like.json"
-    # services directory
-    SERVICE_DIR: ClassVar[Path] = PROJECT_ROOT / "src" / "services"
+    # skills
+    SKILL_DIR: ClassVar[Path] = PROJECT_ROOT / "src" / "services" / "skills"
+   
 
     @property
     def config_hash(self) -> str:
