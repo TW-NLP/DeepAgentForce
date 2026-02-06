@@ -76,13 +76,11 @@ cd AgentForce
 - Install Conda: please see https://docs.conda.io/en/latest/miniconda.html
 - Create Conda env:
 
-``` sh
 conda create -n agent -y python=3.12
 conda activate agent
 pip install -r requirements.txt
 # If you are in mainland China, you can set the mirror as follows:
 pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
-```
 
 ```
 
