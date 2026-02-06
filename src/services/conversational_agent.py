@@ -10,6 +10,7 @@ from langchain_community.tools import ShellTool
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from src.services.person_like_service import UserPreferenceMining
 from src.workflow.callbacks import StatusCallback
+from config.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,10 @@ class ConversationalAgent():
         """
         构建 Deep Agent 实例
         """
+        if not self.settings.LLM_MODEL:
+            self.settings=Settings()
+
+
         # 1. 初始化模型
         logger.info(f"正在使用模型: {self.settings.LLM_MODEL} 构建 Agent")
         model = init_chat_model(
@@ -86,8 +91,6 @@ class ConversationalAgent():
                 if "messages" in event and len(event["messages"]) > 0:
                     last_msg = event["messages"][-1]
                     
-                    # 调试日志：看看 LLM 到底返回了什么
-                    # logger.info(f"Stream Event Msg Type: {type(last_msg)}")
 
                     # === 只有这里触发，前端才有思考框 ===
                     if isinstance(last_msg, AIMessage) and last_msg.tool_calls:

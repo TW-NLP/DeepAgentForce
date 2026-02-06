@@ -37,6 +37,14 @@ class DeepAgentForce:
         # 确保传入 self.settings
         self.sessions[sid] = ConversationalAgent(self.settings, status_callback)
         return sid, self.sessions[sid]
+    def init_service(self):
+        self.settings = Settings()
+        self.user_preference = UserPreferenceMining(self.settings)
+        self.rag_engine = MilvusRAGPipeline(self.settings)
+        self.history_manager = ConversationHistoryManager(self.settings.HISTORY_DIR)        
+        self.sessions: dict[str, ConversationalAgent] = {}
+        
+    
 
 # --- 关键启动步骤 ---
 engine = DeepAgentForce()

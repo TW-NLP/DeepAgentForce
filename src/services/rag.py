@@ -137,9 +137,9 @@ class MilvusRAGPipeline():
     """
     
     def __init__(self,settings):
+        """
+        初始化 Milvus 客户端和 OpenAI 客户端"""
         self.settings=settings
-
-        # AI Client
 
         self.client_rag = AsyncOpenAI(api_key=self.settings.EMBEDDING_API_KEY, base_url=self.settings.EMBEDDING_URL)
 
@@ -152,8 +152,7 @@ class MilvusRAGPipeline():
         # 本地元数据存储 (用于快速列表)
         self.meta_file = self.settings.MILVUS_DIR / "doc_metadata.json"
         self.documents = self._load_local_metadata() # {doc_uuid: dict}
-    def build_instance(self) -> Any:
-        pass
+
 
     def _init_collection(self):
         """初始化 Milvus 集合"""
@@ -179,10 +178,10 @@ class MilvusRAGPipeline():
 
             # 4. 为 doc_id 创建标量索引 (加速删除和过滤)
             # 注意：Milvus 中字符串通常使用 "STL_SORT" 或默认索引类型，"Trie" 在某些版本有特定限制
-            index_params.add_index(
-                field_name="doc_id",
-                index_type="INVERTED"  # 推荐使用倒排索引，加速精确匹配
-            )
+            # index_params.add_index(
+            #     field_name="doc_id",
+            #     index_type="INVERTED"  # 推荐使用倒排索引，加速精确匹配
+            # )
 
             # 5. 执行创建索引
             self.milvus.create_index(
@@ -204,7 +203,7 @@ class MilvusRAGPipeline():
     async def _get_embedding(self, texts: List[str]) -> List[List[float]]:
         """批量获取 Embedding"""
         if not texts: return []
-        # OpenAI 限制单次 batch size，生产环境建议分批
+
         resp = await self.client_rag.embeddings.create(input=texts, model=self.settings.EMBEDDING_MODEL)
         return [d.embedding for d in resp.data]
 

@@ -295,7 +295,7 @@ async def update_config(request: Request, config: Dict[str, Any]):
     engine = request.app.state.engine
     try:
         updated_nested_config = save_config_to_file(config)
-        
+        engine.init_service()
         return ConfigResponse(success=True, message="配置已保存，在新的对话中生效。", config=updated_nested_config)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

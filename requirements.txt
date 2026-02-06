@@ -53,6 +53,7 @@ frozenlist==1.8.0
 google-auth==2.48.0
 google-genai==1.61.0
 greenlet==3.2.4
+grpcio==1.76.0
 h11==0.16.0
 httpcore==1.0.9
 httplib2==0.31.0
@@ -102,6 +103,7 @@ matplotlib==3.10.8
 matplotlib-inline==0.2.1
 mcp==1.25.0
 mdurl==0.1.2
+milvus-lite==2.5.1
 more-itertools==10.8.0
 multidict==6.7.0
 mypy_extensions==1.1.0
@@ -134,6 +136,7 @@ platformdirs==4.5.0
 prometheus_client==0.24.0
 prompt_toolkit==3.0.52
 propcache==0.4.1
+protobuf==6.33.5
 prov==2.1.1
 ptyprocess==0.7.0
 pure_eval==0.2.3
@@ -151,6 +154,7 @@ pydot==4.0.1
 pyee==11.1.1
 Pygments==2.19.2
 PyJWT==2.10.1
+pymilvus==2.6.8
 PyMuPDF==1.23.8
 PyMuPDFb==1.23.7
 pyparsing==3.2.5

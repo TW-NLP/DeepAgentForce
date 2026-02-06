@@ -101,7 +101,7 @@ pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --tru
 
 ```bash
 # 在项目根目录下运行
-python run.py
+python main.py
 
 ```
 

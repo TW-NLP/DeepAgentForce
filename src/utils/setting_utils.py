@@ -2,7 +2,6 @@ from typing import Any, Dict
 from config import settings
 import json
 
-
 def save_config_to_file(new_flat_config: Dict[str, str]) -> Dict[str, Any]:
     """保存配置到文件"""
     
@@ -32,3 +31,5 @@ def load_config_from_file() -> Dict[str, Any]:
         "firecrawl_config": {},
         "embedding_config": {}
     }
+
+
