@@ -8,30 +8,29 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain.chat_models import init_chat_model
 from langchain_community.tools import ShellTool
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-from src.services.base import BaseConfigurableService
 from src.services.person_like_service import UserPreferenceMining
 from src.workflow.callbacks import StatusCallback
 
 logger = logging.getLogger(__name__)
 
-class ConversationalAgent(BaseConfigurableService):
-    """
-    基于 DeepAgents 重构的智能 Agent
-    """    
-    def __init__(self, status_callback: Optional[StatusCallback] = None):
-        super().__init__()
-        
+class ConversationalAgent():
+    def __init__(self, settings, status_callback: Optional[StatusCallback] = None):
+        # 显式保存 settings 和 callback
+        self.settings = settings
         self.status_callback = status_callback
-        self.workspace = self.settings.SKILL_DIR
-        # 1.用户画像
-        self.user_profile_data = UserPreferenceMining().get_frontend_format()
+        self.workspace = Path(settings.SKILL_DIR)
+        self.user_profile_data = UserPreferenceMining(settings).get_frontend_format()
         self.user_summary = self.user_profile_data.get("summary", "No specific preference.")
-        # 2. 基础设施工具
         self.exec_tool = ShellTool()
+        self._instance = None
         self.exec_tool.description = (
-            "Execute shell commands. Use this ONLY when a Skill documentation "
-            "instructs you to run a specific python script."
+            "允许这个shell的时候，请先看对应的SKILL.md，然后去对应的scripts里面执行对应的py文件，这个流程不要变。 "
         )
+    def get_instance(self):
+        """获取或创建 Deep Agent 实例（单例模式）"""
+        if self._instance is None:
+            self._instance = self.build_instance()
+        return self._instance
 
     def build_instance(self):
         """
@@ -66,23 +65,19 @@ class ConversationalAgent(BaseConfigurableService):
             checkpointer=MemorySaver(),
             system_prompt=system_prompt
         )
-    
     async def chat(self, user_input: str, thread_id: str = "default_thread") -> str:
-        """
-        处理对话，兼容旧接口，并适配 StatusCallback
-        """
         config = {"configurable": {"thread_id": thread_id}}
-        agent_instance=self.get_instance()
-        
-        # 触发回调：开始
-        if self.status_callback:
-            # 模拟旧版回调结构
-            await self.status_callback.on_agent_start({"input": user_input})
+        agent_instance = self.get_instance()
         final_response = ""
+        
         try:
-            logger.info(f"处理用户输入: {user_input[:50]}...")
+            # 【修改】移入 try 块，并增加日志
+            if self.status_callback:
+                logger.info(f"[{thread_id}] 触发 on_agent_start...")
+                await self.status_callback.on_agent_start({"input": user_input})
             
-            # 使用 stream 来获取中间步骤，以触发回调
+            logger.info(f"[{thread_id}] 开始 Agent 流式处理: {user_input[:30]}")
+            
             async for event in agent_instance.astream(
                 {"messages": [HumanMessage(content=user_input)]},
                 config=config,
@@ -91,32 +86,35 @@ class ConversationalAgent(BaseConfigurableService):
                 if "messages" in event and len(event["messages"]) > 0:
                     last_msg = event["messages"][-1]
                     
+                    # 调试日志：看看 LLM 到底返回了什么
+                    # logger.info(f"Stream Event Msg Type: {type(last_msg)}")
+
+                    # === 只有这里触发，前端才有思考框 ===
                     if isinstance(last_msg, AIMessage) and last_msg.tool_calls:
+                        logger.info(f"检测到工具调用: {len(last_msg.tool_calls)} 个")
                         for tool_call in last_msg.tool_calls:
-                            action_name = tool_call['name']
-                            args = tool_call['args']
-                            logger.info(f"Agent 正在调用工具: {action_name}")
-                            
                             if self.status_callback:
-                                # 模拟发送状态更新
                                 await self.status_callback.on_tool_start(
-                                    {"name": action_name, "args": args}
+                                    {"name": tool_call['name'], "args": tool_call['args']}
                                 )
                     
                     elif isinstance(last_msg, ToolMessage):
-                        logger.info(f"工具执行完成: {last_msg.name}")
+                        logger.info("检测到工具执行结果")
                         if self.status_callback:
                             await self.status_callback.on_tool_end(
-                                {"output": str(last_msg.content)[:200] + "..."}
-                            )               
+                                {"output": str(last_msg.content)[:100] + "..."}
+                            )
+                            
                     elif isinstance(last_msg, AIMessage) and not last_msg.tool_calls:
                         final_response = last_msg.content
-            # 触发回调：结束
-            if self.status_callback:
-                await self.status_callback.on_agent_finish({"output": final_response})       
-            logger.info(f"生成回答: {final_response}...")
-            return final_response
-        except Exception as e:
-            logger.error(f"处理对话失败: {e}", exc_info=True)
 
+            if self.status_callback:
+                await self.status_callback.on_agent_finish({"output": final_response})
+                
+            return final_response
+
+        except Exception as e:
+            logger.error(f"Chat 处理失败: {e}", exc_info=True)
+            if self.status_callback:
+                await self.status_callback.on_error({"message": str(e)})
             return f"系统错误: {str(e)}"

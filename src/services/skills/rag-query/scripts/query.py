@@ -5,15 +5,15 @@ import argparse
 import httpx
 
 
-GRAPH_RAG_ENDPOINT = "http://localhost:8000/api/graphrag/query"
+RAG_ENDPOINT = "http://localhost:8000/api/rag/query"
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Query GraphRAG knowledge base")
+    parser = argparse.ArgumentParser(description="Query RAG knowledge base")
     parser.add_argument(
         "question",
         type=str,
-        help="Question to ask the GraphRAG system"
+        help="Question to ask the RAG system"
     )
     parser.add_argument(
         "--top-k",
@@ -24,7 +24,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def query_graphrag(question: str, top_k: int = 10) -> dict:
+def query_rag(question: str, top_k: int = 10) -> dict:
     payload = {
         "question": question,
         "top_k_communities": top_k
@@ -32,7 +32,7 @@ def query_graphrag(question: str, top_k: int = 10) -> dict:
 
     with httpx.Client(timeout=120.0) as client:
         response = client.post(
-            GRAPH_RAG_ENDPOINT,
+            RAG_ENDPOINT,
             headers={"Content-Type": "application/json"},
             json=payload
         )
@@ -45,10 +45,10 @@ def main():
     args = parse_args()
 
     try:
-        result = query_graphrag(args.question, args.top_k)
+        result = query_rag(args.question, args.top_k)
 
         print("=" * 60)
-        print("📘 GraphRAG Query Result")
+        print("📘 RAG Query Result")
         print("=" * 60)
         print(f"❓ Question:\n{args.question}\n")
 

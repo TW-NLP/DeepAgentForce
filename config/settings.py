@@ -12,19 +12,63 @@ import json
 from typing import ClassVar
 
 
+import json
+import hashlib
+from pathlib import Path
+from typing import ClassVar, Optional
+from pydantic_settings import BaseSettings
+
 class Settings(BaseSettings):
     """应用配置"""
 
-    PROJECT_ROOT: ClassVar[Path] = Path(__file__).parent.parent
-    # model config
-    CONFIG_FILE: ClassVar[Path] = PROJECT_ROOT / "data" / "saved_config.json"
-    # history files
-    HISTORY_FILE: ClassVar[Path] = PROJECT_ROOT / "data" / "history"
-    # user profile file
-    PERSON_LIKE_FILE: ClassVar[Path] = PROJECT_ROOT / "data" / "person_like.json"
-    # skills
+    # --- 基础路径配置 ---
+    PROJECT_ROOT: ClassVar[Path] = Path(__file__).resolve().parent.parent
+
+    # --- 数据目录 (Directories) ---
+    # 统一定义在 data 下，方便管理
+    DATA_DIR: ClassVar[Path] = PROJECT_ROOT / "data"
+    
+    # 历史记录 (建议改名为 DIR 如果它是一个文件夹)
+    HISTORY_DIR: ClassVar[Path] = DATA_DIR / "history"
+    # 上传目录
+    UPLOAD_DIR: ClassVar[Path] = DATA_DIR / "uploads"
+    # 向量库存储目录
+    MILVUS_DIR: ClassVar[Path] = DATA_DIR / "rag_storage"
+    # 技能插件目录
     SKILL_DIR: ClassVar[Path] = PROJECT_ROOT / "src" / "services" / "skills"
-   
+    # --- 数据文件 (Files) ---
+    # 配置文件
+    CONFIG_FILE: ClassVar[Path] = DATA_DIR / "saved_config.json"
+    # 用户画像文件
+    PERSON_LIKE_FILE: ClassVar[Path] = DATA_DIR / "person_like.json"
+    # Milvus 数据库文件 (这是一个文件路径，用于连接字符串)
+    MILVUS_DB_PATH: ClassVar[Path] = DATA_DIR / "milvus.db"
+
+    # --- 运行时配置字段 (示例占位，防止 hash 计算报错) ---
+    LLM_API_KEY: Optional[str] = None
+    LLM_MODEL: Optional[str] = None
+    LLM_URL: Optional[str] = None
+    TAVILY_API_KEY: Optional[str] = None
+    FIRECRAWL_API_KEY: Optional[str] = None
+    EMBEDDING_API_KEY: Optional[str] = None
+    EMBEDDING_MODEL: Optional[str] = None
+    EMBEDDING_URL: Optional[str] = None
+
+    def __init__(self, **kwargs):
+        """初始化配置，从JSON文件加载"""
+        # 先从JSON文件加载配置
+        loaded_config = self._load_config_from_file()
+        
+        # 合并JSON配置和传入的kwargs
+        merged_config = {**loaded_config, **kwargs}
+        
+        # 调用父类初始化
+        super().__init__(**merged_config)
+
+    @property
+    def MILVUS_URL(self) -> str:
+        """动态生成 Milvus 连接 URL"""
+        return str(self.MILVUS_DB_PATH)
 
     @property
     def config_hash(self) -> str:
@@ -32,48 +76,62 @@ class Settings(BaseSettings):
         生成关键配置的指纹 (Hash)
         用于检测配置是否发生变化
         """
-        # 1. 拼接所有影响 Agent 运行的关键字段
-        # 注意：这里只包含那些"改了就需要重启模型"的字段
-        # 像 LOG_LEVEL 这种改了不需要重启模型的，就不要加进来
+        # 使用 getattr 避免如果某些字段未定义导致报错，默认为空字符串
         key_content = (
-            f"{self.LLM_API_KEY}|"
-            f"{self.LLM_MODEL}|"
-            f"{self.LLM_URL}|"
-            f"{self.TAVILY_API_KEY}|"
-            f"{self.FIRECRAWL_API_KEY}|"
-            f"{self.EMBEDDING_API_KEY}|"
-            f"{self.EMBEDDING_MODEL}|"
+            f"{getattr(self, 'LLM_API_KEY', '')}|"
+            f"{getattr(self, 'LLM_MODEL', '')}|"
+            f"{getattr(self, 'LLM_URL', '')}|"
+            f"{getattr(self, 'TAVILY_API_KEY', '')}|"
+            f"{getattr(self, 'FIRECRAWL_API_KEY', '')}|"
+            f"{getattr(self, 'EMBEDDING_API_KEY', '')}|"
+            f"{getattr(self, 'EMBEDDING_MODEL', '')}|"
         )
+        return hashlib.md5(key_content.encode('utf-8')).hexdigest()
 
-        return str(hash(key_content))
+    def _ensure_directory(self, path: Path):
+        """辅助方法：创建目录"""
+        if not path.exists():
+            path.mkdir(parents=True, exist_ok=True)
 
-    @classmethod
-    def ensure_data_dir(cls):
-        """确保 data 目录存在"""
-        data_dir = cls.PROJECT_ROOT / "data"
-        data_dir.mkdir(parents=True, exist_ok=True)
-        return data_dir
-    
-    @classmethod
-    def ensure_files(cls):
-        """确保所有必要的文件存在"""
-        # 先确保目录存在
-        cls.ensure_data_dir()
-        
-        # 确保 CONFIG_FILE 存在，如果不存在则创建空的 JSON 对象
-        if not cls.CONFIG_FILE.exists():
-            cls.CONFIG_FILE.write_text(json.dumps({}, ensure_ascii=False, indent=2))
-        
-        # 确保 PERSON_LIKE_FILE 存在
-        if not cls.PERSON_LIKE_FILE.exists():
-            cls.PERSON_LIKE_FILE.write_text(json.dumps({}, ensure_ascii=False, indent=2))
-    
+    def _ensure_json_file(self, path: Path, default_content: dict = None):
+        """辅助方法：创建 JSON 文件"""
+        # 先确保父目录存在
+        self._ensure_directory(path.parent)
+        # 如果文件不存在，写入默认内容
+        if not path.exists():
+            content = default_content if default_content is not None else {}
+            path.write_text(json.dumps(content, ensure_ascii=False, indent=2), encoding='utf-8')
+
     @classmethod
     def initialize(cls):
-        """初始化配置（推荐在应用启动时调用）"""
-        cls.ensure_files()
-        return cls()
+        """
+        初始化配置并创建所有必要的文件和目录
+        推荐在应用启动时 (如 main.py 开头) 调用
+        """
+        instance = cls()
+        instance.ensure_filesystem()
+        return instance
 
+    def ensure_filesystem(self):
+        """
+        核心逻辑：确保所有定义的路径在文件系统中真实存在
+        """
+        # 1. 创建所有目录
+        # 这里列出所有必须存在的目录
+        directories_to_create = [
+            self.DATA_DIR,
+            self.HISTORY_DIR,
+            self.UPLOAD_DIR,
+            self.MILVUS_DIR,
+        ]
+
+        for directory in directories_to_create:
+            self._ensure_directory(directory)
+
+        # 2. 创建所有文件
+        # 这里列出所有必须存在的文件
+        self._ensure_json_file(self.CONFIG_FILE, default_content={})
+        self._ensure_json_file(self.PERSON_LIKE_FILE, default_content={})
 
 
     # ==================== 应用基础配置 ====================
@@ -108,8 +166,8 @@ class Settings(BaseSettings):
     EMBEDDING_DIM: int = 1024
     SIMPLE_RAG: bool = True #默认为简单RAG，若使用复杂的RAG 请设置为False
     T_SCORE: float = Field(default=0.3, description="RAG检索阈值")
-    RAG_URL: str = "http://localhost:8000/api/graphrag/query"
-    GRAPHRAG_STORAGE_DIR: str = "data/rag_graph_storage"
+    RAG_URL: str = "http://localhost:8000/api/rag/query"
+    MILVUS_COLLECTION: str  = "rag_chunks"
 
     # ==================== 内容处理配置 ====================
     MAX_CONTEXT_LENGTH: int = Field(default=8000, description="最大上下文长度")
@@ -148,26 +206,7 @@ class Settings(BaseSettings):
             try:
                 with open(self.CONFIG_FILE, 'r', encoding='utf-8') as f:
                     json_data = json.load(f)
-                
-                # 映射JSON结构到Settings字段
-                if "llm_config" in json_data:
-                    llm_config = json_data["llm_config"]
-                    config_data["LLM_API_KEY"] = llm_config.get("LLM_API_KEY", "")
-                    config_data["LLM_URL"] = llm_config.get("LLM_URL", "")
-                    config_data["LLM_MODEL"] = llm_config.get("LLM_MODEL", "")
-                
-                if "search_config" in json_data:
-                    search_config = json_data["search_config"]
-                    config_data["TAVILY_API_KEY"] = search_config.get("TAVILY_API_KEY", "")
-                
-                if "claw_config" in json_data:
-                    claw_config = json_data["claw_config"]
-                    config_data["FIRECRAWL_API_KEY"] = claw_config.get("FIRECRAWL_API_KEY", "")
-                if "embedding_config" in json_data:
-                    embedding_config = json_data["embedding_config"]
-                    config_data["EMBEDDING_API_KEY"] = embedding_config.get("EMBEDDING_API_KEY", "")
-                    config_data["EMBEDDING_URL"] = embedding_config.get("EMBEDDING_URL", "")
-                    config_data["EMBEDDING_MODEL"] = embedding_config.get("EMBEDDING_MODEL", "")
+                    config_data=json_data
                 
                 print(f"✅ 成功从 {self.CONFIG_FILE} 加载配置")
                 
@@ -180,47 +219,6 @@ class Settings(BaseSettings):
         
         return config_data
 
-    def update(self, **kwargs):
-        """动态更新配置
-
-        格式:{
-            "llm_config":{
-                "LLM_API_KEY":"",
-                "LLM_URL":"",
-                "LLM_MODEL":""
-            },
-            "search_config":{
-                "TAVILY_API_KEY": ""
-            },
-            "claw_config":{
-                "FIRECRAWL_API_KEY": ""
-            }
-        }
-        """
-        # 配置映射关系
-        config_mapping = {
-            "llm_config": {
-                "LLM_API_KEY": "LLM_API_KEY",
-                "LLM_URL": "LLM_URL",
-                "LLM_MODEL": "LLM_MODEL"
-            },
-            "search_config": {
-                "TAVILY_API_KEY": "TAVILY_API_KEY"
-            },
-            "claw_config": {
-                "FIRECRAWL_API_KEY": "FIRECRAWL_API_KEY"
-            }
-        }
-        
-        for config_group, config_values in kwargs.items():
-            if config_group in config_mapping:
-                mapping = config_mapping[config_group]
-                for key, value in config_values.items():
-                    if key in mapping:
-                        actual_field = mapping[key]
-                        if hasattr(self, actual_field):
-                            setattr(self, actual_field, value)
-        
             
 
     class Config:

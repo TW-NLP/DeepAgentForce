@@ -1,6 +1,9 @@
 /**
- * 知识库管理 JavaScript
- * 文件: knowledge.js
+ * 知识库管理 JavaScript (优化版)
+ * 适配后端 routes.py:
+ * 1. 移除 auto_rebuild 参数
+ * 2. 移除重建索引功能 (后端未提供)
+ * 3. 修正统计信息字段映射 (仅保留文档数)
  */
 
 const API_BASE_URL = 'http://localhost:8000/api';
@@ -46,6 +49,7 @@ function formatFileSize(bytes) {
 }
 
 function formatDate(dateString) {
+    if (!dateString) return '未知时间';
     const date = new Date(dateString);
     const now = new Date();
     const diff = now - date;
@@ -66,14 +70,19 @@ function formatDate(dateString) {
 
 async function loadKnowledgeBaseStats() {
     try {
-        const response = await fetch(`${API_BASE_URL}/graphrag/index/status`);
+        const response = await fetch(`${API_BASE_URL}/rag/index/status`);
         const data = await response.json();
         
         if (data.success) {
-            document.getElementById('statDocs').textContent = data.total_documents;
-            document.getElementById('statEntities').textContent = data.total_entities;
-            document.getElementById('statRelationships').textContent = data.total_relationships;
-            document.getElementById('statCommunities').textContent = data.total_communities;
+            // 后端 IndexStatusResponse 仅返回 document_count
+            const docCountEl = document.getElementById('statDocs');
+            if (docCountEl) docCountEl.textContent = data.document_count;
+
+            // 如果页面上还有实体/关系/社区的统计元素，建议隐藏或设为 "-"
+            ['statEntities', 'statRelationships', 'statCommunities'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '-'; // 或者 el.parentElement.style.display = 'none';
+            });
         }
     } catch (error) {
         console.error('加载统计信息失败:', error);
@@ -82,12 +91,13 @@ async function loadKnowledgeBaseStats() {
 
 async function loadDocuments() {
     try {
-        const response = await fetch(`${API_BASE_URL}/graphrag/documents`);
+        const response = await fetch(`${API_BASE_URL}/rag/documents`);
         const data = await response.json();
         
         const documentsList = document.getElementById('documentsList');
         
-        if (data.success && data.documents.length > 0) {
+        // 后端返回 ListDocumentsResponse: { success, total, documents: [...] }
+        if (data.success && data.documents && data.documents.length > 0) {
             documentsList.innerHTML = data.documents.map(doc => `
                 <div class="document-item" data-id="${doc.document_id}">
                     <div class="doc-icon">${getFileIcon(doc.name)}</div>
@@ -122,10 +132,10 @@ async function loadDocuments() {
 async function uploadDocument(file) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('auto_rebuild', 'false'); // 批量上传时先不重建索引
+    // 注意：后端 routes.py 不再接受 auto_rebuild 参数，已移除
     
     try {
-        const response = await fetch(`${API_BASE_URL}/graphrag/documents/upload`, {
+        const response = await fetch(`${API_BASE_URL}/rag/documents/upload`, {
             method: 'POST',
             body: formData
         });
@@ -146,13 +156,14 @@ async function uploadDocument(file) {
 }
 
 async function deleteDocument(documentId) {
-    if (!confirm('确定要删除这个文档吗？删除后需要重建索引。')) {
+    if (!confirm('确定要删除这个文档吗？')) {
         return;
     }
     
     try {
+        // 注意：后端 routes.py 不再接受 auto_rebuild 参数，已移除
         const response = await fetch(
-            `${API_BASE_URL}/graphrag/documents/${documentId}?auto_rebuild=false`,
+            `${API_BASE_URL}/rag/documents/${documentId}`,
             { method: 'DELETE' }
         );
         
@@ -160,6 +171,7 @@ async function deleteDocument(documentId) {
         
         if (data.success) {
             showToast('文档已删除');
+            // 删除后重新加载列表和统计
             await loadDocuments();
             await loadKnowledgeBaseStats();
         } else {
@@ -171,124 +183,104 @@ async function deleteDocument(documentId) {
     }
 }
 
-async function rebuildIndex() {
-    const button = document.getElementById('rebuildButton');
-    button.disabled = true;
-    button.textContent = '🔄 重建中...';
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/graphrag/index/rebuild`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('✅ 索引重建任务已提交，请稍候...');
-            
-            // 等待一段时间后刷新状态
-            setTimeout(async () => {
-                await loadKnowledgeBaseStats();
-                button.disabled = false;
-                button.textContent = '🔄 重建索引';
-            }, 3000);
-        } else {
-            throw new Error(data.message || '重建失败');
-        }
-    } catch (error) {
-        console.error('重建索引失败:', error);
-        showToast('重建索引失败: ' + error.message, 'error');
-        button.disabled = false;
-        button.textContent = '🔄 重建索引';
-    }
-}
+// 注意：routes.py 中没有 '/rag/index/rebuild' 接口。
+// 如果确实需要重建索引功能，需要在后端添加相应接口。
+// 此处已移除 rebuildIndex 函数及其绑定。
 
 // ============ 文件上传处理 ============
 
 const uploadSection = document.getElementById('uploadSection');
 const fileInput = document.getElementById('fileInput');
+const rebuildButton = document.getElementById('rebuildButton');
+
+// 如果页面上还有重建按钮，建议禁用或隐藏
+if (rebuildButton) {
+    rebuildButton.style.display = 'none'; // 后端无此接口，隐藏按钮
+}
 
 // 点击上传
-fileInput.addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files);
-    
-    if (files.length === 0) return;
-    
-    showToast(`开始上传 ${files.length} 个文件...`);
-    
-    let successCount = 0;
-    
-    for (const file of files) {
-        const success = await uploadDocument(file);
-        if (success) successCount++;
-    }
-    
-    // 清空文件选择
-    fileInput.value = '';
-    
-    // 刷新列表
-    await loadDocuments();
-    await loadKnowledgeBaseStats();
-    
-    if (successCount > 0) {
-        showToast(`✅ 成功上传 ${successCount} 个文件，建议重建索引`);
-    }
-});
+if (fileInput) {
+    fileInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        
+        if (files.length === 0) return;
+        
+        showToast(`开始上传 ${files.length} 个文件...`);
+        
+        let successCount = 0;
+        
+        for (const file of files) {
+            const success = await uploadDocument(file);
+            if (success) successCount++;
+        }
+        
+        // 清空文件选择
+        fileInput.value = '';
+        
+        // 刷新列表
+        await loadDocuments();
+        await loadKnowledgeBaseStats();
+        
+        if (successCount > 0) {
+            showToast(`✅ 成功上传 ${successCount} 个文件`);
+        }
+    });
+}
 
 // 拖拽上传
-uploadSection.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadSection.classList.add('dragging');
-});
-
-uploadSection.addEventListener('dragleave', (e) => {
-    e.preventDefault();
-    uploadSection.classList.remove('dragging');
-});
-
-uploadSection.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    uploadSection.classList.remove('dragging');
-    
-    const files = Array.from(e.dataTransfer.files);
-    
-    // 过滤支持的文件类型
-    const supportedExtensions = ['.pdf', '.docx', '.doc', '.txt', '.md', '.markdown', '.csv'];
-    const validFiles = files.filter(file => {
-        const ext = '.' + file.name.split('.').pop().toLowerCase();
-        return supportedExtensions.includes(ext);
+if (uploadSection) {
+    uploadSection.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadSection.classList.add('dragging');
     });
-    
-    if (validFiles.length === 0) {
-        showToast('没有支持的文件格式', 'error');
-        return;
-    }
-    
-    showToast(`开始上传 ${validFiles.length} 个文件...`);
-    
-    let successCount = 0;
-    
-    for (const file of validFiles) {
-        const success = await uploadDocument(file);
-        if (success) successCount++;
-    }
-    
-    // 刷新列表
-    await loadDocuments();
-    await loadKnowledgeBaseStats();
-    
-    if (successCount > 0) {
-        showToast(`✅ 成功上传 ${successCount} 个文件，建议重建索引`);
-    }
-});
 
-// 重建索引按钮
-document.getElementById('rebuildButton').addEventListener('click', rebuildIndex);
+    uploadSection.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadSection.classList.remove('dragging');
+    });
+
+    uploadSection.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        uploadSection.classList.remove('dragging');
+        
+        const files = Array.from(e.dataTransfer.files);
+        
+        // 过滤支持的文件类型
+        const supportedExtensions = ['.pdf', '.docx', '.doc', '.txt', '.md', '.markdown', '.csv'];
+        const validFiles = files.filter(file => {
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            return supportedExtensions.includes(ext);
+        });
+        
+        if (validFiles.length === 0) {
+            showToast('没有支持的文件格式', 'error');
+            return;
+        }
+        
+        showToast(`开始上传 ${validFiles.length} 个文件...`);
+        
+        let successCount = 0;
+        
+        for (const file of validFiles) {
+            const success = await uploadDocument(file);
+            if (success) successCount++;
+        }
+        
+        // 刷新列表
+        await loadDocuments();
+        await loadKnowledgeBaseStats();
+        
+        if (successCount > 0) {
+            showToast(`✅ 成功上传 ${successCount} 个文件`);
+        }
+    });
+}
 
 // ============ 初始化 ============
 
 // 页面加载时，如果在知识库页面，加载数据
-if (document.getElementById('knowledgePage').classList.contains('active')) {
+const knowledgePage = document.getElementById('knowledgePage');
+if (knowledgePage && knowledgePage.classList.contains('active')) {
     loadKnowledgeBaseStats();
     loadDocuments();
 }

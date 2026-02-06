@@ -183,6 +183,37 @@ function connectWebSocket() {
     };
 }
 
+function handleWebSocketMessage(payload) {
+    console.log('📨 收到 WebSocket 消息:', payload);
+    
+    switch (payload.type) {
+        case 'step':
+            handleStepUpdate(payload);
+            break;
+            
+        case 'token':
+            // 兼容 token 可能的位置
+            const token = payload.content || (payload.data ? payload.data.content : '');
+            if (token) handleTokenUpdate(token);
+            break;
+            
+        case 'done':
+            // 【关键修复】从 payload.data.message 提取最终文本
+            // 如果 payload.data 不存在，尝试直接读取 payload.message
+            const finalMsg = (payload.data && payload.data.message) 
+                ? payload.data.message 
+                : payload.message;
+                
+            console.log('✅ 提取到最终消息:', finalMsg);
+            handleDone(finalMsg);
+            break;
+            
+        case 'error':
+            const errMsg = payload.data ? payload.data.message : payload.message;
+            handleError(errMsg);
+            break;
+    }
+}
 function updateStatus(connected) {
     if (statusIndicator) {
         if (connected) {
@@ -194,49 +225,106 @@ function updateStatus(connected) {
         }
     }
 }
+function handleStepUpdate(payload) {
+    hideWelcomeScreen();
 
-function handleWebSocketMessage(data) {
-    console.log('📨 收到 WebSocket 消息:', data);
+    // 🔍 这里的 payload 是整个 WebSocket 消息对象
+    // 我们需要取里面的 data 字段
+    const stepData = payload.data || {}; 
     
-    switch (data.type) {
-        case 'step':
-            handleStepUpdate(data);
-            break;
-        case 'token':
-            handleTokenUpdate(data.content);
-            break;
-        case 'done':
-            console.log('✅ 收到 done 事件，消息内容:', data.message);
-            handleDone(data.message);  // ← 修改这里
-            break;
-        case 'error':
-            handleError(data.message);
-            break;
+    // 提取 step 类型
+    const stepType = stepData.step || 'processing';
+
+    console.log("处理步骤更新:", stepType); 
+
+    // 如果还没有思考容器，创建一个
+    if (!currentThinkingContainer) {
+        currentThinkingContainer = document.createElement('div');
+        currentThinkingContainer.className = 'thinking-process';
+        currentThinkingContainer.innerHTML = `
+            <div class="thinking-header" onclick="toggleThinking(this)">
+                <span class="thinking-toggle">▼</span>
+                <span class="thinking-title">思考过程</span>
+                <span class="thinking-icon">⚙️</span>
+            </div>
+            <div class="thinking-content"></div>
+        `;
+        messagesWrapper.appendChild(currentThinkingContainer);
     }
+
+    const stepsContainer = currentThinkingContainer.querySelector('.thinking-content');
+    
+    const stepDiv = document.createElement('div');
+    
+    // ✅ 正确传递 stepType
+    stepDiv.className = `thinking-step ${getStepClass(stepType)}`;
+    
+    const icon = getStepIcon(stepType); 
+    const title = stepData.title || '处理中';
+    
+    // 处理 description 可能是对象的情况
+    let description = stepData.description || '';
+    if (typeof description === 'object') {
+        try {
+            description = JSON.stringify(description);
+        } catch(e) {
+            description = "复杂数据";
+        }
+    }
+    
+    stepDiv.innerHTML = `
+        <span class="step-icon">${icon}</span>
+        <div class="step-content">
+            <div class="step-title">${title}</div>
+            <div class="step-description">${description}</div>
+        </div>
+    `;
+    
+    stepsContainer.appendChild(stepDiv);
+    scrollToBottom();
 }
 
-function handleDone(finalMessage = null) {  // ← 修改这里
-    console.log('✅ handleDone 被调用，收到消息:', finalMessage);
+function handleDone(finalMessage) {
+    console.log('🏁 handleDone 执行，finalMessage:', finalMessage);
     
-    // 如果有最终消息，且没有创建流式回答框，就直接添加消息
-    if (finalMessage && !currentStreamingAnswer) {
-        addMessage('assistant', finalMessage);
-    }
-    
+    // 情况 A: 之前有流式输出框 (currentStreamingAnswer 存在)
     if (currentStreamingAnswer) {
         const contentDiv = currentStreamingAnswer.querySelector('.message-content');
         contentDiv.classList.remove('streaming');
+        // 确保最终内容完整（防止流式丢包，用最终结果覆盖一次）
+        if (finalMessage) {
+             if (typeof marked !== 'undefined') {
+                contentDiv.innerHTML = marked.parse(finalMessage);
+            } else {
+                contentDiv.textContent = finalMessage;
+            }
+        }
+    } 
+    // 情况 B: 之前没有流式输出 (比如这次只有思考过程，没有产生 token，直接 done)
+    // 必须手动添加一条 AI 消息
+    else if (finalMessage) {
+        console.log('📝 没有流式框，手动添加最终消息');
+        addMessage('assistant', finalMessage);
+    } else {
+        console.warn('⚠️ handleDone 被调用但没有消息内容，也没有流式框');
     }
     
+    // 清理状态
     currentThinkingContainer = null;
     currentStreamingAnswer = null;
     isProcessing = false;
     
+    // 恢复按钮状态
     if (sendButton) sendButton.disabled = false;
-    if (messageInput) messageInput.disabled = false;
-    if (messageInput) messageInput.focus();
+    if (messageInput) {
+        messageInput.disabled = false;
+        messageInput.focus();
+    }
     
-    loadSavedHistory();
+    // 刷新历史记录列表
+    if (typeof loadSavedHistory === 'function') {
+        loadSavedHistory();
+    }
 }
 // ============ 3. 消息渲染与流式处理 ============
 
@@ -286,11 +374,20 @@ function addMessage(role, content) {
     scrollToBottom();
 }
 
-// 处理思考过程 (Step)
-function handleStepUpdate(data) {
+function handleStepUpdate(payload) {
+    // 1. 隐藏欢迎页
     hideWelcomeScreen();
 
-    // 如果还没有思考容器，创建一个
+    console.log("正在处理 Step 数据:", payload); // 调试日志
+
+    // 🔥 核心修正点：必须先从 payload 中取出 data 字段
+    // payload 结构是: { type: 'step', data: { step: 'init', title: '...' } }
+    const stepData = payload.data || {}; 
+    
+    // 现在 stepData.step 才是真正的 "init"
+    const stepType = stepData.step || 'processing';
+
+    // 2. 如果还没有思考容器，创建一个
     if (!currentThinkingContainer) {
         currentThinkingContainer = document.createElement('div');
         currentThinkingContainer.className = 'thinking-process';
@@ -307,12 +404,24 @@ function handleStepUpdate(data) {
 
     const stepsContainer = currentThinkingContainer.querySelector('.thinking-content');
     
+    // 3. 创建步骤条目
     const stepDiv = document.createElement('div');
-    stepDiv.className = `thinking-step ${getStepClass(data.step)}`;
     
-    const icon = getStepIcon(data.step);
-    const title = data.title || '处理中';
-    const description = data.description || '';
+    // 🔥 修正点：这里传入提取好的 stepType ('init')，而不是 undefined
+    stepDiv.className = `thinking-step ${getStepClass(stepType)}`;
+    
+    const icon = getStepIcon(stepType);
+    const title = stepData.title || '处理中';
+    
+    // 处理 description 可能是对象的情况
+    let description = stepData.description || '';
+    if (typeof description === 'object') {
+        try {
+            description = JSON.stringify(description);
+        } catch(e) {
+            description = "详细信息...";
+        }
+    }
     
     stepDiv.innerHTML = `
         <span class="step-icon">${icon}</span>
@@ -327,30 +436,34 @@ function handleStepUpdate(data) {
 }
 
 function getStepIcon(step) {
+    // 🛡️ 防御代码
+    if (!step || typeof step !== 'string') {
+        return '⚙️';
+    }
+
     const s = step.toLowerCase();
     
-    // 根据新的步骤类型匹配图标
     if (s.includes('init') || s.includes('开始')) return '🤔';
-    if (s.includes('tool_start') || s.includes('调用工具')) return '🔧';
-    if (s.includes('tool_end') || s.includes('执行完成')) return '✅';
+    if (s.includes('tool_start') || s.includes('调用')) return '🔧';
+    if (s.includes('tool_end') || s.includes('完成')) return '✅';
     if (s.includes('finish') || s.includes('结束')) return '🎯';
+    if (s.includes('error')) return '❌';
     
-    // 其他可能的步骤类型
-    if (s.includes('search') || s.includes('搜索')) return '🔍';
-    if (s.includes('doc') || s.includes('文档')) return '📚';
-    if (s.includes('plan') || s.includes('规划')) return '📋';
-    if (s.includes('chat') || s.includes('对话')) return '💬';
-    if (s.includes('error') || s.includes('错误')) return '❌';
-    if (s.includes('warning') || s.includes('警告')) return '⚠️';
-    
-    return '⚙️';  // 默认图标
+    return '⚙️';
 }
 
 function getStepClass(step) {
+    // 🛡️ 防御代码：如果 step 是 undefined、null 或者不是字符串，直接返回空字符串
+    if (!step || typeof step !== 'string') {
+        console.warn("getStepClass 接收到了无效参数:", step); // 方便调试
+        return '';
+    }
+    
     const s = step.toLowerCase();
     if (s.includes('analyzing')) return 'analyzing';
     if (s.includes('plan')) return 'planning';
     if (s.includes('chat')) return 'chatting';
+    if (s.includes('error')) return 'error';
     return '';
 }
 

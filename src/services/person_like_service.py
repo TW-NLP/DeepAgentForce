@@ -11,13 +11,13 @@ from langchain_openai import ChatOpenAI
 import networkx as nx
 from typing import List, Dict, Tuple
 
-from config import settings
 
 
-class UserPreferenceMining:
+class UserPreferenceMining():
     """用户偏好挖掘,定时任务"""
     
-    def __init__(self,):
+    def __init__(self,settings):
+        self.settings = settings
         self.client = ChatOpenAI(base_url=settings.LLM_URL, api_key=settings.LLM_API_KEY, model=settings.LLM_MODEL)
 
         self.graph = nx.DiGraph()
@@ -229,7 +229,7 @@ class UserPreferenceMining:
         print(f"💾 知识图谱已保存: {filepath}")
 
     def get_frontend_format(self) -> Dict:
-        return json.loads(open(settings.PERSON_LIKE_FILE, 'r', encoding='utf-8').read())
+        return json.loads(open(self.settings.PERSON_LIKE_FILE, 'r', encoding='utf-8').read())
     def person_like_save(self) -> Dict:
         """
         返回符合前端要求的数据格式
@@ -237,8 +237,8 @@ class UserPreferenceMining:
         """
         # 获取session 数据
         sessions_list=[]
-        for file_i in os.listdir(settings.HISTORY_FILE):
-            file_path = os.path.join(settings.HISTORY_FILE, file_i)
+        for file_i in os.listdir(self.settings.HISTORY_DIR):
+            file_path = os.path.join(self.settings.HISTORY_DIR, file_i)
             with open(file_path, 'r', encoding='utf-8') as f:
                 file_data=json.load(f)
                 sessions_list.extend([i.get("user_content", "") for i in file_data.get('conversations', [])])
@@ -291,7 +291,7 @@ class UserPreferenceMining:
 5. **字数**：150字以内。
 """
         api_response['summary']=self.client.invoke(prompt).content.strip()
-        with open(settings.PERSON_LIKE_FILE, 'w', encoding='utf-8') as f:
+        with open(self.settings.PERSON_LIKE_FILE, 'w', encoding='utf-8') as f:
             json.dump(api_response, f, ensure_ascii=False, indent=2)
     
     def visualize_graph(self, output_path: str = 'preference_graph.png'):

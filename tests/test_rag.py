@@ -13,7 +13,7 @@ class RAGService:
     def __init__(self):
         """初始化 RAG 服务"""
         # 构建搜索 URL
-        self.search_url = f"http://localhost:8000/api/graphrag/query"
+        self.search_url = f"http://localhost:8000/api/rag/query"
           
     async def search_documents(self, query: str):
         logger.info(f"🔍 RAG 服务执行文档搜索: {query}")
