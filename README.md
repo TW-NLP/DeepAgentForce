@@ -127,7 +127,7 @@ python -m http.server 8080
 Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获取 API Key。
 
 1. **LLM Model Config**: 填入您的模型服务商信息 (API Key, URL, Model Name)。
-2. **RAG MOdel Config**: 配置 Embedding 模型参数（RAG服务）。
+2. **RAG Model Config**: 配置 Embedding 模型参数（RAG服务）。
 3. 点击 **保存配置**。系统会自动测试连接并持久化保存配置。
 <div align="center">
   <img src="images/model_config.jpg" alt="模型配置" width="80%">
@@ -186,17 +186,6 @@ Tavily 搜索配置请访问：[app.tavily.com](https://app.tavily.com/home) 获
 ## 🔌 API 开发文档
 
 后端提供标准的 OpenAPI/Swagger 文档。服务启动后，访问 `http://localhost:8000/docs` 即可查看和调试接口。
-
-| 模块 | Endpoint | 描述 |
-| --- | --- | --- |
-| **Chat** | `POST /chat` | 核心对话接口，触发 Agent 工作流 |
-| **History** | `GET /history/saved` | 拉取持久化的历史会话 |
-| **GraphRAG** | `POST /graphrag/upload` | 上传文件并触发异步索引任务 |
-| **GraphRAG** | `POST /graphrag/query` | 执行图谱增强的深度查询 |
-| **System** | `GET /config` | 获取当前系统运行参数 |
-
----
-
 
 ## Contact
 
