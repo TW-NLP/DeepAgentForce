@@ -4,7 +4,7 @@ import json
 import argparse
 import httpx
 
-
+# RAG 接口地址
 RAG_ENDPOINT = "http://localhost:8000/api/rag/query"
 
 

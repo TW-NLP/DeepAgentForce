@@ -11,9 +11,9 @@ import os
 from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(PROJECT_ROOT))
-from src.services.base import BaseConfigurableService
+from config.settings import Settings
 
-class TAVILYSearch(BaseConfigurableService):
+class TAVILYSearch():
     """Tavily Web Search Skill"""
     
     def __init__(self):
@@ -34,7 +34,9 @@ class TAVILYSearch(BaseConfigurableService):
         try:
             
             # Initialize client
-            client = TavilyClient(api_key=self.settings.TAVILY_API_KEY)
+            # get api key from settings
+            api_key_dict = json.loads(open(Settings.CONFIG_FILE,encoding='utf-8').read())
+            client = TavilyClient(api_key=api_key_dict.get("TAVILY_API_KEY"))
             
             print(f"🔍 Searching for: {query}")
             

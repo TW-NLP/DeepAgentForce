@@ -78,7 +78,7 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 50; /* 确保层级 */
+            z-index: 50;
         }
 
         .sidebar-header {
@@ -326,10 +326,9 @@
             flex: 1;
             overflow-y: auto;
             padding: 12px;
-            list-style: none; /* 去除列表点 */
+            list-style: none;
         }
         
-        /* 历史记录项样式 (新增) */
         .history-item {
             padding: 10px 12px;
             margin-bottom: 4px;
@@ -539,7 +538,6 @@
             font-size: 14px;
         }
 
-        /* Markdown 样式适配 */
         .message-content p { margin-bottom: 10px; }
         .message-content p:last-child { margin-bottom: 0; }
         .message-content code { background: #e0e0e0; padding: 2px 4px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; }
@@ -551,7 +549,7 @@
             border-color: rgba(59, 130, 246, 0.2);
         }
 
-        /* ============ 思考过程样式 - 可折叠 ============ */
+        /* ============ 思考过程样式 - 修复高度限制 ============ */
         .thinking-process {
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             border: 1px solid var(--border-light);
@@ -591,12 +589,10 @@
             font-size: 18px;
         }
 
+        /* 🔥 修复：移除 max-height 限制，让思考过程完全展开 */
         .thinking-content {
-            max-height: 800px;
-            overflow: hidden;
-            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
-                        opacity 0.3s ease,
-                        margin-top 0.3s ease;
+            overflow: visible;
+            transition: opacity 0.3s ease, margin-top 0.3s ease;
             margin-top: 12px;
             opacity: 1;
         }
@@ -605,6 +601,7 @@
             max-height: 0;
             opacity: 0;
             margin-top: 0;
+            overflow: hidden;
         }
 
         .thinking-step {
@@ -656,6 +653,7 @@
             font-size: 12px;
             color: var(--text-secondary);
             line-height: 1.5;
+            word-wrap: break-word;
         }
 
         .thinking-step.analyzing {
@@ -710,7 +708,7 @@
             }
         }
 
-        /* ============ 输入区域 ============ */
+        /* ============ 输入区域 - 添加文件上传 ============ */
         .input-area {
             background: var(--bg-secondary);
             border-top: 1px solid var(--border-light);
@@ -720,6 +718,59 @@
         .input-wrapper {
             max-width: 900px;
             margin: 0 auto;
+        }
+
+        /* 文件附件预览区域 */
+        .file-attachments {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .file-attachment {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .file-attachment:hover {
+            background: var(--bg-elevated);
+        }
+
+        .file-icon {
+            font-size: 16px;
+        }
+
+        .file-name {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-primary);
+        }
+
+        .file-size {
+            color: var(--text-tertiary);
+            font-size: 11px;
+        }
+
+        .file-remove {
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: color 0.2s;
+            margin-left: 4px;
+        }
+
+        .file-remove:hover {
+            color: var(--accent-error);
         }
 
         .input-container {
@@ -757,6 +808,32 @@
             color: var(--text-tertiary);
         }
 
+        .input-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .attach-button {
+            width: 36px;
+            height: 36px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .attach-button:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-accent);
+        }
+
         .send-button {
             width: 44px;
             height: 44px;
@@ -782,6 +859,10 @@
         .send-button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        #chatFileInput {
+            display: none;
         }
 
         /* ============ 知识库页面 ============ */
@@ -1300,7 +1381,6 @@
                     <span class="nav-icon">📚</span>
                     <span>知识库</span>
                 </div>
-                <!-- ⭐ 新增：用户画像按钮 -->
                 <div class="nav-item" data-page="personlike">
                     <span class="nav-icon">👤</span>
                     <span>用户画像</span>
@@ -1337,7 +1417,7 @@
                             <button class="icon-btn" id="sidebarNewChatBtn" style="width: 32px; height: 32px; font-size: 14px;" title="新建对话">➕</button>
                         </div>
                         <div class="history-list" id="historyList">
-                            </div>
+                        </div>
                     </aside>
 
                     <div class="chat-area">
@@ -1345,9 +1425,9 @@
                             <div class="messages-wrapper" id="messagesWrapper">
                                 <div class="welcome-screen" id="welcomeScreen">
                                     <div class="welcome-icon">🚀</div>
-                                    <h1 class="welcome-title">你好，我是智能研究助手</h1>
+                                    <h1 class="welcome-title">你好,我是智能研究助手</h1>
                                     <p class="welcome-subtitle">
-                                        我可以帮你搜索网络信息、查询知识库文档，并为你生成深入的研究报告。
+                                        我可以帮你搜索网络信息、查询知识库文档,并为你生成深入的研究报告。
                                     </p>
                                     
                                     <div class="quick-prompts">
@@ -1357,7 +1437,7 @@
                                             <div class="quick-prompt-desc">搜索知识库中的文档资料</div>
                                         </div>
                                         
-                                        <div class="quick-prompt-card" data-prompt="Python 3.13 有哪些新特性？">
+                                        <div class="quick-prompt-card" data-prompt="Python 3.13 有哪些新特性?">
                                             <span class="quick-prompt-icon">💻</span>
                                             <div class="quick-prompt-title">技术研究</div>
                                             <div class="quick-prompt-desc">了解最新的技术动态</div>
@@ -1381,6 +1461,9 @@
 
                         <div class="input-area">
                             <div class="input-wrapper">
+                                <!-- 文件附件预览区域 -->
+                                <div class="file-attachments" id="fileAttachments"></div>
+                                
                                 <div class="input-container">
                                     <textarea 
                                         class="message-input" 
@@ -1388,8 +1471,12 @@
                                         placeholder="输入你的问题..."
                                         rows="1"
                                     ></textarea>
-                                    <button class="send-button" id="sendButton">➤</button>
+                                    <div class="input-actions">
+                                        <button class="attach-button" id="attachButton" title="上传文档">📎</button>
+                                        <button class="send-button" id="sendButton">➤</button>
+                                    </div>
                                 </div>
+                                <input type="file" id="chatFileInput" accept=".pdf,.docx,.doc,.txt,.md,.markdown,.csv" multiple style="display: none;">
                             </div>
                         </div>
                     </div>
@@ -1401,7 +1488,7 @@
                     <div class="knowledge-content">
                         <div class="kb-header">
                             <h1 class="kb-title">知识库管理</h1>
-                            <p class="kb-subtitle">上传文档构建知识库，支持 PDF、Word、TXT、Markdown、CSV 格式</p>
+                            <p class="kb-subtitle">上传文档构建知识库,支持 PDF、Word、TXT、Markdown、CSV 格式</p>
                         </div>
 
                         <div class="kb-stats">
@@ -1537,7 +1624,6 @@
                 </div>
             </div>
             
-            <!-- ⭐ 新增：用户画像页面 -->
             <div class="page" id="personlikePage">
                 <div class="config-container">
                     <div class="config-content">
@@ -1550,9 +1636,7 @@
                             🔍 开始分析
                         </button>
                         
-                        <!-- 分析结果容器 -->
                         <div id="personLikeResult" style="display: none;">
-                            <!-- 知识图谱 -->
                             <div class="kb-section" style="margin-bottom: 20px;">
                                 <div class="section-header">
                                     <div class="section-title">🕸️ 知识图谱</div>
@@ -1562,7 +1646,6 @@
                                 </div>
                             </div>
                             
-                            <!-- Top偏好 -->
                             <div class="kb-section" style="margin-bottom: 20px;">
                                 <div class="section-header">
                                     <div class="section-title">💡 Top 用户偏好</div>
@@ -1572,7 +1655,6 @@
                                 </div>
                             </div>
                             
-                            <!-- 统计信息 -->
                             <div class="kb-stats">
                                 <div class="stat-card">
                                     <div class="stat-icon">📊</div>
@@ -1601,6 +1683,7 @@
                                         <div class="stat-label">聚类系数</div>
                                         <div class="stat-value" id="statClustering">0</div>
                                     </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1614,8 +1697,7 @@
     <script src="chat.js"></script>
     <script>
 /**
- * 用户画像 - 最终美化版
- * 集成：防缓存逻辑 + Canvas 高级渲染 + 错误处理
+ * 用户画像模块
  */
 const PERSON_API_BASE = 'http://localhost:8000/api';
 
@@ -1623,7 +1705,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('analyzePersonLikeBtn');
     
     if (btn) {
-        // 使用 cloneNode 清除之前可能绑定的所有事件，防止重复触发
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
         
@@ -1640,12 +1721,10 @@ async function runAnalysis(btn) {
     const originalText = btn.innerHTML;
     
     try {
-        // 1. 锁定按钮状态
         btn.disabled = true;
         btn.innerHTML = '<span class="status-dot"></span> 正在构建图谱...';
         btn.style.opacity = '0.7';
 
-        // 2. 请求数据
         console.log(`📡 请求: ${PERSON_API_BASE}/person_like`);
         const response = await fetch(`${PERSON_API_BASE}/person_like`);
         
@@ -1654,17 +1733,13 @@ async function runAnalysis(btn) {
         const data = await response.json();
         console.log('📦 数据获取成功', data);
 
-        // 3. 显示区域并渲染
         if (resultContainer) {
             resultContainer.style.display = 'block';
-            // 滚动到结果区域
             resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         renderStats(data.statistics);
         renderPreferences(data.preferences);
-        
-        // 延迟渲染 Canvas 确保容器宽度已计算
         requestAnimationFrame(() => renderBeautifulGraph(data.graph));
         
         if(window.showToast) window.showToast('用户画像构建完成', 'success');
@@ -1673,14 +1748,11 @@ async function runAnalysis(btn) {
         console.error('❌ 分析失败:', err);
         alert(`分析失败: ${err.message}\n请确保后端已启动且允许跨域(CORS)`);
     } finally {
-        // 4. 恢复按钮
         btn.disabled = false;
         btn.innerHTML = originalText;
         btn.style.opacity = '1';
     }
 }
-
-// ================= 渲染逻辑 =================
 
 function renderStats(stats) {
     if (!stats) return;
@@ -1703,11 +1775,10 @@ function renderPreferences(prefs) {
         return;
     }
 
-    // 按分数降序
     prefs.sort((a, b) => b.score - a.score);
 
     container.innerHTML = prefs.map((pref, i) => {
-        const width = Math.min(pref.score * 10, 100); // 假设满分10分
+        const width = Math.min(pref.score * 10, 100);
         return `
         <div class="preference-item" style="animation: slideIn 0.3s ease ${i * 0.1}s backwards">
             <span class="rank" style="color:${i < 3 ? '#ff6b6b' : '#666'}">#${i + 1}</span>
@@ -1725,7 +1796,6 @@ function renderBeautifulGraph(graphData) {
     const canvas = document.getElementById('graphCanvas');
     if (!canvas || !graphData) return;
 
-    // 自适应宽高
     const container = canvas.parentElement;
     const width = canvas.width = container.clientWidth || 800;
     const height = canvas.height = 500;
@@ -1734,7 +1804,6 @@ function renderBeautifulGraph(graphData) {
     const nodes = graphData.nodes || [];
     const edges = graphData.edges || [];
 
-    // 布局计算 (星形布局: 用户在中心)
     const centerX = width / 2;
     const centerY = height / 2;
     const radius = Math.min(width, height) / 3;
@@ -1743,9 +1812,8 @@ function renderBeautifulGraph(graphData) {
     const userNode = nodes.find(n => n.type === 'user' || n.id === 'USER');
     const entities = nodes.filter(n => n !== userNode);
 
-    // 设置坐标
     if (userNode) positions[userNode.id] = { x: centerX, y: centerY };
-    else positions['USER'] = { x: centerX, y: centerY }; // 容错
+    else positions['USER'] = { x: centerX, y: centerY };
 
     entities.forEach((node, i) => {
         const angle = (2 * Math.PI * i) / entities.length;
@@ -1755,16 +1823,13 @@ function renderBeautifulGraph(graphData) {
         };
     });
 
-    // --- 开始绘制 ---
     ctx.clearRect(0, 0, width, height);
 
-    // 1. 绘制连线
     ctx.lineWidth = 1.5;
     edges.forEach(edge => {
         const start = positions[edge.source];
         const end = positions[edge.target];
         if (start && end) {
-            // 创建渐变连线
             const grad = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
             grad.addColorStop(0, "rgba(200,200,200,0.2)");
             grad.addColorStop(0.5, "rgba(78, 205, 196, 0.6)");
@@ -1778,43 +1843,36 @@ function renderBeautifulGraph(graphData) {
         }
     });
 
-    // 2. 绘制节点
     nodes.forEach(node => {
         const pos = positions[node.id] || {x: centerX, y: centerY};
         const isUser = node.type === 'user';
         const nodeRadius = isUser ? 35 : 20;
 
-        // 阴影
         ctx.shadowColor = "rgba(0,0,0,0.15)";
         ctx.shadowBlur = 10;
         ctx.shadowOffsetY = 4;
 
-        // 节点背景
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
         ctx.fillStyle = isUser ? '#FF6B6B' : '#ffffff';
         ctx.fill();
 
-        // 边框
-        ctx.shadowBlur = 0; // 关闭阴影画边框
+        ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 0;
         ctx.lineWidth = isUser ? 0 : 2;
         ctx.strokeStyle = isUser ? 'transparent' : '#4ECDC4';
         ctx.stroke();
 
-        // 文字
         ctx.fillStyle = isUser ? '#fff' : '#333';
         ctx.font = isUser ? 'bold 14px Inter' : '12px Inter';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // 处理长文字截断
         let label = node.label || node.id;
         if (!isUser && label.length > 5) label = label.substring(0,5) + '..';
         
         ctx.fillText(label, pos.x, pos.y);
         
-        // 如果是实体，下方显示完整标签
         if (!isUser) {
             ctx.fillStyle = '#999';
             ctx.font = '10px Inter';
@@ -1828,14 +1886,14 @@ function renderBeautifulGraph(graphData) {
         const pageIcons = {
             'chat': '💬',
             'knowledge': '📚',
-            'personlike': '👤',  // ⭐ 新增
+            'personlike': '👤',
             'config': '⚙️'
         };
 
         const pageTitles = {
             'chat': '智能对话',
             'knowledge': '知识库管理',
-            'personlike': '用户画像',  // ⭐ 新增
+            'personlike': '用户画像',
             'config': '模型配置'
         };
 
@@ -1843,19 +1901,15 @@ function renderBeautifulGraph(graphData) {
             item.addEventListener('click', () => {
                 const page = item.getAttribute('data-page');
                 
-                // 更新导航状态
                 document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
                 item.classList.add('active');
                 
-                // 切换页面
                 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
                 document.getElementById(page + 'Page').classList.add('active');
                 
-                // 更新标题
                 document.getElementById('headerIcon').textContent = pageIcons[page];
                 document.getElementById('headerTitle').textContent = pageTitles[page];
                 
-                // 刷新对应页面数据
                 if (page === 'knowledge') {
                     if (typeof loadKnowledgeBaseStats === 'function') loadKnowledgeBaseStats();
                     if (typeof loadDocuments === 'function') loadDocuments();
@@ -1865,7 +1919,6 @@ function renderBeautifulGraph(graphData) {
             });
         });
 
-        // ============ 思考过程折叠功能 ============
         function toggleThinking(element) {
             const header = element.closest('.thinking-header');
             const toggle = header.querySelector('.thinking-toggle');
@@ -1875,10 +1928,8 @@ function renderBeautifulGraph(graphData) {
             content.classList.toggle('collapsed');
         }
         
-        // 全局暴露折叠函数
         window.toggleThinking = toggleThinking;
 
-        // Toast 通知
         function showToast(message, type = 'success') {
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
@@ -1894,7 +1945,6 @@ function renderBeautifulGraph(graphData) {
             }, 3000);
         }
 
-        // 全局暴露 showToast
         window.showToast = showToast;
     </script>
 </body>

@@ -1,6 +1,9 @@
 /**
- * 对话功能 JavaScript - 完整版
- * 包含：WebSocket 流式对话、历史记录侧边栏加载、思考过程展示
+ * 对话功能 JavaScript - 完整版 (修复版)
+ * 修复内容:
+ * 1. 移除思考过程容器的高度限制,确保所有步骤都能显示
+ * 2. 添加文档上传功能,支持在对话中附加文件
+ * 3. 优化 WebSocket 消息处理逻辑
  */
 
 const WS_URL = 'ws://localhost:8000/ws/stream';
@@ -14,15 +17,21 @@ let currentStreamingAnswer = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
+// 📎 文件上传相关变量
+let attachedFiles = [];
+
 // DOM 元素引用
 const messagesWrapper = document.getElementById('messagesWrapper');
 const messagesArea = document.getElementById('messagesArea');
 const welcomeScreen = document.getElementById('welcomeScreen');
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
-const historyList = document.getElementById('historyList'); // 侧边栏列表
-const newChatBtn = document.getElementById('newChatBtn'); // 顶部新建按钮
-const sidebarNewChatBtn = document.getElementById('sidebarNewChatBtn'); // 侧边栏新建按钮
+const attachButton = document.getElementById('attachButton');
+const chatFileInput = document.getElementById('chatFileInput');
+const fileAttachmentsContainer = document.getElementById('fileAttachments');
+const historyList = document.getElementById('historyList');
+const newChatBtn = document.getElementById('newChatBtn');
+const sidebarNewChatBtn = document.getElementById('sidebarNewChatBtn');
 const statusIndicator = document.getElementById('statusIndicator');
 const statusText = document.getElementById('statusText');
 
@@ -30,7 +39,7 @@ const statusText = document.getElementById('statusText');
 async function loadSavedHistory() {
     try {
         console.log("正在加载历史记录...");
-        const response = await fetch(`${API_URL}/history/saved`);  // ← 修复这里
+        const response = await fetch(`${API_URL}/history/saved`);
         
         if (!response.ok) {
             console.warn("无法连接到历史记录接口");
@@ -39,14 +48,11 @@ async function loadSavedHistory() {
 
         const data = await response.json();
         
-        // 清空列表
         if (historyList) {
             historyList.innerHTML = '';
         }
 
-        // 适配新的数据结构：sessions
         if (data.success && Array.isArray(data.sessions) && data.sessions.length > 0) {
-            // 按更新时间倒序排列
             const sortedSessions = [...data.sessions].sort((a, b) => 
                 new Date(b.updated_at) - new Date(a.updated_at)
             );
@@ -93,47 +99,33 @@ async function loadSavedHistory() {
         console.error("加载历史记录失败:", error);
     }
 }
-/**
- * 恢复显示某一段历史对话
- */
+
 function restoreSession(session) {
-    // 1. 清空当前屏幕
     resetChatUI();
 
-    // 2. 遍历显示所有对话
     if (session.conversation && session.conversation.length > 0) {
         session.conversation.forEach(msg => {
-            // 显示用户提问
             if (msg.user_content) {
                 addMessage('user', msg.user_content);
             }
-            // 显示 AI 回答
             if (msg.ai_content) {
                 addMessage('assistant', msg.ai_content);
             }
         });
     }
 }
-/**
- * 重置聊天界面 (清空消息，显示欢迎页)
- * 但这里我们实际上是清空消息，隐藏欢迎页(如果有新消息)
- */
+
 function resetChatUI() {
     messagesWrapper.innerHTML = '';
-    // 隐藏欢迎页 (因为要显示消息了)
     hideWelcomeScreen();
-    // 重置状态
     currentThinkingContainer = null;
     currentStreamingAnswer = null;
     isProcessing = false;
+    clearAttachedFiles();
 }
 
-/**
- * 完全重置为初始状态 (点击新建对话时)
- */
 function startNewChat() {
     messagesWrapper.innerHTML = '';
-    // 重新把欢迎页放回去
     messagesWrapper.appendChild(welcomeScreen);
     welcomeScreen.style.display = 'flex';
     
@@ -142,6 +134,7 @@ function startNewChat() {
     isProcessing = false;
     messageInput.value = '';
     messageInput.focus();
+    clearAttachedFiles();
 }
 
 // ============ 2. WebSocket 连接管理 ============
@@ -192,14 +185,11 @@ function handleWebSocketMessage(payload) {
             break;
             
         case 'token':
-            // 兼容 token 可能的位置
             const token = payload.content || (payload.data ? payload.data.content : '');
             if (token) handleTokenUpdate(token);
             break;
             
         case 'done':
-            // 【关键修复】从 payload.data.message 提取最终文本
-            // 如果 payload.data 不存在，尝试直接读取 payload.message
             const finalMsg = (payload.data && payload.data.message) 
                 ? payload.data.message 
                 : payload.message;
@@ -214,6 +204,7 @@ function handleWebSocketMessage(payload) {
             break;
     }
 }
+
 function updateStatus(connected) {
     if (statusIndicator) {
         if (connected) {
@@ -225,19 +216,18 @@ function updateStatus(connected) {
         }
     }
 }
+
+// ============ 3. 思考过程处理 - 修复显示不全问题 ============
+
 function handleStepUpdate(payload) {
     hideWelcomeScreen();
 
-    // 🔍 这里的 payload 是整个 WebSocket 消息对象
-    // 我们需要取里面的 data 字段
     const stepData = payload.data || {}; 
-    
-    // 提取 step 类型
     const stepType = stepData.step || 'processing';
 
     console.log("处理步骤更新:", stepType); 
 
-    // 如果还没有思考容器，创建一个
+    // 如果还没有思考容器,创建一个
     if (!currentThinkingContainer) {
         currentThinkingContainer = document.createElement('div');
         currentThinkingContainer.className = 'thinking-process';
@@ -255,14 +245,11 @@ function handleStepUpdate(payload) {
     const stepsContainer = currentThinkingContainer.querySelector('.thinking-content');
     
     const stepDiv = document.createElement('div');
-    
-    // ✅ 正确传递 stepType
     stepDiv.className = `thinking-step ${getStepClass(stepType)}`;
     
     const icon = getStepIcon(stepType); 
     const title = stepData.title || '处理中';
     
-    // 处理 description 可能是对象的情况
     let description = stepData.description || '';
     if (typeof description === 'object') {
         try {
@@ -281,52 +268,42 @@ function handleStepUpdate(payload) {
     `;
     
     stepsContainer.appendChild(stepDiv);
+    
+    // 🔥 关键修复: 确保滚动到底部,显示所有步骤
     scrollToBottom();
 }
 
-function handleDone(finalMessage) {
-    console.log('🏁 handleDone 执行，finalMessage:', finalMessage);
-    
-    // 情况 A: 之前有流式输出框 (currentStreamingAnswer 存在)
-    if (currentStreamingAnswer) {
-        const contentDiv = currentStreamingAnswer.querySelector('.message-content');
-        contentDiv.classList.remove('streaming');
-        // 确保最终内容完整（防止流式丢包，用最终结果覆盖一次）
-        if (finalMessage) {
-             if (typeof marked !== 'undefined') {
-                contentDiv.innerHTML = marked.parse(finalMessage);
-            } else {
-                contentDiv.textContent = finalMessage;
-            }
-        }
-    } 
-    // 情况 B: 之前没有流式输出 (比如这次只有思考过程，没有产生 token，直接 done)
-    // 必须手动添加一条 AI 消息
-    else if (finalMessage) {
-        console.log('📝 没有流式框，手动添加最终消息');
-        addMessage('assistant', finalMessage);
-    } else {
-        console.warn('⚠️ handleDone 被调用但没有消息内容，也没有流式框');
+function getStepIcon(step) {
+    if (!step || typeof step !== 'string') {
+        return '⚙️';
     }
+
+    const s = step.toLowerCase();
     
-    // 清理状态
-    currentThinkingContainer = null;
-    currentStreamingAnswer = null;
-    isProcessing = false;
+    if (s.includes('init') || s.includes('开始')) return '🤔';
+    if (s.includes('tool_start') || s.includes('调用')) return '🔧';
+    if (s.includes('tool_end') || s.includes('完成')) return '✅';
+    if (s.includes('finish') || s.includes('结束')) return '🎯';
+    if (s.includes('error')) return '❌';
     
-    // 恢复按钮状态
-    if (sendButton) sendButton.disabled = false;
-    if (messageInput) {
-        messageInput.disabled = false;
-        messageInput.focus();
-    }
-    
-    // 刷新历史记录列表
-    if (typeof loadSavedHistory === 'function') {
-        loadSavedHistory();
-    }
+    return '⚙️';
 }
-// ============ 3. 消息渲染与流式处理 ============
+
+function getStepClass(step) {
+    if (!step || typeof step !== 'string') {
+        console.warn("getStepClass 接收到了无效参数:", step);
+        return '';
+    }
+    
+    const s = step.toLowerCase();
+    if (s.includes('analyzing')) return 'analyzing';
+    if (s.includes('plan')) return 'planning';
+    if (s.includes('chat')) return 'chatting';
+    if (s.includes('error')) return 'error';
+    return '';
+}
+
+// ============ 4. 消息渲染与流式处理 ============
 
 function hideWelcomeScreen() {
     if (welcomeScreen) {
@@ -345,7 +322,6 @@ function addMessage(role, content) {
     let innerHTML = '';
     
     if (role === 'user') {
-        // 用户消息，简单文本转义
         const textDiv = document.createElement('div');
         textDiv.textContent = content;
         innerHTML = `
@@ -357,7 +333,6 @@ function addMessage(role, content) {
             <div class="message-content">${textDiv.innerHTML}</div>
         `;
     } else {
-        // AI 消息，Markdown 解析
         const parsed = typeof marked !== 'undefined' ? marked.parse(content) : content;
         innerHTML = `
             <div class="message-header">
@@ -374,103 +349,8 @@ function addMessage(role, content) {
     scrollToBottom();
 }
 
-function handleStepUpdate(payload) {
-    // 1. 隐藏欢迎页
-    hideWelcomeScreen();
-
-    console.log("正在处理 Step 数据:", payload); // 调试日志
-
-    // 🔥 核心修正点：必须先从 payload 中取出 data 字段
-    // payload 结构是: { type: 'step', data: { step: 'init', title: '...' } }
-    const stepData = payload.data || {}; 
-    
-    // 现在 stepData.step 才是真正的 "init"
-    const stepType = stepData.step || 'processing';
-
-    // 2. 如果还没有思考容器，创建一个
-    if (!currentThinkingContainer) {
-        currentThinkingContainer = document.createElement('div');
-        currentThinkingContainer.className = 'thinking-process';
-        currentThinkingContainer.innerHTML = `
-            <div class="thinking-header" onclick="toggleThinking(this)">
-                <span class="thinking-toggle">▼</span>
-                <span class="thinking-title">思考过程</span>
-                <span class="thinking-icon">⚙️</span>
-            </div>
-            <div class="thinking-content"></div>
-        `;
-        messagesWrapper.appendChild(currentThinkingContainer);
-    }
-
-    const stepsContainer = currentThinkingContainer.querySelector('.thinking-content');
-    
-    // 3. 创建步骤条目
-    const stepDiv = document.createElement('div');
-    
-    // 🔥 修正点：这里传入提取好的 stepType ('init')，而不是 undefined
-    stepDiv.className = `thinking-step ${getStepClass(stepType)}`;
-    
-    const icon = getStepIcon(stepType);
-    const title = stepData.title || '处理中';
-    
-    // 处理 description 可能是对象的情况
-    let description = stepData.description || '';
-    if (typeof description === 'object') {
-        try {
-            description = JSON.stringify(description);
-        } catch(e) {
-            description = "详细信息...";
-        }
-    }
-    
-    stepDiv.innerHTML = `
-        <span class="step-icon">${icon}</span>
-        <div class="step-content">
-            <div class="step-title">${title}</div>
-            <div class="step-description">${description}</div>
-        </div>
-    `;
-    
-    stepsContainer.appendChild(stepDiv);
-    scrollToBottom();
-}
-
-function getStepIcon(step) {
-    // 🛡️ 防御代码
-    if (!step || typeof step !== 'string') {
-        return '⚙️';
-    }
-
-    const s = step.toLowerCase();
-    
-    if (s.includes('init') || s.includes('开始')) return '🤔';
-    if (s.includes('tool_start') || s.includes('调用')) return '🔧';
-    if (s.includes('tool_end') || s.includes('完成')) return '✅';
-    if (s.includes('finish') || s.includes('结束')) return '🎯';
-    if (s.includes('error')) return '❌';
-    
-    return '⚙️';
-}
-
-function getStepClass(step) {
-    // 🛡️ 防御代码：如果 step 是 undefined、null 或者不是字符串，直接返回空字符串
-    if (!step || typeof step !== 'string') {
-        console.warn("getStepClass 接收到了无效参数:", step); // 方便调试
-        return '';
-    }
-    
-    const s = step.toLowerCase();
-    if (s.includes('analyzing')) return 'analyzing';
-    if (s.includes('plan')) return 'planning';
-    if (s.includes('chat')) return 'chatting';
-    if (s.includes('error')) return 'error';
-    return '';
-}
-
-// 处理文本流 (Token)
 function handleTokenUpdate(token) {
     if (!currentStreamingAnswer) {
-        // 创建新的 AI 回复框
         currentStreamingAnswer = document.createElement('div');
         currentStreamingAnswer.className = 'message assistant';
         const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -487,12 +367,10 @@ function handleTokenUpdate(token) {
     }
     
     const contentDiv = currentStreamingAnswer.querySelector('.message-content');
-    // 获取当前暂存的原始文本
     const currentRaw = contentDiv.dataset.raw || '';
     const newRaw = currentRaw + token;
     contentDiv.dataset.raw = newRaw;
     
-    // 实时解析 Markdown
     if (typeof marked !== 'undefined') {
         contentDiv.innerHTML = marked.parse(newRaw);
     } else {
@@ -502,8 +380,42 @@ function handleTokenUpdate(token) {
     scrollToBottom();
 }
 
+function handleDone(finalMessage) {
+    console.log('🏁 handleDone 执行,finalMessage:', finalMessage);
+    
+    if (currentStreamingAnswer) {
+        const contentDiv = currentStreamingAnswer.querySelector('.message-content');
+        contentDiv.classList.remove('streaming');
+        if (finalMessage) {
+             if (typeof marked !== 'undefined') {
+                contentDiv.innerHTML = marked.parse(finalMessage);
+            } else {
+                contentDiv.textContent = finalMessage;
+            }
+        }
+    } 
+    else if (finalMessage) {
+        console.log('📝 没有流式框,手动添加最终消息');
+        addMessage('assistant', finalMessage);
+    } else {
+        console.warn('⚠️ handleDone 被调用但没有消息内容,也没有流式框');
+    }
+    
+    currentThinkingContainer = null;
+    currentStreamingAnswer = null;
+    isProcessing = false;
+    
+    if (sendButton) sendButton.disabled = false;
+    if (messageInput) {
+        messageInput.disabled = false;
+        messageInput.focus();
+    }
+    
+    if (typeof loadSavedHistory === 'function') {
+        loadSavedHistory();
+    }
+}
 
-// 处理错误 (Error)
 function handleError(msg) {
     addMessage('assistant', `❌ 错误: ${msg}`);
     isProcessing = false;
@@ -511,31 +423,176 @@ function handleError(msg) {
     if (messageInput) messageInput.disabled = false;
 }
 
-// ============ 4. 发送与交互逻辑 ============
+// ============ 5. 文件上传功能 ============
 
-function sendMessage(text = null) {
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    const iconMap = {
+        'pdf': '📄',
+        'doc': '📝',
+        'docx': '📝',
+        'txt': '📃',
+        'md': '📋',
+        'markdown': '📋',
+        'csv': '📊'
+    };
+    return iconMap[ext] || '📎';
+}
+
+function renderFileAttachments() {
+    if (!fileAttachmentsContainer) return;
+    
+    if (attachedFiles.length === 0) {
+        fileAttachmentsContainer.innerHTML = '';
+        fileAttachmentsContainer.style.display = 'none';
+        return;
+    }
+    
+    fileAttachmentsContainer.style.display = 'flex';
+    fileAttachmentsContainer.innerHTML = attachedFiles.map((file, index) => `
+        <div class="file-attachment">
+            <span class="file-icon">${getFileIcon(file.name)}</span>
+            <span class="file-name" title="${file.name}">${file.name}</span>
+            <span class="file-size">${formatFileSize(file.size)}</span>
+            <span class="file-remove" onclick="removeAttachment(${index})">✕</span>
+        </div>
+    `).join('');
+}
+
+function removeAttachment(index) {
+    attachedFiles.splice(index, 1);
+    renderFileAttachments();
+}
+
+function clearAttachedFiles() {
+    attachedFiles = [];
+    renderFileAttachments();
+}
+
+// 绑定文件上传按钮
+if (attachButton) {
+    attachButton.addEventListener('click', () => {
+        chatFileInput.click();
+    });
+}
+
+if (chatFileInput) {
+    chatFileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        
+        // 检查文件数量限制
+        if (attachedFiles.length + files.length > 10) {
+            if (window.showToast) {
+                window.showToast('最多只能上传10个文件', 'error');
+            } else {
+                alert('最多只能上传10个文件');
+            }
+            chatFileInput.value = '';
+            return;
+        }
+        
+        // 检查单个文件大小 (10MB)
+        const maxSize = 10 * 1024 * 1024;
+        for (let file of files) {
+            if (file.size > maxSize) {
+                if (window.showToast) {
+                    window.showToast(`文件 ${file.name} 超过10MB限制`, 'error');
+                } else {
+                    alert(`文件 ${file.name} 超过10MB限制`);
+                }
+                chatFileInput.value = '';
+                return;
+            }
+        }
+        
+        attachedFiles.push(...files);
+        renderFileAttachments();
+        chatFileInput.value = '';
+    });
+}
+
+// 暴露给全局
+window.removeAttachment = removeAttachment;
+
+// ============ 6. 发送与交互逻辑 ============
+
+async function sendMessage(text = null) {
     const message = text || messageInput.value.trim();
     
-    if (!message || !isConnected || isProcessing) {
-        if (!isConnected) showToast("未连接到服务器", "error");
+    if ((!message && attachedFiles.length === 0) || !isConnected || isProcessing) {
+        if (!isConnected && window.showToast) {
+            window.showToast("未连接到服务器", "error");
+        }
         return;
     }
 
-    // 1. 显示用户消息
-    addMessage('user', message);
+    // 如果有文件,需要先上传到后端
+    if (attachedFiles.length > 0) {
+        try {
+            const formData = new FormData();
+            formData.append('message', message);
+            attachedFiles.forEach((file, index) => {
+                formData.append('files', file);
+            });
+
+            // 显示用户消息 (含文件信息)
+            let userMessage = message;
+            if (attachedFiles.length > 0) {
+                const fileNames = attachedFiles.map(f => f.name).join(', ');
+                userMessage += `\n\n📎 附件: ${fileNames}`;
+            }
+            addMessage('user', userMessage);
+            
+            // 发送到后端 (带文件)
+            const response = await fetch(`${API_URL}/chat/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('文件上传失败');
+            }
+            
+            const result = await response.json();
+            
+            // 清空附件
+            clearAttachedFiles();
+            
+            // 后端会通过WebSocket返回结果,这里只需要等待
+            isProcessing = true;
+            sendButton.disabled = true;
+            messageInput.disabled = true;
+            
+        } catch (error) {
+            console.error('文件上传错误:', error);
+            if (window.showToast) {
+                window.showToast('文件上传失败: ' + error.message, 'error');
+            }
+            return;
+        }
+    } else {
+        // 无文件,直接WebSocket发送
+        addMessage('user', message);
+        ws.send(JSON.stringify({ message }));
+        
+        isProcessing = true;
+        sendButton.disabled = true;
+        messageInput.disabled = true;
+    }
     
-    // 2. 发送 WebSocket
-    ws.send(JSON.stringify({ message }));
-    
-    // 3. UI 状态更新
+    // UI 状态更新
     if (!text) {
         messageInput.value = '';
         messageInput.style.height = 'auto';
     }
-    
-    isProcessing = true;
-    sendButton.disabled = true;
-    messageInput.disabled = true;
 }
 
 function scrollToBottom() {
@@ -561,12 +618,10 @@ function attachQuickPromptListeners() {
     });
 }
 
-// ============ 5. 初始化绑定 ============
+// ============ 7. 初始化绑定 ============
 
-// 绑定发送按钮
 if (sendButton) sendButton.addEventListener('click', () => sendMessage());
 
-// 绑定输入框回车
 if (messageInput) {
     messageInput.addEventListener('input', autoResizeTextarea);
     messageInput.addEventListener('keydown', (e) => {
@@ -577,11 +632,9 @@ if (messageInput) {
     });
 }
 
-// 绑定新建对话按钮 (Header 和 侧边栏)
 if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
 if (sidebarNewChatBtn) sidebarNewChatBtn.addEventListener('click', startNewChat);
 
-// 启动
 attachQuickPromptListeners();
 connectWebSocket();
-loadSavedHistory(); // 页面加载时自动获取历史记录
+loadSavedHistory();

@@ -18,27 +18,8 @@ import tiktoken
 from openai import AsyncOpenAI
 from pymilvus import MilvusClient, DataType
 
-from src.services.base import BaseConfigurableService
-
-# ==================== 配置 ====================
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MilvusRAG")
-
-# 配置路径与 Key (请修改为你的实际配置)
-# STORAGE_DIR = Path("./rag_storage")
-# UPLOAD_DIR = Path("./uploads")
-# MILVUS_URI = "./milvus_rag.db" 
-# MILVUS_COLLECTION = "rag_chunks"
-
-# # 替换为你的 API Key 和 Base URL
-# LLM_API_KEY = "sk-xxxxxxxxxxxxxxxxxxxxxxxx"
-# LLM_BASE_URL = "https://api.openai.com/v1"
-# EMBEDDING_MODEL = "text-embedding-3-small"
-# CHAT_MODEL = "gpt-4o"
-# EMBEDDING_DIM = 1536
-
-# STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-# UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ==================== Pydantic Models (接口定义) ====================
 
