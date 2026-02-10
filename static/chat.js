@@ -1,11 +1,13 @@
 /**
- * 对话功能 JavaScript - 优化版
- * 新增：历史记录恢复时显示思考过程
+ * 对话功能 JavaScript - 完整修复版
+ * 修复：附件上传后历史记录不保存/不显示的问题
+ * 修复：会话 ID 丢失导致创建新会话的问题
  */
 
 const WS_URL = 'ws://localhost:8000/ws/stream';
 const API_URL = 'http://localhost:8000/api';
 
+// ============ 0. 全局变量定义 ============
 let ws = null;
 let isConnected = false;
 let isProcessing = false;
@@ -13,6 +15,9 @@ let currentThinkingContainer = null;
 let currentStreamingAnswer = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
+
+// 🔥 核心修复：定义全局 session ID
+let currentSessionId = null;
 
 // 📎 文件上传相关变量
 let attachedFiles = [];
@@ -33,6 +38,7 @@ const statusIndicator = document.getElementById('statusIndicator');
 const statusText = document.getElementById('statusText');
 
 // ============ 1. 历史记录加载与管理 ============
+
 async function loadSavedHistory() {
     try {
         console.log("正在加载历史记录...");
@@ -58,6 +64,11 @@ async function loadSavedHistory() {
                 const li = document.createElement('li');
                 li.className = 'history-item';
                 
+                // 高亮当前选中的会话
+                if (currentSessionId === session.session_id) {
+                    li.classList.add('active'); 
+                }
+
                 let title = session.title || '新对话';
                 
                 if (title === '新对话' && session.conversation && session.conversation.length > 0) {
@@ -101,6 +112,13 @@ async function loadSavedHistory() {
  * 🆕 恢复会话时显示完整内容（包括思考过程）
  */
 function restoreSession(session) {
+    // 🔥 核心修复：点击历史记录时，更新当前 Session ID
+    currentSessionId = session.session_id;
+    console.log("已恢复会话 ID:", currentSessionId);
+
+    // 重新加载列表以更新高亮状态
+    loadSavedHistory();
+
     resetChatUI();
 
     if (session.conversation && session.conversation.length > 0) {
@@ -177,6 +195,13 @@ function resetChatUI() {
 }
 
 function startNewChat() {
+    // 🔥 核心修复：开启新对话时，清空 ID
+    currentSessionId = null;
+    console.log("开启新会话，Session ID 已重置");
+    
+    // 刷新列表去除高亮
+    loadSavedHistory();
+
     messagesWrapper.innerHTML = '';
     messagesWrapper.appendChild(welcomeScreen);
     welcomeScreen.style.display = 'flex';
@@ -245,7 +270,12 @@ function handleWebSocketMessage(payload) {
             const finalMsg = (payload.data && payload.data.message) 
                 ? payload.data.message 
                 : payload.message;
-                
+            
+            // 如果后端 WebSocket 也返回了 session_id，这里也可以捕获
+            if (payload.data && payload.data.session_id) {
+                currentSessionId = payload.data.session_id;
+            }
+
             console.log('✅ 提取到最终消息:', finalMsg);
             handleDone(finalMsg);
             break;
@@ -460,6 +490,7 @@ function handleDone(finalMessage) {
         messageInput.focus();
     }
     
+    // 🔥 核心修复：每次完成对话后，刷新历史记录列表
     if (typeof loadSavedHistory === 'function') {
         loadSavedHistory();
     }
@@ -580,13 +611,21 @@ async function sendMessage(text = null) {
     }
 
     if (attachedFiles.length > 0) {
+        // ============ 📁 场景1：带附件的上传 (使用 HTTP POST) ============
         try {
             const formData = new FormData();
             formData.append('message', message);
+
+            // 🔥 核心修复：如果已存在会话，发送 session_id
+            if (currentSessionId) {
+                formData.append('session_id', currentSessionId);
+            }
+            
             attachedFiles.forEach((file, index) => {
                 formData.append('files', file);
             });
 
+            // 在 UI 上显示用户消息
             let userMessage = message;
             if (attachedFiles.length > 0) {
                 const fileNames = attachedFiles.map(f => f.name).join(', ');
@@ -594,6 +633,11 @@ async function sendMessage(text = null) {
             }
             addMessage('user', userMessage);
             
+            // 锁定输入
+            isProcessing = true;
+            sendButton.disabled = true;
+            messageInput.disabled = true;
+
             const response = await fetch(`${API_URL}/chat/upload`, {
                 method: 'POST',
                 body: formData
@@ -608,30 +652,40 @@ async function sendMessage(text = null) {
             clearAttachedFiles();
             console.log("收到附件上传回复:", result);
 
+            // 🔥 核心修复：捕获后端返回的最新 session_id
+            if (result.session_id) {
+                currentSessionId = result.session_id;
+                console.log("会话 ID 更新为:", currentSessionId);
+            }
+
+            // 立刻刷新左侧历史记录
+            loadSavedHistory();
+
+            // 显示 AI 回复
             if (result.message) {
-                // 直接调用 handleDone 来显示 AI 的最终回复，并恢复按钮状态
                 handleDone(result.message); 
             } else {
-                // 如果没有消息内容，手动恢复状态
+                // 如果后端没返回 message 字段，手动重置状态
                 isProcessing = false;
                 sendButton.disabled = false;
                 messageInput.disabled = false;
             }
             
-            isProcessing = true;
-            sendButton.disabled = true;
-            messageInput.disabled = true;
-            
         } catch (error) {
             console.error('文件上传错误:', error);
-            if (window.showToast) {
-                window.showToast('文件上传失败: ' + error.message, 'error');
-            }
-            return;
+            handleError('文件上传失败: ' + error.message);
         }
     } else {
+        // ============ 💬 场景2：普通对话 (使用 WebSocket) ============
         addMessage('user', message);
-        ws.send(JSON.stringify({ message }));
+        
+        // 构造发送对象，如果有会话 ID 则带上
+        const payload = { message };
+        if (currentSessionId) {
+            payload.session_id = currentSessionId;
+        }
+        
+        ws.send(JSON.stringify(payload));
         
         isProcessing = true;
         sendButton.disabled = true;
@@ -683,6 +737,19 @@ if (messageInput) {
 
 if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
 if (sidebarNewChatBtn) sidebarNewChatBtn.addEventListener('click', startNewChat);
+
+// 全局暴露 helper，方便 HTML 调用
+window.toggleThinking = function(header) {
+    const content = header.nextElementSibling;
+    const toggle = header.querySelector('.thinking-toggle');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        toggle.style.transform = 'rotate(0deg)';
+    } else {
+        content.style.display = 'none';
+        toggle.style.transform = 'rotate(-90deg)';
+    }
+};
 
 attachQuickPromptListeners();
 connectWebSocket();
