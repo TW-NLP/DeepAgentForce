@@ -1,6 +1,7 @@
 """
 WebSocket 处理模块
 支持实时流式对话 + 会话级别的对话历史管理
+新增：完整保存思考过程（thinking_steps）
 """
 
 import asyncio
@@ -37,11 +38,23 @@ def setup_websocket_routes(app: FastAPI):
         await websocket.accept()
         session_id = None
         
+        # 🆕 用于收集当前对话的思考过程
+        current_thinking_steps = []
+        
         try:
             # 1. 定义极其强壮的回调函数
             status_callback = StatusCallback()
             
             async def ws_callback(event_type: str, data: dict):
+                # 🆕 收集思考过程
+                if event_type == "step":
+                    # 将每个 step 事件保存到当前对话的思考过程列表
+                    current_thinking_steps.append({
+                        "timestamp": datetime.now().isoformat(),
+                        "event_type": event_type,
+                        "data": data
+                    })
+                
                 # 关键检查：如果连接已关闭，不要尝试发送
                 if websocket.client_state != WebSocketState.CONNECTED:
                     logger.warning(f"WS已断开，跳过发送: {event_type}")
@@ -86,6 +99,9 @@ def setup_websocket_routes(app: FastAPI):
                 message = data.get("message", "")
                 if not message: continue
                 
+                # 🆕 重置思考过程列表（每次新对话开始时清空）
+                current_thinking_steps = []
+                
                 # 双重保险：确保 agent 里的 callback 是最新的
                 agent.status_callback = status_callback
                 
@@ -94,11 +110,12 @@ def setup_websocket_routes(app: FastAPI):
                 # 要测试思考框，请问 "查询一下目前DeepSeek的消息"
                 response = await agent.chat(message, thread_id=session_id)
                 
-                # 保存历史
+                # 🆕 保存历史（包含思考过程）
                 engine.history_manager.add_conversation(
                     session_id=session_id, 
                     user_message=message, 
                     ai_response=response,
+                    thinking_steps=current_thinking_steps,  # 传递思考过程
                     metadata={"source": "websocket"}
                 )
                 
@@ -144,7 +161,24 @@ class ConversationHistoryManager:
             json.dump(session_data, f, ensure_ascii=False, indent=2)
         return session_id
     
-    def add_conversation(self, session_id: str, user_message: str, ai_response: str, metadata: Optional[dict] = None):
+    def add_conversation(
+        self, 
+        session_id: str, 
+        user_message: str, 
+        ai_response: str, 
+        thinking_steps: Optional[list] = None,  # 🆕 新增参数
+        metadata: Optional[dict] = None
+    ):
+        """
+        添加对话记录，包含思考过程
+        
+        Args:
+            session_id: 会话ID
+            user_message: 用户消息
+            ai_response: AI回复
+            thinking_steps: 思考过程列表（包含所有 step 事件）
+            metadata: 元数据
+        """
         session_file = self._get_session_file_path(session_id)
         if not session_file.exists():
             self.create_session(session_id)
@@ -158,6 +192,11 @@ class ConversationHistoryManager:
             "user_content": user_message,
             "ai_content": ai_response
         }
+        
+        # 🆕 添加思考过程
+        if thinking_steps:
+            conversation["thinking_steps"] = thinking_steps
+        
         if metadata:
             conversation["metadata"] = metadata
         

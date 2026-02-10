@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Dict, List
 from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from src.utils.setting_utils import save_config_to_file
 
 logger = logging.getLogger(__name__)
@@ -14,14 +14,41 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ==================== 数据模型 (Pydantic) ====================
+class ThinkingStep(BaseModel):
+    """思考步骤"""
+    step_type: str = Field(..., description="步骤类型: init/tool_start/tool_end/finish")
+    title: str = Field(..., description="步骤标题")
+    description: str = Field(..., description="步骤描述")
+    timestamp: str = Field(..., description="时间戳")
+
+
+class ToolCall(BaseModel):
+    """工具调用记录"""
+    tool_name: Optional[str] = None
+    arguments: Optional[Dict[str, Any]] = None
+    result: Optional[Any] = None
+
+class ConversationItem(BaseModel):
+    """单条对话记录"""
+    id: str
+    timestamp: str
+    user_content: str
+    ai_content: str
+    thinking_steps: List[ThinkingStep] = Field(default_factory=list, description="思考过程")
+    tool_calls: List[ToolCall] = Field(default_factory=list, description="工具调用记录")
+    metadata: Optional[Dict[str, Any]] = None
+    tokens_used: Optional[int] = 0
+    duration_ms: Optional[int] = 0
 
 class SavedSessionItem(BaseModel):
+    """会话记录"""
     session_id: str
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
-    conversation_count: int
-    conversation: List[Dict[str, Any]] = []
-    title: Optional[str] = "新对话"
+    conversation_count: int = 0
+    conversation: List[ConversationItem] = Field(default_factory=list)  # 🔥 使用完整的 ConversationItem
+    title: Optional[str] = "历史对话"
+    statistics: Optional[Dict[str, Any]] = None  # 新增统计信息
 
 class SavedHistoryListResponse(BaseModel):
     success: bool
@@ -116,21 +143,67 @@ async def chat(request: Request, chat_req: ChatRequest):
 
 @router.get("/history/saved", response_model=SavedHistoryListResponse, tags=["对话历史"])
 async def get_saved_history_list(request: Request):
-    """获取所有已保存的会话历史列表"""
+    """
+    获取所有已保存的会话历史列表
+    包含完整的思考过程和工具调用记录
+    """
     engine = request.app.state.engine
     try:
         sessions = engine.history_manager.list_sessions()
         
-        formatted_sessions = [
-            SavedSessionItem(
+        formatted_sessions = []
+        for s in sessions:
+            # 🔥 关键修改：完整解析每条对话，保留思考过程
+            conversations = []
+            for conv in s.get("conversation", []):
+                # 解析思考步骤
+                thinking_steps = []
+                for step in conv.get("thinking_steps", []):
+                    # 兼容旧格式（包含 timestamp 和 event_type）
+                    if "event_type" in step and "data" in step:
+                        # 旧格式：{"timestamp": "...", "event_type": "step", "data": {...}}
+                        step_data = step["data"]
+                        thinking_steps.append(ThinkingStep(
+                            step_type=step_data.get("step", "unknown"),
+                            title=step_data.get("title", "处理中"),
+                            description=step_data.get("description", ""),
+                            timestamp=step.get("timestamp", "")
+                        ))
+                    else:
+                        # 新格式：直接包含字段
+                        thinking_steps.append(ThinkingStep(
+                            step_type=step.get("step_type", "unknown"),
+                            title=step.get("title", "处理中"),
+                            description=step.get("description", ""),
+                            timestamp=step.get("timestamp", "")
+                        ))
+                
+                # 解析工具调用
+                tool_calls = [
+                    ToolCall(**tc) for tc in conv.get("tool_calls", [])
+                ]
+                
+                conversations.append(ConversationItem(
+                    id=conv.get("id", ""),
+                    timestamp=conv.get("timestamp", ""),
+                    user_content=conv.get("user_content", ""),
+                    ai_content=conv.get("ai_content", ""),
+                    thinking_steps=thinking_steps,
+                    tool_calls=tool_calls,
+                    metadata=conv.get("metadata"),
+                    tokens_used=conv.get("tokens_used", 0),
+                    duration_ms=conv.get("duration_ms", 0)
+                ))
+            
+            formatted_sessions.append(SavedSessionItem(
                 session_id=s.get("session_id", "unknown"),
                 created_at=s.get("created_at"),
                 updated_at=s.get("updated_at"),
                 conversation_count=s.get("conversation_count", 0),
-                conversation=s.get("conversation", []),
-                title=s.get("title", "历史对话")
-            ) for s in sessions
-        ]
+                conversation=conversations,  # 🔥 使用完整解析的数据
+                title=s.get("title", "历史对话"),
+                statistics=s.get("statistics")
+            ))
 
         return SavedHistoryListResponse(
             success=True,
@@ -140,6 +213,29 @@ async def get_saved_history_list(request: Request):
     except Exception as e:
         logger.error(f"获取历史记录列表失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/history/session/{session_id}", tags=["对话历史"])
+async def get_session_detail(session_id: str, request: Request):
+    """
+    获取单个会话的完整详情
+    """
+    engine = request.app.state.engine
+    try:
+        session_data = engine.history_manager.get_session_history(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        
+        return {
+            "success": True,
+            "session": session_data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取会话详情失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/history/{session_id}", response_model=HistoryResponse, tags=["对话历史"])
 async def get_history(request: Request, session_id: str):
@@ -153,15 +249,6 @@ async def get_history(request: Request, session_id: str):
         history=agent.get_history(),
         session_id=session_id
     )
-
-@router.delete("/session/{session_id}", response_model=StatusResponse, tags=["对话"])
-async def delete_session(request: Request, session_id: str):
-    """删除内存中的 Session"""
-    engine = request.app.state.engine
-    if session_id in engine.sessions:
-        del engine.sessions[session_id]
-        return StatusResponse(status="ok", message="Session deleted from memory")
-    raise HTTPException(status_code=404, detail="Session not found")
 
 @router.post("/rag/documents/upload", response_model=UploadResponse, tags=["RAG"])
 async def upload_document(

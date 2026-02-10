@@ -1,9 +1,6 @@
 /**
- * 对话功能 JavaScript - 完整版 (修复版)
- * 修复内容:
- * 1. 移除思考过程容器的高度限制,确保所有步骤都能显示
- * 2. 添加文档上传功能,支持在对话中附加文件
- * 3. 优化 WebSocket 消息处理逻辑
+ * 对话功能 JavaScript - 优化版
+ * 新增：历史记录恢复时显示思考过程
  */
 
 const WS_URL = 'ws://localhost:8000/ws/stream';
@@ -100,19 +97,74 @@ async function loadSavedHistory() {
     }
 }
 
+/**
+ * 🆕 恢复会话时显示完整内容（包括思考过程）
+ */
 function restoreSession(session) {
     resetChatUI();
 
     if (session.conversation && session.conversation.length > 0) {
-        session.conversation.forEach(msg => {
-            if (msg.user_content) {
-                addMessage('user', msg.user_content);
+        session.conversation.forEach(conv => {
+            // 1. 显示用户消息
+            if (conv.user_content) {
+                addMessage('user', conv.user_content);
             }
-            if (msg.ai_content) {
-                addMessage('assistant', msg.ai_content);
+            
+            // 2. 🔥 显示思考过程（如果有）
+            if (conv.thinking_steps && conv.thinking_steps.length > 0) {
+                renderThinkingSteps(conv.thinking_steps);
+            }
+            
+            // 3. 显示 AI 回答
+            if (conv.ai_content) {
+                addMessage('assistant', conv.ai_content);
             }
         });
     }
+}
+
+/**
+ * 🆕 渲染历史记录中的思考过程
+ */
+function renderThinkingSteps(steps) {
+    if (!steps || steps.length === 0) return;
+    
+    // 创建思考容器
+    const thinkingContainer = document.createElement('div');
+    thinkingContainer.className = 'thinking-process';
+    thinkingContainer.innerHTML = `
+        <div class="thinking-header" onclick="toggleThinking(this)">
+            <span class="thinking-toggle">▼</span>
+            <span class="thinking-title">思考过程</span>
+            <span class="thinking-icon">⚙️</span>
+        </div>
+        <div class="thinking-content"></div>
+    `;
+    
+    const stepsContainer = thinkingContainer.querySelector('.thinking-content');
+    
+    // 渲染每个步骤
+    steps.forEach(step => {
+        const stepDiv = document.createElement('div');
+        stepDiv.className = `thinking-step ${getStepClass(step.step_type)}`;
+        
+        const icon = getStepIcon(step.step_type);
+        const title = step.title || '处理中';
+        const description = step.description || '';
+        
+        stepDiv.innerHTML = `
+            <span class="step-icon">${icon}</span>
+            <div class="step-content">
+                <div class="step-title">${title}</div>
+                <div class="step-description">${description}</div>
+            </div>
+        `;
+        
+        stepsContainer.appendChild(stepDiv);
+    });
+    
+    messagesWrapper.appendChild(thinkingContainer);
+    scrollToBottom();
 }
 
 function resetChatUI() {
@@ -217,7 +269,7 @@ function updateStatus(connected) {
     }
 }
 
-// ============ 3. 思考过程处理 - 修复显示不全问题 ============
+// ============ 3. 思考过程处理 ============
 
 function handleStepUpdate(payload) {
     hideWelcomeScreen();
@@ -227,7 +279,6 @@ function handleStepUpdate(payload) {
 
     console.log("处理步骤更新:", stepType); 
 
-    // 如果还没有思考容器,创建一个
     if (!currentThinkingContainer) {
         currentThinkingContainer = document.createElement('div');
         currentThinkingContainer.className = 'thinking-process';
@@ -268,8 +319,6 @@ function handleStepUpdate(payload) {
     `;
     
     stepsContainer.appendChild(stepDiv);
-    
-    // 🔥 关键修复: 确保滚动到底部,显示所有步骤
     scrollToBottom();
 }
 
@@ -477,7 +526,6 @@ function clearAttachedFiles() {
     renderFileAttachments();
 }
 
-// 绑定文件上传按钮
 if (attachButton) {
     attachButton.addEventListener('click', () => {
         chatFileInput.click();
@@ -488,7 +536,6 @@ if (chatFileInput) {
     chatFileInput.addEventListener('change', (e) => {
         const files = Array.from(e.target.files);
         
-        // 检查文件数量限制
         if (attachedFiles.length + files.length > 10) {
             if (window.showToast) {
                 window.showToast('最多只能上传10个文件', 'error');
@@ -499,7 +546,6 @@ if (chatFileInput) {
             return;
         }
         
-        // 检查单个文件大小 (10MB)
         const maxSize = 10 * 1024 * 1024;
         for (let file of files) {
             if (file.size > maxSize) {
@@ -519,7 +565,6 @@ if (chatFileInput) {
     });
 }
 
-// 暴露给全局
 window.removeAttachment = removeAttachment;
 
 // ============ 6. 发送与交互逻辑 ============
@@ -534,7 +579,6 @@ async function sendMessage(text = null) {
         return;
     }
 
-    // 如果有文件,需要先上传到后端
     if (attachedFiles.length > 0) {
         try {
             const formData = new FormData();
@@ -543,7 +587,6 @@ async function sendMessage(text = null) {
                 formData.append('files', file);
             });
 
-            // 显示用户消息 (含文件信息)
             let userMessage = message;
             if (attachedFiles.length > 0) {
                 const fileNames = attachedFiles.map(f => f.name).join(', ');
@@ -551,7 +594,6 @@ async function sendMessage(text = null) {
             }
             addMessage('user', userMessage);
             
-            // 发送到后端 (带文件)
             const response = await fetch(`${API_URL}/chat/upload`, {
                 method: 'POST',
                 body: formData
@@ -563,10 +605,8 @@ async function sendMessage(text = null) {
             
             const result = await response.json();
             
-            // 清空附件
             clearAttachedFiles();
             
-            // 后端会通过WebSocket返回结果,这里只需要等待
             isProcessing = true;
             sendButton.disabled = true;
             messageInput.disabled = true;
@@ -579,7 +619,6 @@ async function sendMessage(text = null) {
             return;
         }
     } else {
-        // 无文件,直接WebSocket发送
         addMessage('user', message);
         ws.send(JSON.stringify({ message }));
         
@@ -588,7 +627,6 @@ async function sendMessage(text = null) {
         messageInput.disabled = true;
     }
     
-    // UI 状态更新
     if (!text) {
         messageInput.value = '';
         messageInput.style.height = 'auto';
