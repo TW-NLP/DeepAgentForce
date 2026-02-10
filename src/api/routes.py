@@ -5,8 +5,9 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Dict, List
-from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks, Request
+from fastapi import APIRouter, Form, HTTPException, UploadFile, File, BackgroundTasks, Request
 from pydantic import BaseModel, Field
+from src.utils.content_parse import parse_uploaded_file
 from src.utils.setting_utils import save_config_to_file
 
 logger = logging.getLogger(__name__)
@@ -140,7 +141,63 @@ async def chat(request: Request, chat_req: ChatRequest):
     except Exception as e:
         logger.error(f"对话处理失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/chat/upload", response_model=ChatResponse, tags=["对话"])
+async def chat_with_upload(
+    request: Request,
+    message: str = Form(...),                  # 接收 FormData 中的 message 字段
+    session_id: Optional[str] = Form(None),    # 接收 FormData 中的 session_id 字段
+    files: List[UploadFile] = File(...)        # 接收 FormData 中的 files 列表
+):
+    """
+    支持附件上传的对话接口
+    前端路径: /api/chat/upload
+    Content-Type: multipart/form-data
+    """
+    engine = request.app.state.engine
+    
+    try:
+        # 1. 获取会话
+        session_id, agent = engine.get_or_create_session(session_id)
+        
+        logger.info(f"[{session_id}] 收到带附件的消息: {message[:50]}... (附件数: {len(files)})")
 
+        # 2. 解析所有文件
+        files_content = ""
+        for file in files:
+            file_content = await parse_uploaded_file(file)
+            files_content += file_content
+        
+        # 3. 组合 Prompt
+        # 将用户的问题和文件内容组合在一起
+        full_prompt = f"{message}\n{files_content}"
+        
+        # 4. 调用 Agent (复用原有的 chat 逻辑)
+
+        response_content = await agent.chat(full_prompt)
+
+        final_answer = ""
+        if hasattr(response_content, '__aiter__'):
+            async for chunk in response_content:
+                # 假设 chunk 是字符串，如果是对象需要根据实际情况取 .content
+                if isinstance(chunk, str):
+                    final_answer += chunk
+                elif hasattr(chunk, 'content'): # 兼容某些框架的 chunk 对象
+                    final_answer += chunk.content or ""
+        else:
+            # 如果是普通字符串，直接使用
+            final_answer = str(response_content)
+        
+        return ChatResponse(
+            message=final_answer,
+            session_id=session_id,
+            timestamp=datetime.now().isoformat()
+        )
+
+    except Exception as e:
+        logger.error(f"附件对话处理失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @router.get("/history/saved", response_model=SavedHistoryListResponse, tags=["对话历史"])
 async def get_saved_history_list(request: Request):
     """

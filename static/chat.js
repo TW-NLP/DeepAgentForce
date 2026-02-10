@@ -606,6 +606,17 @@ async function sendMessage(text = null) {
             const result = await response.json();
             
             clearAttachedFiles();
+            console.log("收到附件上传回复:", result);
+
+            if (result.message) {
+                // 直接调用 handleDone 来显示 AI 的最终回复，并恢复按钮状态
+                handleDone(result.message); 
+            } else {
+                // 如果没有消息内容，手动恢复状态
+                isProcessing = false;
+                sendButton.disabled = false;
+                messageInput.disabled = false;
+            }
             
             isProcessing = true;
             sendButton.disabled = true;
