@@ -2,9 +2,8 @@
  * 知识库管理 JavaScript (UX 优化版)
  */
 
-// 自动获取当前服务器的 API 地址
-const getApiBase = () => `${window.location.protocol}//${window.location.host}/api`;
-const API_BASE_URL = getApiBase();
+// 自动获取当前服务器的 API 地址 (使用全局函数)
+const API_BASE_URL = window.getApiBase ? window.getApiBase() : `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
 // ============ UI 交互组件: Loading 管理 ============
 const LoadingManager = {

@@ -3,9 +3,9 @@
  * 处理 Skill 的增删改查、导入导出等功能
  */
 
-// 自动获取当前服务器的 API 地址
-const getApiBase = () => `${window.location.protocol}//${window.location.host}/api`;
-const API_URL = getApiBase();
+// 自动获取当前服务器的 API 地址 (使用全局函数)
+const API_URL = window.getApiBase ? window.getApiBase() : `${window.location.protocol}//${window.location.hostname}:8000/api`;
+console.log('📡 Skills API URL:', API_URL);
 
 // 全局变量
 let skills = [];

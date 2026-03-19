@@ -1696,15 +1696,15 @@
         </main>
     </div>
 
-    <script src="knowledge.js"></script>
     <script src="config.js"></script>
+    <script src="knowledge.js"></script>
     <script src="chat.js"></script>
     <script>
 /**
  * 用户画像模块
  */
-// 自动获取当前服务器的 API 地址 (复用 config.js 中的函数)
-const PERSON_API_BASE = window.getApiBase ? window.getApiBase() : `${window.location.protocol}//${window.location.host}/api`;
+// 自动获取当前服务器的 API 地址 (使用全局函数)
+const PERSON_API_BASE = window.getApiBase ? window.getApiBase() : `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
 document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('analyzePersonLikeBtn');

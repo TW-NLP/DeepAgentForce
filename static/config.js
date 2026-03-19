@@ -5,16 +5,29 @@
  */
 
 // 自动获取当前服务器的 API 地址
+// 支持 ?api= 参数指定后端地址 (用于前后端分离部署)
+// 默认连接 8000 端口 (后端)
 const getApiBase = () => {
-    const protocol = window.location.protocol;
-    const host = window.location.host;
-    return `${protocol}//${host}/api`;
+    const urlParams = new URLSearchParams(window.location.search);
+    const apiParam = urlParams.get('api');
+    if (apiParam) return apiParam;
+    // 默认连接后端 8000 端口
+    return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+};
+
+const getWsBase = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const apiParam = urlParams.get('api');
+    if (apiParam) return apiParam.replace('/api', '') + '/ws/stream';
+    // 默认连接后端 8000 端口
+    return `ws://${window.location.hostname}:8000/ws/stream`;
 };
 
 const API_BASE = getApiBase();
 
 // 暴露给全局，其他 JS 模块可以使用
 window.getApiBase = getApiBase;
+window.getWsBase = getWsBase;
 
 // DOM ID 到 配置文件 Key 的映射
 // 格式: { HTML元素ID : 后端配置Key }

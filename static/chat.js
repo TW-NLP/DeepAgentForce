@@ -4,12 +4,9 @@
  * 修复：会话 ID 丢失导致创建新会话的问题
  */
 
-// 自动获取当前服务器的 API 和 WebSocket 地址
-const getApiBase = () => `${window.location.protocol}//${window.location.host}/api`;
-const getWsBase = () => `ws://${window.location.host}/ws/stream`;
-
-const WS_URL = getWsBase();
-const API_URL = getApiBase();
+// 自动获取当前服务器的 API 地址 (使用 config.js 中定义的全局函数)
+const API_URL = window.getApiBase();
+const WS_URL = window.getWsBase();
 
 // ============ 0. 全局变量定义 ============
 let ws = null;
