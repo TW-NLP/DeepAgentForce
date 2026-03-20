@@ -32,16 +32,11 @@
 ### 🎬 视频介绍
  
 <div align="center">
-  <video src="images/project_des.mp4"
-    controls
-    autoplay
-    muted
-    loop
-    width="90%"
-    poster="images/logo.png">
-    你的浏览器不支持视频播放，请
-    <a href="https://github.com/TW-NLP/DeepAgentForce/tree/master/images/des.mp4">点击此处下载观看</a>。
-  </video>
+  <a href="https://www.bilibili.com/video/BV1CdA7zUEk8/?vd_source=781fa589b3d6c4950e8d9db1f7a41409">
+    <img src="images/logo.png" 
+         alt="▶ 点击观看演示视频" width="90%"/>
+  </a>
+  <p><em>▶ 点击图片观看完整演示视频</em></p>
 </div>
  
 ---
