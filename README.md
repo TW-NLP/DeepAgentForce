@@ -28,7 +28,25 @@
 - 通过**用户画像挖掘**技术，AI 会越用越懂你
 - 通过**思考过程可视化**，你可以清晰看到 AI 是如何分析和解决问题的
 
+
+### 🎬 视频介绍
+ 
+<div align="center">
+  <video src="images/project_des.mp4"
+    controls
+    autoplay
+    muted
+    loop
+    width="90%"
+    poster="images/logo.png">
+    你的浏览器不支持视频播放，请
+    <a href="https://github.com/TW-NLP/DeepAgentForce/tree/master/images/des.mp4">点击此处下载观看</a>。
+  </video>
+</div>
+ 
 ---
+
+
 
 ## ✨ 核心特性
 
