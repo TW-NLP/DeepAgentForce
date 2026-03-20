@@ -1,7 +1,7 @@
 # DeepAgentForce
 
 <p align="center">
-  <img src="images/logo.png" alt="DeepAgentForce Logo" width="180"/>
+  <img src="https://raw.githubusercontent.com/TW-NLP/DeepAgentForce/main/images/logo.png" alt="DeepAgentForce Logo" width="180"/>
 </p>
 
 <p align="center">
@@ -129,19 +129,31 @@ python -m http.server 8080
 ### 💬 智能对话
 
 <div align="center">
+<<<<<<< HEAD
   <img src="images/chat.png" alt="智能对话界面" width="90%"/>
+=======
+  <img src="https://raw.githubusercontent.com/TW-NLP/DeepAgentForce/main/images/chat.png" alt="智能对话界面" width="90%"/>
+>>>>>>> 21048c7ca334621bf997663a2f31e9ba22210de4
 </div>
 
 ### 🛠️ 可视化 Skill 管理
 
 <div align="center">
+<<<<<<< HEAD
   <img src="images/skill.png" alt="Skill 管理界面" width="90%"/>
+=======
+  <img src="https://raw.githubusercontent.com/TW-NLP/DeepAgentForce/main/images/skill.png" alt="Skill 管理界面" width="90%"/>
+>>>>>>> 21048c7ca334621bf997663a2f31e9ba22210de4
 </div>
 
 ### 📚 知识库管理
 
 <div align="center">
+<<<<<<< HEAD
   <img src="images/rag.png" alt="知识库管理界面" width="90%"/>
+=======
+  <img src="https://raw.githubusercontent.com/TW-NLP/DeepAgentForce/main/images/rag.png" alt="知识库管理界面" width="90%"/>
+>>>>>>> 21048c7ca334621bf997663a2f31e9ba22210de4
 </div>
 
 ### 🧠 思考过程可视化
@@ -199,9 +211,15 @@ version: 1.0.0
 描述该技能适用的场景
 
 ## 执行命令
+<<<<<<< HEAD
 
 python scripts/main.py "<参数>"
 
+=======
+\`\`\`bash
+python scripts/main.py "<参数>"
+\`\`\`
+>>>>>>> 21048c7ca334621bf997663a2f31e9ba22210de4
 ```
 
 ---
@@ -216,7 +234,11 @@ python scripts/main.py "<参数>"
 - 🧠 **上下文记忆** — 持续学习，越用越聪明
 
 <div align="center">
+<<<<<<< HEAD
   <img src="images/person_like.png" alt="用户画像" width="80%"/>
+=======
+  <img src="https://raw.githubusercontent.com/TW-NLP/DeepAgentForce/main/images/person_like.png" alt="用户画像" width="80%"/>
+>>>>>>> 21048c7ca334621bf997663a2f31e9ba22210de4
 </div>
 
 ---
@@ -233,7 +255,11 @@ python scripts/main.py "<参数>"
 4. 保存配置
 
 <div align="center">
+<<<<<<< HEAD
   <img src="images/model_config.png" alt="模型配置" width="80%"/>
+=======
+  <img src="https://raw.githubusercontent.com/TW-NLP/DeepAgentForce/main/images/model_config.png" alt="模型配置" width="80%"/>
+>>>>>>> 21048c7ca334621bf997663a2f31e9ba22210de4
 </div>
 
 ### 2. 构建知识库
