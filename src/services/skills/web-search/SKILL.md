@@ -17,11 +17,11 @@ version: 2.0.0
 
 执行网络搜索的命令格式：
 ```bash
-python /Users/tianwei/paper/DeepAgentForce/src/services/skills/web-search/scripts/web_search.py "<搜索关键词>"
+python /***/DeepAgentForce/src/services/skills/web-search/scripts/web_search.py "<搜索关键词>"
 ```
 
 **示例：**
-- ✅ 正确：`python /Users/tianwei/paper/DeepAgentForce/src/services/skills/web-search/scripts/web_search.py "今天的天气"`
+- ✅ 正确：`python /***DeepAgentForce/src/services/skills/web-search/scripts/web_search.py "今天的天气"`
 - ❌ 错误：`python src/services/skills/web-search/scripts/web_search.py "今天的天气"`
 
 **注意：**

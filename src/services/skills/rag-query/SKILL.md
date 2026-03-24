@@ -29,11 +29,11 @@ Use this tool exclusively to retrieve information regarding **company policies**
 
 执行 RAG 查询的命令格式：
 ```bash
-python /Users/tianwei/paper/DeepAgentForce/src/services/skills/rag-query/scripts/query.py "<要查询的问题>"
+python /***/DeepAgentForce/src/services/skills/rag-query/scripts/query.py "<要查询的问题>"
 ```
 
 **示例：**
-- ✅ 正确：`python /Users/tianwei/paper/DeepAgentForce/src/services/skills/rag-query/scripts/query.py "公司的考勤制度是什么"`
+- ✅ 正确：`python /***/DeepAgentForce/src/services/skills/rag-query/scripts/query.py "公司的考勤制度是什么"`
 - ❌ 错误：`python src/services/skills/rag-query/scripts/query.py "公司的考勤制度"`
 - ❌ 错误：`python rag-query/scripts/query.py "公司的考勤制度"`
 
