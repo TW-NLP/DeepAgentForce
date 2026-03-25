@@ -74,6 +74,7 @@ class Settings(ServerConfig):
     UPLOAD_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "uploads")
     MILVUS_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "rag_storage")
     SKILL_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "src" / "services" / "skills")
+    OUTPUT_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "outputs")
 
     # ==================== 配置文件 ====================
     CONFIG_FILE: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "saved_config.json")
@@ -150,6 +151,7 @@ class Settings(ServerConfig):
             self.HISTORY_DIR,
             self.UPLOAD_DIR,
             self.MILVUS_DIR,
+            self.OUTPUT_DIR,
         ]
         for directory in directories:
             if not directory.exists():

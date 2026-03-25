@@ -24,7 +24,7 @@ class ConversationalAgent():
         self.exec_tool = ShellTool()
         self._instance = None
         self.exec_tool.description = (
-            "允许这个shell的时候，请先看对应的SKILL.md，然后去对应的scripts里面执行对应的py文件，这个流程不要变。 "
+            f"允许这个shell的时候，请先看对应的SKILL.md，然后去对应的scripts里面执行对应的py文件，这个流程不要变,如果有新的文件生成，请统一放在{self.settings.OUTPUT_DIR}目录下。"
         )
     def get_instance(self):
         """获取或创建 Deep Agent 实例（单例模式）"""
@@ -80,6 +80,7 @@ class ConversationalAgent():
         config = {"configurable": {"thread_id": thread_id}}
         agent_instance = self.get_instance()
         final_response = ""
+        token_buffer = ""
         
         try:
             # 【修改】移入 try 块，并增加日志
@@ -89,34 +90,49 @@ class ConversationalAgent():
             
             logger.info(f"[{thread_id}] 开始 Agent 流式处理: {user_input[:30]}")
             
+            # 使用流式模式获取 token
             async for event in agent_instance.astream(
                 {"messages": [HumanMessage(content=user_input)]},
                 config=config,
-                stream_mode="values"
+                stream_mode="messages"
             ):
-                if "messages" in event and len(event["messages"]) > 0:
-                    last_msg = event["messages"][-1]
-                    
-
-                    # === 只有这里触发，前端才有思考框 ===
-                    if isinstance(last_msg, AIMessage) and last_msg.tool_calls:
-                        logger.info(f"检测到工具调用: {len(last_msg.tool_calls)} 个")
-                        for tool_call in last_msg.tool_calls:
+                # event 是一个元组 (chunk, metadata)
+                chunk = event[0]
+                metadata = event[1]
+                
+                # 获取 token 内容
+                if hasattr(chunk, 'content') and chunk.content:
+                    token = chunk.content
+                    if isinstance(token, str):
+                        token_buffer += token
+                        # 逐个 token 发送
+                        if self.status_callback:
+                            await self.status_callback.on_token(token)
+                    elif isinstance(token, list):
+                        # 有时候 content 是列表形式
+                        for item in token:
+                            if isinstance(item, dict) and item.get('type') == 'text':
+                                text = item.get('text', '')
+                                token_buffer += text
+                                if self.status_callback:
+                                    await self.status_callback.on_token(text)
+                
+                # 获取消息用于检测工具调用
+                if hasattr(metadata, 'langgraph_node') and metadata.get('langgraph_node') == 'agent':
+                    if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
+                        for tool_call in chunk.tool_calls:
                             if self.status_callback:
                                 await self.status_callback.on_tool_start(
                                     {"name": tool_call['name'], "args": tool_call['args']}
                                 )
-                    
-                    elif isinstance(last_msg, ToolMessage):
-                        logger.info("检测到工具执行结果")
-                        if self.status_callback:
-                            await self.status_callback.on_tool_end(
-                                {"output": str(last_msg.content)[:100] + "..."}
-                            )
-                            
-                    elif isinstance(last_msg, AIMessage) and not last_msg.tool_calls:
-                        final_response = last_msg.content
+                elif hasattr(metadata, 'langgraph_node') and metadata.get('langgraph_node') == 'tools':
+                    if hasattr(chunk, 'content') and self.status_callback:
+                        await self.status_callback.on_tool_end(
+                            {"output": str(chunk.content)[:100] + "..."}
+                        )
 
+            final_response = token_buffer
+            
             if self.status_callback:
                 await self.status_callback.on_agent_finish({"output": final_response})
                 

@@ -407,79 +407,101 @@ function updateStatus(connected) {
     }
 }
 
-// ============ 4. 思考过程处理 ============
+// ============ 4. 步骤状态处理（集成到消息框内） ============
+// 记录当前处理状态
+let currentProcessingStatus = null;
+
 function handleStepUpdate(payload) {
     hideWelcomeScreen();
 
     const stepData = payload.data || {};
     const stepType = stepData.step || 'processing';
-
-    console.log("处理步骤更新:", stepType);
-
-    if (!currentThinkingContainer) {
-        currentThinkingContainer = document.createElement('div');
-        currentThinkingContainer.className = 'thinking-process';
-        currentThinkingContainer.innerHTML = `
-            <div class="thinking-header" onclick="toggleThinking(this)">
-                <span class="thinking-toggle">▼</span>
-                <span class="thinking-title">思考过程</span>
-                <span class="thinking-icon">⚙️</span>
-            </div>
-            <div class="thinking-content"></div>
-        `;
-        messagesWrapper.appendChild(currentThinkingContainer);
-    }
-
-    const stepsContainer = currentThinkingContainer.querySelector('.thinking-content');
-
-    const stepDiv = document.createElement('div');
-    stepDiv.className = `thinking-step ${getStepClass(stepType)}`;
-
-    const icon = getStepIcon(stepType);
     const title = stepData.title || '处理中';
+    const description = stepData.description || '';
 
-    let description = stepData.description || '';
-    if (typeof description === 'object') {
-        try {
-            description = JSON.stringify(description);
-        } catch (e) {
-            description = "复杂数据";
-        }
+    console.log("处理步骤更新:", stepType, title);
+
+    // 记录当前状态
+    currentProcessingStatus = { stepType, title, description };
+
+    // 如果已经有流式消息，更新其状态指示器
+    if (currentStreamingAnswer) {
+        updateStreamingStatus(stepType, title);
+    } else {
+        // 创建 AI 消息框并显示状态
+        createStatusMessage(title, description, stepType);
     }
+}
 
-    stepDiv.innerHTML = `
-        <span class="step-icon">${icon}</span>
-        <div class="step-content">
-            <div class="step-title">${title}</div>
-            <div class="step-description">${description}</div>
+function createStatusMessage(title, description, stepType) {
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'message assistant processing';
+    statusDiv.id = 'processingStatus';
+
+    const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+    // 根据步骤类型选择图标
+    let icon = getStepIcon(stepType);
+    let statusClass = getStepClass(stepType);
+
+    statusDiv.innerHTML = `
+        <div class="message-header">
+            <div class="message-avatar status-avatar ${statusClass}">${icon}</div>
+            <div class="message-author">AI 助手</div>
+            <div class="message-time">${time}</div>
+        </div>
+        <div class="message-content processing-content">
+            <div class="processing-indicator">
+                <div class="processing-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+                <span class="processing-text">${title}</span>
+            </div>
+            ${description ? `<div class="processing-description">${escapeHtml(description)}</div>` : ''}
         </div>
     `;
 
-    stepsContainer.appendChild(stepDiv);
+    messagesWrapper.appendChild(statusDiv);
     scrollToBottom();
+}
+
+function updateStreamingStatus(stepType, title) {
+    const statusEl = currentStreamingAnswer.querySelector('.processing-indicator .processing-text');
+    if (statusEl) {
+        statusEl.textContent = title;
+    }
 }
 
 function getStepIcon(step) {
     if (!step || typeof step !== 'string') return '⚙️';
     const s = step.toLowerCase();
 
-    if (s.includes('init') || s.includes('开始')) return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>';
-    if (s.includes('tool_start') || s.includes('调用')) return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
-    if (s.includes('tool_end') || s.includes('完成')) return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
-    if (s.includes('finish') || s.includes('结束')) return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
-    if (s.includes('error')) return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    if (s.includes('init') || s.includes('开始')) return '🚀';
+    if (s.includes('tool_start') || s.includes('调用')) return '🔧';
+    if (s.includes('tool_end') || s.includes('完成')) return '✅';
+    if (s.includes('finish') || s.includes('结束')) return '🎯';
+    if (s.includes('error')) return '❌';
 
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    return '⚙️';
 }
 
 function getStepClass(step) {
-    if (!step || typeof step !== 'string') return '';
+    if (!step || typeof step !== 'string') return 'processing';
     const s = step.toLowerCase();
-    if (s.includes('analyzing')) return 'analyzing';
-    if (s.includes('plan')) return 'planning';
-    if (s.includes('chat')) return 'chatting';
+    if (s.includes('init') || s.includes('开始')) return 'starting';
+    if (s.includes('tool_start') || s.includes('调用')) return 'tooling';
+    if (s.includes('tool_end') || s.includes('完成')) return 'complete';
+    if (s.includes('finish') || s.includes('结束')) return 'done';
     if (s.includes('error')) return 'error';
-    return '';
+    return 'processing';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // ============ 5. 消息渲染与流式处理 ============
@@ -528,6 +550,15 @@ function addMessage(role, content) {
 }
 
 function handleTokenUpdate(token) {
+    // 收到 token 时，如果有状态消息，移除它
+    const statusEl = document.getElementById('processingStatus');
+    if (statusEl) {
+        statusEl.remove();
+    }
+
+    // 清除当前处理状态
+    currentProcessingStatus = null;
+
     if (!currentStreamingAnswer) {
         currentStreamingAnswer = document.createElement('div');
         currentStreamingAnswer.className = 'message assistant';
@@ -539,18 +570,22 @@ function handleTokenUpdate(token) {
                 <div class="message-author">AI 助手</div>
                 <div class="message-time">${time}</div>
             </div>
-            <div class="message-content streaming" data-raw=""></div>
+            <div class="message-content streaming" data-raw=""><span class="cursor-blink">|</span></div>
         `;
         messagesWrapper.appendChild(currentStreamingAnswer);
     }
 
     const contentDiv = currentStreamingAnswer.querySelector('.message-content');
+    const cursor = contentDiv.querySelector('.cursor-blink');
     const currentRaw = contentDiv.dataset.raw || '';
     const newRaw = currentRaw + token;
     contentDiv.dataset.raw = newRaw;
 
+    // 先移除光标再渲染
+    if (cursor) cursor.remove();
+
     if (typeof marked !== 'undefined') {
-        contentDiv.innerHTML = marked.parse(newRaw);
+        contentDiv.innerHTML = marked.parse(newRaw) + '<span class="cursor-blink">|</span>';
     } else {
         contentDiv.textContent = newRaw;
     }
@@ -560,6 +595,13 @@ function handleTokenUpdate(token) {
 
 function handleDone(finalMessage) {
     console.log('🏁 handleDone 执行,finalMessage:', finalMessage);
+
+    // 移除可能存在的状态消息
+    const statusEl = document.getElementById('processingStatus');
+    if (statusEl) {
+        statusEl.remove();
+    }
+    currentProcessingStatus = null;
 
     if (currentStreamingAnswer) {
         const contentDiv = currentStreamingAnswer.querySelector('.message-content');

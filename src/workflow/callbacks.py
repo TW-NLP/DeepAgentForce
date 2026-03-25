@@ -57,5 +57,9 @@ class StatusCallback:
             "description": "回答已生成"
         })
 
+    async def on_token(self, token: str):
+        """流式发送单个 token"""
+        await self._emit(EventType.TOKEN, {"content": token})
+
     async def on_error(self, data: dict):
         await self._emit(EventType.ERROR, data)
