@@ -261,3 +261,4 @@ def get_search_config() -> dict:
 
 # ==================== 导出配置实例 ====================
 settings = get_settings()
+

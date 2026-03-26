@@ -2506,6 +2506,424 @@
                 font-size: 12px;
             }
         }
+
+        /* ============ Output 文件浏览器面板 ============ */
+        .output-panel {
+            position: fixed;
+            right: -420px;
+            top: 0;
+            width: 400px;
+            height: 100vh;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-left: 1px solid var(--glass-border);
+            box-shadow: -4px 0 30px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .output-panel.open {
+            right: 0;
+        }
+
+        .output-panel-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .output-panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .output-panel-title svg {
+            color: var(--accent-primary);
+        }
+
+        .output-panel-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .output-panel-close:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .output-breadcrumb {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            overflow-x: auto;
+        }
+
+        .output-breadcrumb-item {
+            color: var(--text-tertiary);
+            text-decoration: none;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .output-breadcrumb-item:hover {
+            color: var(--accent-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .output-breadcrumb-separator {
+            color: var(--text-tertiary);
+        }
+
+        .output-breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .output-file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .output-file-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+            gap: 12px;
+        }
+
+        .output-file-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .output-file-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .output-file-icon.folder {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent-primary);
+        }
+
+        .output-file-icon.file {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--accent-purple);
+        }
+
+        .output-file-icon.txt {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+        }
+
+        .output-file-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .output-file-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .output-file-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+        }
+
+        .output-file-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .output-file-item:hover .output-file-actions {
+            opacity: 1;
+        }
+
+        .output-action-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .output-action-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--accent-primary);
+        }
+
+        .output-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-tertiary);
+        }
+
+        .output-empty svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .output-empty-text {
+            font-size: 14px;
+        }
+
+        /* 文件预览模态框 */
+        .output-preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .output-preview-modal.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .output-preview-content {
+            width: 90%;
+            max-width: 900px;
+            max-height: 85vh;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+
+        .output-preview-modal.show .output-preview-content {
+            transform: scale(1);
+        }
+
+        .output-preview-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .output-preview-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .output-preview-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .output-preview-close:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .output-preview-body {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+        }
+
+        .output-preview-code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 100%;
+            overflow: auto;
+        }
+
+        .output-preview-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: var(--radius-md);
+        }
+
+        .output-preview-footer {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .output-preview-btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .output-preview-btn.download {
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+        }
+
+        .output-preview-btn.download:hover {
+            background: #2563eb;
+        }
+
+        .output-preview-btn.close-btn {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: none;
+        }
+
+        .output-preview-btn.close-btn:hover {
+            background: var(--bg-elevated);
+        }
+
+        /* Output 面板切换按钮 */
+        .output-toggle-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            margin-left: 8px;
+        }
+
+        .output-toggle-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--accent-primary);
+        }
+
+        .output-toggle-btn.active {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent-primary);
+        }
+
+        /* 遮罩层 */
+        .output-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 99;
+            display: none;
+        }
+
+        .output-overlay.show {
+            display: block;
+        }
+
+        /* Loading 状态 */
+        .output-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-tertiary);
+        }
+
+        .output-loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border-light);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -2564,6 +2982,9 @@
                         <div class="status-dot"></div>
                         <span id="statusText">未连接</span>
                     </div>
+                    <button class="output-toggle-btn" id="outputToggleBtn" title="查看输出文件">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </button>
                     <button class="icon-btn" id="newChatBtn" title="新对话">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </button>
@@ -2937,6 +3358,7 @@
     <script src="knowledge.js"></script>
     <script src="chat.js"></script>
     <script src="skills.js"></script>
+    <script src="output.js"></script>
     <script>
 /**
  * 用户画像模块
@@ -3283,6 +3705,56 @@ function renderBeautifulGraph(graphData) {
                 <button class="btn btn-secondary" onclick="exportCurrentSkill()">📤 导出</button>
                 <button class="btn btn-secondary" onclick="editCurrentSkill()">✏️ 编辑</button>
                 <button class="btn btn-danger" onclick="deleteCurrentSkill()">🗑️ 删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遮罩层 -->
+    <div class="output-overlay" id="outputOverlay"></div>
+
+    <!-- Output 文件浏览器面板 -->
+    <div class="output-panel" id="outputPanel">
+        <div class="output-panel-header">
+            <div class="output-panel-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>输出文件</span>
+            </div>
+            <button class="output-panel-close" id="outputPanelClose" title="关闭">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="output-breadcrumb" id="outputBreadcrumb">
+            <span class="output-breadcrumb-item output-breadcrumb-current" data-path="">output</span>
+        </div>
+        <div class="output-file-list" id="outputFileList">
+            <div class="output-loading">
+                <div class="output-loading-spinner"></div>
+                <span>加载中...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文件预览模态框 -->
+    <div class="output-preview-modal" id="outputPreviewModal">
+        <div class="output-preview-content">
+            <div class="output-preview-header">
+                <div class="output-preview-title" id="outputPreviewTitle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span id="outputPreviewFileName">文件预览</span>
+                </div>
+                <button class="output-preview-close" id="outputPreviewClose" title="关闭">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="output-preview-body">
+                <pre class="output-preview-code" id="outputPreviewContent"></pre>
+            </div>
+            <div class="output-preview-footer">
+                <button class="output-preview-btn download" id="outputDownloadBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    下载文件
+                </button>
+                <button class="output-preview-btn close-btn" id="outputPreviewCloseBtn">关闭</button>
             </div>
         </div>
     </div>

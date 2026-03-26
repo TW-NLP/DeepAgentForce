@@ -110,6 +110,20 @@ class ListDocumentsResponse(BaseModel):
     total: int
     documents: List[DocumentInfo]
 
+class OutputFileInfo(BaseModel):
+    """输出文件信息"""
+    name: str
+    path: str
+    size: int
+    modified_at: str
+    is_directory: bool = False
+
+class ListOutputFilesResponse(BaseModel):
+    success: bool
+    files: List[OutputFileInfo]
+    current_path: str
+
+
 class ConfigResponse(BaseModel):
     success: bool
     message: str
@@ -476,6 +490,153 @@ async def get_person_like(request: Request):
         return engine.user_preference.get_frontend_format()
     except Exception as e:
          raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/output/files", response_model=ListOutputFilesResponse, tags=["Output 文件管理"])
+async def list_output_files(request: Request, path: Optional[str] = None):
+    """
+    获取 output 目录下的文件列表
+    path: 可选的子目录路径（相对于 OUTPUT_DIR）
+    """
+    engine = request.app.state.engine
+    try:
+        base_path = engine.settings.OUTPUT_DIR
+        if path:
+            current_path = base_path / path
+            # 安全检查：确保路径在 OUTPUT_DIR 内
+            if not str(current_path.resolve()).startswith(str(base_path.resolve())):
+                raise HTTPException(status_code=400, detail="非法路径")
+        else:
+            current_path = base_path
+
+        if not current_path.exists():
+            current_path.mkdir(parents=True, exist_ok=True)
+            return ListOutputFilesResponse(success=True, files=[], current_path=str(current_path))
+
+        files = []
+        for item in sorted(current_path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            files.append(OutputFileInfo(
+                name=item.name,
+                path=str(item.relative_to(base_path)),
+                size=item.stat().st_size if item.is_file() else 0,
+                modified_at=datetime.fromtimestamp(item.stat().st_mtime).isoformat(),
+                is_directory=item.is_dir()
+            ))
+
+        return ListOutputFilesResponse(
+            success=True,
+            files=files,
+            current_path=str(current_path.relative_to(base_path)) or "."
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取 output 文件列表失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/output/files/download", tags=["Output 文件管理"])
+async def download_output_file(request: Request, path: str):
+    """
+    下载 output 目录下的指定文件
+    path: 文件路径（相对于 OUTPUT_DIR）
+    """
+    from fastapi.responses import FileResponse
+
+    engine = request.app.state.engine
+    try:
+        file_path = engine.settings.OUTPUT_DIR / path
+        # 安全检查
+        if not str(file_path.resolve()).startswith(str(engine.settings.OUTPUT_DIR.resolve())):
+            raise HTTPException(status_code=400, detail="非法路径")
+
+        if not file_path.exists() or not file_path.is_file():
+            raise HTTPException(status_code=404, detail="文件不存在")
+
+        return FileResponse(
+            path=str(file_path),
+            filename=file_path.name,
+            media_type='application/octet-stream'
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"下载文件失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/output/files/preview", tags=["Output 文件管理"])
+async def preview_output_file(request: Request, path: str):
+    """
+    预览 output 目录下的文本文件内容
+    path: 文件路径（相对于 OUTPUT_DIR）
+    """
+    from fastapi.responses import PlainTextResponse
+
+    engine = request.app.state.engine
+    try:
+        file_path = engine.settings.OUTPUT_DIR / path
+        # 安全检查
+        if not str(file_path.resolve()).startswith(str(engine.settings.OUTPUT_DIR.resolve())):
+            raise HTTPException(status_code=400, detail="非法路径")
+
+        if not file_path.exists() or not file_path.is_file():
+            raise HTTPException(status_code=404, detail="文件不存在")
+
+        # 检查是否为文本文件（简单的白名单检查）
+        text_extensions = {
+            '.txt', '.md', '.markdown', '.py', '.js', '.ts', '.jsx', '.tsx',
+            '.json', '.yaml', '.yml', '.xml', '.html', '.css', '.scss',
+            '.csv', '.log', '.sh', '.bat', '.ini', '.conf', '.cfg', '.toml',
+            '.sql', '.java', '.c', '.cpp', '.h', '.hpp', '.go', '.rs',
+            '.vue', '.svelte', '.rb', '.php', '.swift', '.kt', '.scala',
+        }
+        ext = file_path.suffix.lower()
+        if ext not in text_extensions and not _is_likely_text(file_path):
+            raise HTTPException(status_code=400, detail="不支持预览的文件类型")
+
+        # 读取文件内容（限制大小）
+        max_size = 2 * 1024 * 1024  # 2MB
+        if file_path.stat().st_size > max_size:
+            content = f"文件过大 ({file_path.stat().st_size // 1024}KB)，无法预览。\n请下载后查看。"
+        else:
+            try:
+                content = file_path.read_text(encoding='utf-8')
+                # 限制返回行数
+                lines = content.split('\n')
+                if len(lines) > 500:
+                    content = '\n'.join(lines[:500]) + f"\n\n... (共 {len(lines)} 行，内容过长已截断)"
+            except UnicodeDecodeError:
+                try:
+                    content = file_path.read_text(encoding='gbk')
+                    if len(content.split('\n')) > 500:
+                        lines = content.split('\n')
+                        content = '\n'.join(lines[:500]) + f"\n\n... (共 {len(lines)} 行，内容过长已截断)"
+                except Exception:
+                    raise HTTPException(status_code=400, detail="无法读取文件内容，可能是二进制文件")
+
+        return PlainTextResponse(content=content)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"预览文件失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _is_likely_text(file_path: Path) -> bool:
+    """简单判断文件是否为文本文件"""
+    try:
+        with open(file_path, 'rb') as f:
+            chunk = f.read(512)
+        # 检查是否包含空字节（二进制文件特征）
+        if b'\x00' in chunk:
+            return False
+        # 检查可打印字符比例
+        text_chars = bytes(range(32, 127)) + b'\n\r\t\b'
+        text_count = sum(c in text_chars for c in chunk)
+        return text_count / len(chunk) > 0.7 if chunk else False
+    except Exception:
+        return False
+
 
 @router.get("/server_info")
 async def get_server_info(request: Request):

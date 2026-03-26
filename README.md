@@ -27,17 +27,6 @@
 - 通过模块化的 **Agent Skills** 架构，系统支持无限扩展工具能力
 - 通过**用户画像挖掘**技术，AI 会越用越懂你
 - 通过**思考过程可视化**，你可以清晰看到 AI 是如何分析和解决问题的
-
-
-### 🎬 视频介绍
- 
-<div align="center">
-  <a href="https://www.bilibili.com/video/BV1CdA7zUEk8/?vd_source=781fa589b3d6c4950e8d9db1f7a41409">
-    <img src="images/logo.png" 
-         alt="▶ 点击观看演示视频" width="20%"/>
-  </a>
-  <p><em>▶ 点击图片观看完整演示视频</em></p>
-</div>
  
 ---
 
@@ -54,6 +43,22 @@
 | 思考过程可视化 | ❌ | ✅ |
 | 多会话管理 | ❌ | ✅ |
 | 实时流式输出 | ❌ | ✅ |
+
+---
+
+## 📰 更新日志 (News)
+
+### 🆕 最新更新 (2026-03-26)
+
+- **📂 输出文件浏览器**
+  - 新增右侧滑出式文件浏览器面板，方便查看 Agent 生成的文件
+  - 支持目录浏览和文件预览（.txt, .md, .py, .js, json 等文本格式）
+  - 一键下载功能，快速获取生成的内容
+
+- **API 接口扩展**
+  - `GET /api/output/files` - 获取输出目录文件列表
+  - `GET /api/output/files/preview` - 预览文本文件内容
+  - `GET /api/output/files/download` - 下载指定文件
 
 ---
 
