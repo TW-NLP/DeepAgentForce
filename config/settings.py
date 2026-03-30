@@ -15,6 +15,24 @@ from typing import Optional, List
 from functools import lru_cache
 import json
 import hashlib
+import socket
+
+
+def _get_local_ip() -> str:
+    """自动获取本机局域网 IP（用于对外暴露的地址）"""
+    try:
+        # 连接到一个外部地址来确定本机出口 IP（不实际发送数据）
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+# 启动时自动检测本机 IP，避免硬编码 127.0.0.1
+_LOCAL_IP = _get_local_ip()
 
 
 class ServerConfig(BaseSettings):
@@ -31,17 +49,20 @@ class ServerConfig(BaseSettings):
     @property
     def API_BASE(self) -> str:
         """动态生成后端 API 地址（包含 /api 前缀）"""
-        return f"http://{self.HOST if self.HOST != '0.0.0.0' else '127.0.0.1'}:{self.PORT}/api"
+        host = _LOCAL_IP if self.HOST == "0.0.0.0" else self.HOST
+        return f"http://{host}:{self.PORT}/api"
 
     @property
     def WS_BASE(self) -> str:
         """动态生成 WebSocket 地址"""
-        return f"ws://{self.HOST if self.HOST != '0.0.0.0' else '127.0.0.1'}:{self.PORT}/ws/stream"
+        host = _LOCAL_IP if self.HOST == "0.0.0.0" else self.HOST
+        return f"ws://{host}:{self.PORT}/ws/stream"
 
     @property
     def FRONTEND_BASE(self) -> str:
         """前端服务地址"""
-        return f"http://{self.FRONTEND_HOST}:{self.FRONTEND_PORT}"
+        host = _LOCAL_IP if self.FRONTEND_HOST in ("127.0.0.1", "0.0.0.0", "") else self.FRONTEND_HOST
+        return f"http://{host}:{self.FRONTEND_PORT}"
 
     @property
     def server_info(self) -> dict:
