@@ -327,15 +327,25 @@ function startNewChat() {
 
 // ============ 3. WebSocket 连接管理 ============
 function getWsUrl() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = CONFIG.API_HOST || window.location.hostname;
-    const port = CONFIG.API_PORT || (window.location.protocol === 'https:' ? '443' : '80');
-    // 🆕 从 localStorage 读取 token，而不是从 auth.js 模块变量
-    const token = localStorage.getItem('access_token');
-    if (token) {
-        return `${protocol}//${host}:${port}/ws/stream?token=${encodeURIComponent(token)}`;
+    // 优先使用 autoDetectFromBrowser 设置好的 _wsBase（浏览器 URL 自动检测）
+    if (CONFIG._wsBase) {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            const sep = CONFIG._wsBase.includes('?') ? '&' : '?';
+            return `${CONFIG._wsBase}${sep}token=${encodeURIComponent(token)}`;
+        }
+        return CONFIG._wsBase;
     }
-    return `${protocol}//${host}:${port}/ws/stream`;
+
+    // 回退：使用浏览器当前地址（前后端同服务器）
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+    const token = localStorage.getItem('access_token');
+    const url = `${protocol}//${host}:8000/ws/stream`;
+    if (token) {
+        return `${url}?token=${encodeURIComponent(token)}`;
+    }
+    return url;
 }
 
 function connectWebSocket() {

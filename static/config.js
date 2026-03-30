@@ -44,17 +44,17 @@ function autoDetectFromBrowser() {
     CONFIG.API_HOST = hostname;
     CONFIG.API_PORT = '8000';
 
-    // 自动构造前后端基础 URL
+    // 自动构造前后端基础 URL（注意：apiBase 要包含 /api，因为后端接口在 /api 下）
     const frontendBase = port
         ? `${protocol}//${hostname}:${port}`
         : `${protocol}//${hostname}`;
-    const apiBase = `${protocol}//${hostname}:8000`;
+    const apiBase = `${protocol}//${hostname}:8000/api`;  // 包含 /api 后缀
 
     CONFIG._frontendBase = frontendBase;
-    CONFIG._apiBase = apiBase;
+    CONFIG._apiBase = apiBase;  // 修正：包含 /api
     CONFIG._wsBase = `${protocol.replace('http', 'ws')}//${hostname}:8000/ws/stream`;
 
-    console.log(`✅ 自动检测到部署地址: ${frontendBase}，后端: ${apiBase}`);
+    console.log(`✅ 自动检测到部署地址: ${frontendBase}，后端 API: ${apiBase}`);
 }
 
 // 页面加载时立即自动检测（同步，在任何请求之前执行）
@@ -78,8 +78,10 @@ function getApiBase() {
         return CONFIG._apiBase;
     }
 
-    // 3. 返回默认地址（不含 /api，由各路由自行添加）
-    return `http://${CONFIG.API_HOST}:${CONFIG.API_PORT}`;
+    // 3. 回退：从浏览器 URL 动态构造（前后端同服务器）
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:8000/api`;
 }
 
 /**
@@ -98,8 +100,10 @@ function getWsBase() {
         return CONFIG._wsBase;
     }
 
-    // 3. 返回默认地址
-    return `ws://${CONFIG.API_HOST}:${CONFIG.API_PORT}/ws/stream`;
+    // 3. 回退：从浏览器 URL 动态构造（前后端同服务器）
+    const protocol = window.location.protocol.replace('http', 'ws');
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:8000/ws/stream`;
 }
 
 /**

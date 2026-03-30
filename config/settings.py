@@ -67,12 +67,14 @@ class ServerConfig(BaseSettings):
     @property
     def server_info(self) -> dict:
         """返回供前端使用的服务器信息"""
+        # 用 API_BASE 反推对外暴露的真实 host（去掉 /api 后缀）
+        accessible_host = self.API_BASE.rsplit("/api", 1)[0].replace("http://", "").replace("https://", "")
         return {
-            "host": self.HOST,
+            "host": accessible_host,
             "port": self.PORT,
             "api_base": self.API_BASE,
             "ws_base": self.WS_BASE,
-            "frontend_host": self.FRONTEND_HOST,
+            "frontend_host": accessible_host,
             "frontend_port": self.FRONTEND_PORT,
             "frontend_base": self.FRONTEND_BASE,
         }
