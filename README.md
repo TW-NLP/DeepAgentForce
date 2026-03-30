@@ -42,13 +42,43 @@
 | 用户偏好学习 | ❌ | ✅ |
 | 思考过程可视化 | ❌ | ✅ |
 | 多会话管理 | ❌ | ✅ |
-| 实时流式输出 | ❌ | ✅ |
+| 多租户支持 | ❌ | ✅ |
+
+---
+
+## 🔐 多租户认证系统
+
+DeepAgentForce 支持完整的多租户用户认证系统，满足团队协作和企业级部署需求。
+
+### 主要功能
+
+- **👤 用户注册与登录** - 支持用户名/邮箱注册和登录
+- **🏢 多租户架构** - 每个团队/公司拥有独立的工作空间
+- **🔑 JWT Token 认证** - 安全的无状态认证机制
+- **👥 团队协作** - 支持邀请成员加入团队
+- **🔄 Token 刷新** - 安全的 Token 自动续期机制
+
+### 技术实现
+
+| 组件 | 技术 |
+|------|------|
+| 数据库 | MySQL |
+| ORM | SQLAlchemy |
+| 密码加密 | Bcrypt |
+| 认证协议 | JWT (HS256) |
+| 后端框架 | FastAPI |
 
 ---
 
 ## 📰 更新日志 (News)
 
 ### 🆕 最新更新 (2026-03-26)
+
+- **🔐 多租户认证系统**
+  - 新增用户注册和登录页面
+  - 支持创建独立工作空间或加入已有团队
+  - JWT Token 认证，支持自动刷新
+  - 用户菜单集成，显示登录状态
 
 - **📂 输出文件浏览器**
   - 新增右侧滑出式文件浏览器面板，方便查看 Agent 生成的文件
@@ -77,6 +107,7 @@
 | 依赖 | 版本要求 |
 |------|---------|
 | Python | 3.12+ |
+| MySQL | 8.0+ |
 | pip | 最新版 |
 
 ### 安装步骤
@@ -97,6 +128,30 @@ pip install -r requirements.txt
 pip install -r requirements.txt \
   -i https://mirrors.aliyunyun.com/pypi/simple/ \
   --trusted-host=mirrors.aliyunyun.com
+```
+
+### 数据库配置
+
+```bash
+# 1. 安装并启动 MySQL 8.0+
+
+# 2. 创建数据库
+mysql -u root -p
+CREATE DATABASE deepagentforce CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'agent'@'%' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON deepagentforce.* TO 'agent'@'%';
+FLUSH PRIVILEGES;
+EXIT;
+
+# 3. 配置环境变量（可选，创建 .env 文件）
+cat > .env << EOF
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=deepagentforce
+DB_USERNAME=agent
+DB_PASSWORD=your_password
+JWT_SECRET_KEY=your-secret-key-change-in-production
+EOF
 ```
 
 ### 启动服务
@@ -249,6 +304,18 @@ python scripts/main.py "<参数>"
 
 后端提供完整的 RESTful API，启动后访问 [http://localhost:8000/docs](http://localhost:8000/docs) 查看 Swagger 交互文档。
 
+### 认证 API
+
+| Endpoint | 方法 | 说明 |
+|----------|:----:|------|
+| `/api/auth/register` | POST | 用户注册 |
+| `/api/auth/login` | POST | 用户登录 |
+| `/api/auth/refresh` | POST | 刷新 Token |
+| `/api/auth/me` | GET | 获取当前用户信息 |
+| `/api/auth/logout` | POST | 用户登出 |
+
+### 对话与知识库 API
+
 | Endpoint | 方法 | 说明 |
 |----------|:----:|------|
 | `/api/chat` | POST | 发送对话消息 |
@@ -256,8 +323,14 @@ python scripts/main.py "<参数>"
 | `/api/rag/documents/upload` | POST | 上传文档 |
 | `/api/rag/query` | POST | 知识库问答 |
 | `/api/history/saved` | GET | 获取历史会话 |
-| `/api/skills` | GET / POST | Skills 管理 |
-| `/api/person_like` | GET | 获取用户画像 |
+
+### 文件管理 API
+
+| Endpoint | 方法 | 说明 |
+|----------|:----:|------|
+| `/api/output/files` | GET | 获取输出文件列表 |
+| `/api/output/files/preview` | GET | 预览文件内容 |
+| `/api/output/files/download` | GET | 下载文件 |
 
 ---
 
@@ -283,16 +356,25 @@ DeepAgentForce/
 ├── main.py                          # 后端入口
 ├── requirements.txt                 # 依赖列表
 ├── README.md                        # 项目文档
+├── .env                             # 环境变量配置
 ├── config/
 │   └── settings.py                  # 配置管理
 ├── src/
 │   ├── api/
 │   │   ├── routes.py                # 主路由
 │   │   ├── websocket.py             # WebSocket 处理
-│   │   └── skills_routes.py         # Skills 路由
+│   │   ├── skills_routes.py         # Skills 路由
+│   │   └── auth_routes.py           # 认证路由
+│   ├── database/
+│   │   ├── __init__.py
+│   │   └── connection.py            # 数据库连接
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── user.py                  # 用户和租户模型
 │   ├── services/
 │   │   ├── conversational_agent.py  # 对话 Agent
 │   │   ├── person_like_service.py   # 用户画像
+│   │   ├── auth_service.py          # 认证服务
 │   │   └── skills/                  # Agent Skills
 │   │       ├── rag-query/
 │   │       ├── web-search/
@@ -300,7 +382,11 @@ DeepAgentForce/
 │   └── utils/                       # 工具函数
 ├── static/
 │   ├── index.html                   # 主页面
+│   ├── login.html                   # 登录页面
+│   ├── register.html                # 注册页面
 │   ├── chat.js                      # 对话逻辑
+│   ├── auth.js                      # 认证管理
+│   ├── output.js                    # 输出文件管理
 │   └── skills.js                    # Skills 管理
 ├── images/                          # README 图片资源
 └── data/

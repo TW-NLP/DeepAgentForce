@@ -87,9 +87,19 @@ function getApiUrl() {
 
 /**
  * 获取 WebSocket URL
+ * 🆕 多租户：自动携带 access_token 用于后端提取 tenant_id
  */
 function getWsUrl() {
-    return getWsBase();
+    let base = getWsBase();
+    
+    // 🆕 从 auth 模块获取 token
+    const token = window.auth && window.auth.getAccessToken ? window.auth.getAccessToken() : null;
+    if (token) {
+        const separator = base.includes('?') ? '&' : '?';
+        base += `${separator}token=${encodeURIComponent(token)}`;
+    }
+    
+    return base;
 }
 
 // ==================== 服务器信息同步 ====================
@@ -135,7 +145,8 @@ async function syncServerConfig() {
 
 async function loadConfig() {
     try {
-        const response = await fetch(`${getApiUrl()}/config`);
+        // 🆕 使用 authFetch（用于后端按租户返回配置）
+        const response = await authFetch(`${getApiUrl()}/config`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -149,7 +160,8 @@ async function loadConfig() {
 
 async function saveConfig(formData) {
     try {
-        const response = await fetch(`${getApiUrl()}/config`, {
+        // 🆕 使用 authFetch（用于后端按租户保存配置）
+        const response = await authFetch(`${getApiUrl()}/config`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)

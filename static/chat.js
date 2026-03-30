@@ -43,7 +43,8 @@ function initDOM() {
 async function loadSavedHistory() {
     try {
         console.log("正在加载历史记录...");
-        const response = await fetch(`${getApiUrl()}/history/saved`);
+        // 🆕 使用 authFetch 自动携带 Authorization header（用于后端提取 tenant_id）
+        const response = await window.auth.authFetch(`${getApiUrl()}/history/saved`);
 
         if (!response.ok) {
             console.warn("无法连接到历史记录接口");
@@ -184,7 +185,7 @@ async function confirmDeleteSession(sessionId, title) {
 
 async function deleteSession(sessionId) {
     try {
-        const response = await fetch(`${getApiUrl()}/history/session/${sessionId}`, {
+        const response = await window.auth.authFetch(`${getApiUrl()}/history/session/${sessionId}`, {
             method: 'DELETE'
         });
 
@@ -325,12 +326,27 @@ function startNewChat() {
 }
 
 // ============ 3. WebSocket 连接管理 ============
+function getWsUrl() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = CONFIG.API_HOST || window.location.hostname;
+    const port = CONFIG.API_PORT || (window.location.protocol === 'https:' ? '443' : '80');
+    // 🆕 从 localStorage 读取 token，而不是从 auth.js 模块变量
+    const token = localStorage.getItem('access_token');
+    if (token) {
+        return `${protocol}//${host}:${port}/ws/stream?token=${encodeURIComponent(token)}`;
+    }
+    return `${protocol}//${host}:${port}/ws/stream`;
+}
+
 function connectWebSocket() {
     if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
         return;
     }
 
-    ws = new WebSocket(getWsUrl());
+    // 🆕 动态获取包含 token 的 WebSocket URL
+    const wsUrl = getWsUrl();
+    console.log('🔌 正在连接 WebSocket:', wsUrl.replace(/token=[^&]+/, 'token=***')); // 脱敏日志
+    ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
         console.log('✅ WebSocket 连接成功');
@@ -732,8 +748,16 @@ async function sendMessage(text = null) {
             sendButton.disabled = true;
             messageInput.disabled = true;
 
+            // 🆕 文件上传需要手动构造 Authorization header
+            const token = window.auth && window.auth.getAccessToken ? window.auth.getAccessToken() : null;
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(`${getApiUrl()}/chat/upload`, {
                 method: 'POST',
+                headers: headers,
                 body: formData
             });
 

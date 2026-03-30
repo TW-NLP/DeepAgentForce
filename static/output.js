@@ -136,7 +136,8 @@ async function loadOutputFiles(path = '') {
         const apiUrl = window.getApiUrl ? window.getApiUrl() : `${window.location.protocol}//${window.location.hostname}:8000/api`;
         const url = path ? `${apiUrl}/output/files?path=${encodeURIComponent(path)}` : `${apiUrl}/output/files`;
 
-        const response = await fetch(url);
+        // 🆕 使用 authFetch
+        const response = await authFetch(url);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -261,7 +262,8 @@ async function previewFile(path, name) {
 
     try {
         const apiUrl = window.getApiUrl ? window.getApiUrl() : `${window.location.protocol}//${window.location.hostname}:8000/api`;
-        const response = await fetch(`${apiUrl}/output/files/preview?path=${encodeURIComponent(path)}`);
+        // 🆕 使用 authFetch
+        const response = await authFetch(`${apiUrl}/output/files/preview?path=${encodeURIComponent(path)}`);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));

@@ -76,7 +76,8 @@ function formatDate(dateString) {
 // ============ API 调用 ============
 async function loadKnowledgeBaseStats() {
     try {
-        const response = await fetch(`${getApiUrl()}/rag/index/status`);
+        // 🆕 使用 authFetch
+        const response = await authFetch(`${getApiUrl()}/rag/index/status`);
         const data = await response.json();
 
         if (data.success) {
@@ -90,7 +91,8 @@ async function loadKnowledgeBaseStats() {
 
 async function loadDocuments() {
     try {
-        const response = await fetch(`${getApiUrl()}/rag/documents`);
+        // 🆕 使用 authFetch
+        const response = await authFetch(`${getApiUrl()}/rag/documents`);
         const data = await response.json();
         const documentsList = document.getElementById('documentsList');
 
@@ -123,7 +125,8 @@ async function deleteDocument(documentId) {
 
     LoadingManager.show('正在删除...');
     try {
-        const response = await fetch(`${getApiUrl()}/rag/documents/${documentId}`, { method: 'DELETE' });
+        // 🆕 使用 authFetch
+        const response = await authFetch(`${getApiUrl()}/rag/documents/${documentId}`, { method: 'DELETE' });
         const data = await response.json();
 
         if (data.success) {
@@ -145,8 +148,16 @@ async function uploadSingleFile(file) {
     formData.append('file', file);
 
     try {
+        // 🆕 文件上传需要手动构造 Authorization header
+        const token = window.auth && window.auth.getAccessToken ? window.auth.getAccessToken() : null;
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch(`${getApiUrl()}/rag/documents/upload`, {
             method: 'POST',
+            headers: headers,
             body: formData
         });
         const data = await response.json();

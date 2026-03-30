@@ -74,12 +74,18 @@ class Settings(ServerConfig):
     UPLOAD_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "uploads")
     MILVUS_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "rag_storage")
     SKILL_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "src" / "services" / "skills")
+    USER_SKILL_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "user_skills")
     OUTPUT_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "outputs")
 
     # ==================== 配置文件 ====================
     CONFIG_FILE: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "saved_config.json")
     PERSON_LIKE_FILE: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "person_like.json")
     MILVUS_DB_PATH: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "milvus.db")
+
+    @property
+    def DB_URL(self) -> str:
+        """数据库连接 URL"""
+        return f"mysql+pymysql://{self.DB_USERNAME}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     @property
     def MILVUS_URL(self) -> str:
@@ -137,6 +143,19 @@ class Settings(ServerConfig):
     # ==================== Session 配置 ====================
     SESSION_TIMEOUT: int = Field(default=3600, description="Session 超时时间(秒)")
     MAX_SESSIONS: int = Field(default=1000, description="最大 Session 数量")
+
+    # ==================== 数据库配置 ====================
+    DB_HOST: str = Field(default="localhost", description="MySQL 数据库主机")
+    DB_PORT: int = Field(default=3306, ge=1, le=65535, description="MySQL 数据库端口")
+    DB_NAME: str = Field(default="deepagentforce", description="MySQL 数据库名称")
+    DB_USERNAME: str = Field(default="root", description="MySQL 数据库用户名")
+    DB_PASSWORD: str = Field(default="", description="MySQL 数据库密码")
+
+    # ==================== JWT 配置 ====================
+    JWT_SECRET_KEY: str = Field(default="your-secret-key-change-in-production", description="JWT 密钥")
+    JWT_ALGORITHM: str = Field(default="HS256", description="JWT 算法")
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60, description="访问令牌过期时间(分钟)")
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, description="刷新令牌过期时间(天)")
 
     def __init__(self, **kwargs):
         """初始化配置，从 JSON 文件加载"""
@@ -198,7 +217,7 @@ class Settings(ServerConfig):
         # 过滤掉服务器配置和路径配置
         excluded_keys = {
             'PROJECT_ROOT', 'DATA_DIR', 'HISTORY_DIR', 'UPLOAD_DIR', 'MILVUS_DIR',
-            'SKILL_DIR', 'CONFIG_FILE', 'PERSON_LIKE_FILE', 'MILVUS_DB_PATH',
+            'SKILL_DIR', 'USER_SKILL_DIR', 'CONFIG_FILE', 'PERSON_LIKE_FILE', 'MILVUS_DB_PATH',
             'MILVUS_URL', 'API_BASE', 'WS_BASE', 'FRONTEND_BASE', 'server_info',
             'config_hash', 'RAG_API_URL', 'APP_NAME', 'APP_VERSION', 'DEBUG',
             'LOG_LEVEL', 'LOG_FORMAT', 'CORS_ORIGINS', 'SESSION_TIMEOUT', 'MAX_SESSIONS'
@@ -211,6 +230,50 @@ class Settings(ServerConfig):
             encoding='utf-8'
         )
         print(f"✅ 配置已保存到 {self.CONFIG_FILE}")
+
+    # 🆕 多租户路径支持（使用 tenant_uuid）
+
+    def get_tenant_history_dir(self, tenant_uuid: Optional[str] = None) -> Path:
+        """获取租户专属的历史目录（使用 tenant_uuid）"""
+        if tenant_uuid is None:
+            tenant_uuid = "default"
+        return self.HISTORY_DIR / str(tenant_uuid)
+
+    def get_tenant_upload_dir(self, tenant_uuid: Optional[str] = None) -> Path:
+        """获取租户专属的上传目录（使用 tenant_uuid）"""
+        if tenant_uuid is None:
+            tenant_uuid = "default"
+        return self.UPLOAD_DIR / str(tenant_uuid)
+
+    def get_tenant_output_dir(self, tenant_uuid: Optional[str] = None) -> Path:
+        """获取租户专属的输出目录（使用 tenant_uuid）"""
+        if tenant_uuid is None:
+            tenant_uuid = "default"
+        tenant_dir = self.OUTPUT_DIR / str(tenant_uuid)
+        tenant_dir.mkdir(parents=True, exist_ok=True)
+        return tenant_dir
+
+    def get_tenant_config_file(self, tenant_uuid: Optional[str] = None) -> Path:
+        """获取租户专属的配置文件（使用 tenant_uuid）"""
+        if tenant_uuid is None:
+            return self.CONFIG_FILE
+        return self.CONFIG_FILE.parent / f"saved_config_{tenant_uuid}.json"
+
+    def get_tenant_person_like_file(self, tenant_uuid: Optional[str] = None) -> Path:
+        """获取租户专属的用户画像文件（使用 tenant_uuid）"""
+        if tenant_uuid is None:
+            return self.PERSON_LIKE_FILE
+        return self.PERSON_LIKE_FILE.parent / f"person_like_{tenant_uuid}.json"
+
+    def get_user_skill_dir(self, user_id: int) -> Path:
+        """获取用户专属的 Skills 目录（按 user_id 隔离）"""
+        user_dir = self.USER_SKILL_DIR / str(user_id)
+        user_dir.mkdir(parents=True, exist_ok=True)
+        return user_dir
+
+    def get_builtin_skill_dir(self) -> Path:
+        """获取内置 Skills 目录（所有用户可见）"""
+        return self.SKILL_DIR
 
     class Config:
         env_file = ".env"

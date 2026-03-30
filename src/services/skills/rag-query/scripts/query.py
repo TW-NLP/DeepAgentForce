@@ -40,6 +40,13 @@ def parse_args():
         default=10,
         help="Number of top communities to retrieve"
     )
+    # 🆕 多租户参数
+    parser.add_argument(
+        "--tenant-uuid",
+        type=str,
+        default=None,
+        help="Tenant UUID for multi-tenant RAG query"
+    )
 
     args = parser.parse_args()
 
@@ -55,20 +62,25 @@ def parse_args():
 
     return argparse.Namespace(
         question=final_question,
-        top_k=args.top_k
+        top_k=args.top_k,
+        tenant_uuid=args.tenant_uuid
     )
 
 
-def query_rag(question: str, top_k: int = 10) -> dict:
+def query_rag(question: str, top_k: int = 10, tenant_uuid: str = None) -> dict:
     payload = {
         "question": question,
-        "top_k_communities": top_k
+        "top_k": top_k
     }
+    # 🆕 添加租户标识（如果 RAG API 支持通过 header 传递）
+    headers = {"Content-Type": "application/json"}
+    if tenant_uuid:
+        headers["X-Tenant-UUID"] = tenant_uuid
 
     with httpx.Client(timeout=120.0) as client:
         response = client.post(
             RAG_ENDPOINT,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             json=payload
         )
 
@@ -87,11 +99,17 @@ def main():
         print("   or: python query.py --question \"Your question here\"")
         sys.exit(1)
 
+    # 🆕 检查租户 UUID
+    if not args.tenant_uuid:
+        print("⚠️ Warning: No tenant_uuid provided, will query default RAG collection.")
+        print("   Add --tenant-uuid <uuid> to query tenant-specific collection.")
+
     try:
-        result = query_rag(args.question, args.top_k)
+        result = query_rag(args.question, args.top_k, args.tenant_uuid)
 
         print("=" * 60)
         print("📘 RAG Query Result")
+        print(f"🏢 Tenant: {args.tenant_uuid or 'default'}")
         print("=" * 60)
         print(f"❓ Question:\n{args.question}\n")
 

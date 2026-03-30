@@ -294,6 +294,8 @@
             justify-content: space-between;
             min-height: 68px;
             box-shadow: 0 2px 20px rgba(0, 0, 0, 0.04);
+            position: relative;   /* 新增 */
+            z-index: 200;         /* 新增，确保下拉菜单不被遮挡 */
         }
 
         .header-title {
@@ -2886,6 +2888,120 @@
             color: var(--accent-primary);
         }
 
+        /* ============ 用户菜单 ============ */
+        .user-menu {
+            position: relative;
+            margin-left: 8px;
+        }
+
+        .user-menu-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border: none;
+            background: var(--glass-bg);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .user-menu-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 500;
+            max-width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .user-menu-arrow {
+            transition: transform 0.2s;
+        }
+
+        .user-menu.open .user-menu-arrow {
+            transform: rotate(180deg);
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 220px;
+            background: white;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-light);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-8px);
+            transition: all 0.2s;
+            z-index: 300;
+        }
+
+        .user-menu.open .user-dropdown {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .user-info {
+            padding: 16px;
+        }
+
+        .user-info-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .user-info-email {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background: var(--border-light);
+            margin: 0;
+        }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--accent-error);
+        }
+
+        .dropdown-item svg {
+            flex-shrink: 0;
+        }
+
         /* 遮罩层 */
         .output-overlay {
             position: fixed;
@@ -2988,6 +3104,27 @@
                     <button class="icon-btn" id="newChatBtn" title="新对话">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </button>
+                    <!-- 用户菜单 -->
+                    <div class="user-menu" id="userMenu">
+                        <button class="user-menu-btn" id="userMenuBtn" title="用户菜单" onclick="event.stopPropagation(); document.getElementById('userMenu').classList.toggle('open');">
+                            <div class="user-avatar" id="userAvatar">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            </div>
+                            <span class="user-name" id="userName">未登录</span>
+                            <svg class="user-menu-arrow" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div class="user-dropdown" id="userDropdown">
+                            <div class="user-info">
+                                <div class="user-info-name" id="userInfoName">未登录</div>
+                                <div class="user-info-email" id="userInfoEmail"></div>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <button type="button" class="dropdown-item" id="logoutBtn" style="background:none;border:none;width:100%;text-align:left;cursor:pointer;" onclick="event.stopPropagation(); document.getElementById('userMenu').classList.remove('open'); if(window.auth && window.auth.logout){window.auth.logout();} localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); localStorage.removeItem('user'); localStorage.removeItem('is_guest'); window.location.href='login.html';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                退出登录
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -3229,7 +3366,7 @@
                             </div>
                         </div>
 
-                        <button class="save-button" id="saveConfigBtn">
+                        <button class="save-button" id="saveConfigBtn" onclick="handleSaveConfig(this)">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                             <span>保存配置</span>
                         </button>
@@ -3354,6 +3491,7 @@
         </main>
     </div>
 
+    <script src="auth.js"></script>
     <script src="config.js"></script>
     <script src="knowledge.js"></script>
     <script src="chat.js"></script>
@@ -3391,7 +3529,8 @@ async function runAnalysis(btn) {
         btn.style.opacity = '0.7';
 
         console.log(`📡 请求: ${PERSON_API_BASE}/person_like`);
-        const response = await fetch(`${PERSON_API_BASE}/person_like`);
+        // 🆕 使用 authFetch
+        const response = await authFetch(`${PERSON_API_BASE}/person_like`);
         
         if (!response.ok) throw new Error(`API 错误: ${response.status}`);
         
@@ -3583,11 +3722,89 @@ function renderBeautifulGraph(graphData) {
                     if (typeof loadDocuments === 'function') loadDocuments();
                 } else if (page === 'config') {
                     if (typeof populateConfigFields === 'function') populateConfigFields();
+                    initConfigButton();
                 } else if (page === 'skills') {
                     if (typeof loadSkills === 'function') loadSkills();
                 }
             });
         });
+
+        // 初始化模型配置保存按钮
+        function initConfigButton() {
+            const saveBtn = document.getElementById('saveConfigBtn');
+            console.log('initConfigButton called, saveBtn:', saveBtn, 'has onclick:', saveBtn?.getAttribute('onclick'));
+            // 如果按钮已经有 onclick 处理，不重复绑定
+            if (saveBtn && !saveBtn.getAttribute('onclick')) {
+                saveBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    console.log('保存按钮点击了');
+                    const originalText = saveBtn.innerHTML;
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg><span>保存中...</span>';
+                    
+                    try {
+                        console.log('开始调用 saveConfigFromForm');
+                        if (typeof window.saveConfigFromForm !== 'function') {
+                            throw new Error('saveConfigFromForm 函数未定义');
+                        }
+                        const result = await window.saveConfigFromForm();
+                        console.log('保存结果:', result);
+                        if (result && result.success) {
+                            saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>已保存!</span>';
+                            setTimeout(() => {
+                                saveBtn.innerHTML = originalText;
+                                saveBtn.disabled = false;
+                            }, 2000);
+                        } else {
+                            throw new Error(result?.message || '保存失败');
+                        }
+                    } catch (err) {
+                        console.error('保存失败:', err);
+                        alert('保存失败: ' + err.message);
+                        saveBtn.innerHTML = originalText;
+                        saveBtn.disabled = false;
+                    }
+                });
+                console.log('保存按钮事件绑定成功');
+            } else {
+                console.log('保存按钮已有 onclick 处理或不存在');
+            }
+        }
+        
+        // 页面加载时也初始化一次（防止直接刷新在配置页）
+        initConfigButton();
+
+        // 全局保存配置处理函数（供按钮 onclick 调用）
+        window.handleSaveConfig = async function(btn) {
+            console.log('handleSaveConfig called');
+            if (typeof window.saveConfigFromForm !== 'function') {
+                alert('保存功能未初始化，请刷新页面');
+                return;
+            }
+            
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg><span>保存中...</span>';
+            
+            try {
+                const result = await window.saveConfigFromForm();
+                console.log('保存结果:', result);
+                if (result && result.success) {
+                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>已保存!</span>';
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error(result?.message || '保存失败');
+                }
+            } catch (err) {
+                console.error('保存失败:', err);
+                alert('保存失败: ' + err.message);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
 
         function toggleThinking(element) {
             const header = element.closest('.thinking-header');
@@ -3758,6 +3975,43 @@ function renderBeautifulGraph(graphData) {
             </div>
         </div>
     </div>
+
+    <!-- 用户菜单脚本 -->
+    <script>
+        // 初始化用户信息显示
+        function initUserMenu() {
+            const userNameEl = document.getElementById('userName');
+            const userInfoNameEl = document.getElementById('userInfoName');
+            const userInfoEmailEl = document.getElementById('userInfoEmail');
+            const user = window.auth && window.auth.getCurrentUser ? window.auth.getCurrentUser() : null;
+            if (user) {
+                if (userNameEl) userNameEl.textContent = user.username || user.email || '用户';
+                if (userInfoNameEl) userInfoNameEl.textContent = user.full_name || user.username || '用户';
+                if (userInfoEmailEl) userInfoEmailEl.textContent = user.email || '';
+            } else {
+                if (userNameEl) userNameEl.textContent = '未登录';
+                if (userInfoNameEl) userInfoNameEl.textContent = '未登录';
+                if (userInfoEmailEl) userInfoEmailEl.textContent = '';
+            }
+        }
+
+        // 点击其他地方关闭菜单
+        document.addEventListener('click', (e) => {
+            const userMenu = document.getElementById('userMenu');
+            if (userMenu && !userMenu.contains(e.target)) {
+                userMenu.classList.remove('open');
+            }
+        });
+
+        // 监听认证状态变化
+        if (window.auth) {
+            window.auth.addAuthStateListener(() => initUserMenu());
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', initUserMenu);
+        initUserMenu();
+    </script>
 
 </body>
 </html>

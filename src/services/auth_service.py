@@ -1,0 +1,331 @@
+"""
+认证服务模块
+处理用户注册、登录、Token 生成和验证
+多租户支持：使用 tenant_uuid 进行隔离
+"""
+
+import jwt
+from datetime import datetime, timedelta, timezone
+from src.models.user import User, Tenant, UserRole
+from src.database.connection import SyncSessionLocal
+from config.settings import get_settings
+import logging
+import uuid
+import bcrypt
+
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
+
+class AuthService:
+    """认证服务类"""
+
+    def __init__(self):
+        self.settings = settings
+
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """验证密码"""
+        try:
+            return bcrypt.checkpw(
+                plain_password.encode('utf-8'),
+                hashed_password.encode('utf-8')
+            )
+        except Exception as e:
+            logger.error(f"密码验证失败: {e}")
+            return False
+
+    def get_password_hash(self, password: str) -> str:
+        """生成密码哈希"""
+        try:
+            salt = bcrypt.gensalt(rounds=12)
+            hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+            return hashed.decode('utf-8')
+        except Exception as e:
+            logger.error(f"密码哈希失败: {e}")
+            raise
+
+    def create_access_token(self, user_id: int, username: str, tenant_uuid: str = None) -> str:
+        """创建访问令牌 (JWT) - 使用 tenant_uuid"""
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=self.settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        )
+        payload = {
+            "sub": str(user_id),
+            "username": username,
+            "tenant_uuid": tenant_uuid,  # 🆕 使用 tenant_uuid
+            "exp": expire,
+            "iat": datetime.now(timezone.utc),
+            "type": "access",
+        }
+        return jwt.encode(
+            payload,
+            self.settings.JWT_SECRET_KEY,
+            algorithm=self.settings.JWT_ALGORITHM
+        )
+
+    def create_refresh_token(self, user_id: int, tenant_uuid: str = None) -> str:
+        """创建刷新令牌 - 使用 tenant_uuid"""
+        expire = datetime.now(timezone.utc) + timedelta(
+            days=self.settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
+        )
+        payload = {
+            "sub": str(user_id),
+            "tenant_uuid": tenant_uuid,  # 🆕 使用 tenant_uuid
+            "exp": expire,
+            "iat": datetime.now(timezone.utc),
+            "type": "refresh",
+            "jti": str(uuid.uuid4()),
+        }
+        return jwt.encode(
+            payload,
+            self.settings.JWT_SECRET_KEY,
+            algorithm=self.settings.JWT_ALGORITHM
+        )
+
+    def verify_token(self, token: str) -> dict:
+        """验证 JWT token"""
+        try:
+            payload = jwt.decode(
+                token,
+                self.settings.JWT_SECRET_KEY,
+                algorithms=[self.settings.JWT_ALGORITHM]
+            )
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise ValueError("Token 已过期")
+        except jwt.InvalidTokenError:
+            raise ValueError("无效的 Token")
+
+    def register_user(
+        self,
+        username: str,
+        email: str,
+        password: str,
+        full_name: str = None,
+        tenant_name: str = None,
+        tenant_code: str = None,
+    ) -> dict:
+        """注册新用户 - 自动生成 tenant_uuid"""
+        db = SyncSessionLocal()
+        try:
+            # 检查用户名是否已存在
+            existing_user = db.query(User).filter(User.username == username).first()
+            if existing_user:
+                return {"success": False, "error": "用户名已存在"}
+
+            # 检查邮箱是否已存在
+            existing_email = db.query(User).filter(User.email == email).first()
+            if existing_email:
+                return {"success": False, "error": "邮箱已被注册"}
+
+            # 创建或获取租户（自动生成 uuid）
+            tenant = None
+            if tenant_name and tenant_code:
+                # 创建新租户时会自动生成 uuid
+                tenant = Tenant(
+                    name=tenant_name,
+                    code=tenant_code,
+                    description=f"{tenant_name} 的工作空间",
+                )
+                db.add(tenant)
+                db.flush()
+            elif tenant_code:
+                tenant = db.query(Tenant).filter(Tenant.code == tenant_code).first()
+                if not tenant:
+                    return {"success": False, "error": "租户代码不存在"}
+
+            # 创建用户
+            hashed_password = self.get_password_hash(password)
+            user = User(
+                username=username,
+                email=email,
+                hashed_password=hashed_password,
+                full_name=full_name,
+                tenant_id=tenant.id if tenant else None,
+                tenant_uuid=tenant.uuid if tenant else None,  # 🆕 设置 tenant_uuid
+                role=UserRole.ADMIN,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+            # 获取租户 uuid 用于 token
+            tenant_uuid = tenant.uuid if tenant else None
+
+            # 生成 Token（使用 tenant_uuid）
+            access_token = self.create_access_token(
+                user_id=user.id,
+                username=user.username,
+                tenant_uuid=tenant_uuid
+            )
+            refresh_token = self.create_refresh_token(
+                user_id=user.id,
+                tenant_uuid=tenant_uuid
+            )
+
+            return {
+                "success": True,
+                "user": {
+                    "id": user.id,
+                    "uuid": user.uuid,
+                    "username": user.username,
+                    "email": user.email,
+                    "full_name": user.full_name,
+                    "role": user.role.value,
+                    "tenant_id": user.tenant_id,
+                    "tenant_uuid": tenant_uuid,  # 🆕 返回 tenant_uuid
+                    "tenant_name": tenant.name if tenant else None,
+                },
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "token_type": "bearer",
+            }
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"注册失败: {e}")
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+
+    def login(self, username: str, password: str) -> dict:
+        """用户登录"""
+        db = SyncSessionLocal()
+        try:
+            user = db.query(User).filter(
+                (User.username == username) | (User.email == username)
+            ).first()
+
+            if not user:
+                return {"success": False, "error": "用户不存在"}
+
+            if not self.verify_password(password, user.hashed_password):
+                return {"success": False, "error": "密码错误"}
+
+            if not user.is_active:
+                return {"success": False, "error": "账号已被禁用"}
+
+            user.last_login_at = datetime.now(timezone.utc)
+            db.commit()
+
+            tenant_name = None
+            tenant_uuid = user.tenant_uuid  # 🆕 获取 tenant_uuid
+            if user.tenant_id:
+                tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+                tenant_name = tenant.name if tenant else None
+
+            # 生成 Token（使用 tenant_uuid）
+            access_token = self.create_access_token(
+                user_id=user.id,
+                username=user.username,
+                tenant_uuid=tenant_uuid
+            )
+            refresh_token = self.create_refresh_token(
+                user_id=user.id,
+                tenant_uuid=tenant_uuid
+            )
+
+            return {
+                "success": True,
+                "user": {
+                    "id": user.id,
+                    "uuid": user.uuid,
+                    "username": user.username,
+                    "email": user.email,
+                    "full_name": user.full_name,
+                    "role": user.role.value,
+                    "tenant_id": user.tenant_id,
+                    "tenant_uuid": tenant_uuid,  # 🆕 返回 tenant_uuid
+                    "tenant_name": tenant_name,
+                    "avatar_url": user.avatar_url,
+                },
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "token_type": "bearer",
+            }
+
+        except Exception as e:
+            logger.error(f"登录失败: {e}")
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+
+    def get_current_user(self, token: str) -> dict:
+        """从 Token 获取当前用户信息"""
+        try:
+            payload = self.verify_token(token)
+            if payload.get("type") != "access":
+                raise ValueError("无效的 Token 类型")
+
+            user_id = int(payload.get("sub"))
+            tenant_uuid = payload.get("tenant_uuid")  # 🆕 获取 tenant_uuid
+            db = SyncSessionLocal()
+            try:
+                user = db.query(User).filter(User.id == user_id).first()
+                if not user:
+                    raise ValueError("用户不存在")
+
+                if not user.is_active:
+                    raise ValueError("账号已被禁用")
+
+                return {
+                    "id": user.id,
+                    "uuid": user.uuid,
+                    "username": user.username,
+                    "email": user.email,
+                    "full_name": user.full_name,
+                    "role": user.role.value,
+                    "tenant_id": user.tenant_id,
+                    "tenant_uuid": tenant_uuid or user.tenant_uuid,  # 🆕 返回 tenant_uuid
+                    "is_superuser": user.is_superuser,
+                }
+            finally:
+                db.close()
+
+        except ValueError as e:
+            raise e
+        except Exception as e:
+            logger.error(f"获取用户信息失败: {e}")
+            raise ValueError("Token 验证失败")
+
+    def refresh_access_token(self, refresh_token: str) -> dict:
+        """使用刷新令牌获取新的访问令牌"""
+        try:
+            payload = self.verify_token(refresh_token)
+            if payload.get("type") != "refresh":
+                return {"success": False, "error": "无效的 Token 类型"}
+
+            user_id = int(payload.get("sub"))
+            tenant_uuid = payload.get("tenant_uuid")  # 🆕 获取 tenant_uuid
+            db = SyncSessionLocal()
+            try:
+                user = db.query(User).filter(User.id == user_id).first()
+                if not user:
+                    return {"success": False, "error": "用户不存在"}
+
+                if not user.is_active:
+                    return {"success": False, "error": "账号已被禁用"}
+
+                access_token = self.create_access_token(
+                    user_id=user.id,
+                    username=user.username,
+                    tenant_uuid=tenant_uuid or user.tenant_uuid
+                )
+
+                return {
+                    "success": True,
+                    "access_token": access_token,
+                    "token_type": "bearer",
+                }
+            finally:
+                db.close()
+
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            logger.error(f"刷新 Token 失败: {e}")
+            return {"success": False, "error": "Token 刷新失败"}
+
+
+# 创建全局认证服务实例
+auth_service = AuthService()

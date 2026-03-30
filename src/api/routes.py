@@ -5,14 +5,40 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Dict, List
-from fastapi import APIRouter, Form, HTTPException, UploadFile, File, BackgroundTasks, Request
+from fastapi import APIRouter, Form, HTTPException, UploadFile, File, BackgroundTasks, Request, Header
 from pydantic import BaseModel, Field
 from src.utils.content_parse import parse_uploaded_file
 from src.utils.setting_utils import save_config_to_file
+from src.services.auth_service import auth_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ==================== 多租户辅助函数 ====================
+
+def get_tenant_uuid_from_request(request: Request) -> Optional[str]:
+    """
+    从请求头中提取 tenant_uuid
+    用于 API 路由的租户隔离验证
+    优先级：X-Tenant-UUID header > Authorization JWT token
+    """
+    # 🆕 优先从 X-Tenant-UUID header 获取（供 skill 脚本使用）
+    tenant_header = request.headers.get("X-Tenant-UUID")
+    if tenant_header:
+        return tenant_header
+    
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.replace("Bearer ", "")
+    try:
+        payload = auth_service.verify_token(token)
+        return payload.get("tenant_uuid")  # 🆕 使用 tenant_uuid
+    except Exception:
+        return None
+
 
 # ==================== 数据模型 (Pydantic) ====================
 class ThinkingStep(BaseModel):
@@ -141,8 +167,12 @@ class IndexStatusResponse(BaseModel):
 async def chat(request: Request, chat_req: ChatRequest):
     """同步对话接口"""
     engine = request.app.state.engine  # 从全局状态获取唯一引擎
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        session_id, agent = engine.get_or_create_session(chat_req.session_id)
+        session_id, agent = engine.get_or_create_session(
+            chat_req.session_id,
+            tenant_uuid=tenant_id  # 🆕
+        )
         
         logger.info(f"[{session_id}] 收到消息: {chat_req.message[:50]}...")
         response_content = await agent.chat(chat_req.message)
@@ -169,10 +199,14 @@ async def chat_with_upload(
     Content-Type: multipart/form-data
     """
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     
     try:
         # 1. 获取会话
-        session_id, agent = engine.get_or_create_session(session_id)
+        session_id, agent = engine.get_or_create_session(
+            session_id,
+            tenant_uuid=tenant_id  # 🆕
+        )
         
         logger.info(f"[{session_id}] 收到带附件的消息: {message[:50]}... (附件数: {len(files)})")
 
@@ -215,12 +249,14 @@ async def chat_with_upload(
 @router.get("/history/saved", response_model=SavedHistoryListResponse, tags=["对话历史"])
 async def get_saved_history_list(request: Request):
     """
-    获取所有已保存的会话历史列表
+    获取当前租户下所有已保存的会话历史列表
     包含完整的思考过程和工具调用记录
+    🆕 多租户：只返回当前用户所属租户的会话
     """
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        sessions = engine.history_manager.list_sessions()
+        sessions = engine.history_manager.list_sessions(tenant_uuid=tenant_id)  # 🆕
         
         formatted_sessions = []
         for s in sessions:
@@ -290,12 +326,14 @@ async def get_saved_history_list(request: Request):
 async def get_session_detail(session_id: str, request: Request):
     """
     获取单个会话的完整详情
+    🆕 多租户：验证会话属于当前租户
     """
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        session_data = engine.history_manager.get_session_history(session_id)
+        session_data = engine.history_manager.get_session_history(session_id, tenant_uuid=tenant_id)
         if not session_data:
-            raise HTTPException(status_code=404, detail="会话不存在")
+            raise HTTPException(status_code=404, detail="会话不存在或无权限访问")
         
         return {
             "success": True,
@@ -312,15 +350,18 @@ async def get_session_detail(session_id: str, request: Request):
 async def delete_session(session_id: str, request: Request):
     """
     删除指定会话
+    🆕 多租户：验证会话属于当前租户
     """
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        # 从内存中移除（如果存在）
-        if session_id in engine.sessions:
-            del engine.sessions[session_id]
+        # 🆕 从内存中移除（如果存在，按租户 key）
+        session_key = f"{tenant_id}_{session_id}" if tenant_id else session_id
+        if session_key in engine.sessions:
+            del engine.sessions[session_key]
 
-        # 从磁盘删除
-        success = engine.history_manager.delete_session(session_id)
+        # 从磁盘删除（按租户目录）
+        success = engine.history_manager.delete_session(session_id, tenant_uuid=tenant_id)
 
         if success:
             return {"success": True, "message": "会话已删除"}
@@ -337,10 +378,12 @@ async def delete_session(session_id: str, request: Request):
 async def get_history(request: Request, session_id: str):
     """获取内存中的对话历史"""
     engine = request.app.state.engine
-    if session_id not in engine.sessions:
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
+    session_key = f"{tenant_id}_{session_id}" if tenant_id else session_id
+    if session_key not in engine.sessions:
         raise HTTPException(status_code=404, detail="Session active not found")
     
-    agent = engine.sessions[session_id]
+    agent = engine.sessions[session_key]
     return HistoryResponse(
         history=agent.get_history(),
         session_id=session_id
@@ -354,8 +397,12 @@ async def upload_document(
     author: Optional[str] = None,
     category: Optional[str] = None
 ):
-    """上传文档"""
+    """
+    上传文档到当前租户的知识库
+    🆕 多租户：文档按租户隔离
+    """
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     allowed = {'.pdf', '.docx', '.doc', '.txt', '.md', '.markdown', '.csv'}
     ext = Path(file.filename).suffix.lower()
     
@@ -363,7 +410,10 @@ async def upload_document(
         raise HTTPException(status_code=400, detail=f"不支持的文件类型: {ext}")
     
     try:
-        file_path = engine.settings.UPLOAD_DIR / f"{uuid.uuid4()}_{file.filename}"
+        # 🆕 多租户：文件存储到租户专属目录
+        tenant_upload_dir = engine.settings.UPLOAD_DIR / str(tenant_id or "default")
+        tenant_upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = tenant_upload_dir / f"{uuid.uuid4()}_{file.filename}"
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
@@ -372,12 +422,15 @@ async def upload_document(
             "author": author,
             "category": category,
             "original_filename": file.filename,
-            "file_extension": ext
+            "file_extension": ext,
+            "tenant_uuid": tenant_id,  # 🆕 记录所属租户
         }
         
-        pipeline = engine.rag_engine
-        doc_uuid = await pipeline.add_document(str(file_path), metadata)
-        doc_info = pipeline.documents.get(doc_uuid, {'chunks_count': 0, 'added_at': str(datetime.now())})
+        # 🆕 获取租户专属的 RAG pipeline
+        pipeline = engine.get_rag_engine(tenant_id)
+        doc_uuid = await pipeline.add_document(str(file_path), metadata, tenant_uuid=tenant_id)
+        # 🆕 从租户文档元数据获取信息
+        doc_info = pipeline._get_tenant_documents(tenant_id).get(doc_uuid, {'chunks_count': 0, 'added_at': str(datetime.now())})
         
         return UploadResponse(
             success=True,
@@ -393,10 +446,12 @@ async def upload_document(
 
 @router.get("/rag/documents", response_model=ListDocumentsResponse, tags=["RAG"])
 async def list_documents(request: Request):
-    """获取文档列表"""
+    """获取当前租户的知识库文档列表"""
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        docs = engine.rag_engine.list_documents()
+        pipeline = engine.get_rag_engine(tenant_id)
+        docs = pipeline.list_documents(tenant_uuid=tenant_id)  # 🆕
         doc_list = [
             DocumentInfo(
                 document_id=doc['uuid'],
@@ -416,8 +471,10 @@ async def list_documents(request: Request):
 async def delete_document(request: Request, document_id: str):
     """删除文档"""
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        engine.rag_engine.remove_document(document_id)
+        pipeline = engine.get_rag_engine(tenant_id)
+        pipeline.remove_document(document_id, tenant_uuid=tenant_id)  # 🆕
         return DeleteResponse(success=True, message="文档已删除", document_id=document_id)
     except Exception as e:
         logger.error(f"❌ 删除失败: {e}", exc_info=True)
@@ -427,12 +484,18 @@ async def delete_document(request: Request, document_id: str):
 async def query_knowledge_base(request: Request, query_req: QueryRequest):
     """查询知识库"""
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     if not query_req.question.strip():
         raise HTTPException(status_code=400, detail="问题不能为空")
     
     try:
         start_time = datetime.now()
-        answer = await engine.rag_engine.query(query_req.question, top_k=query_req.top_k)
+        pipeline = engine.get_rag_engine(tenant_id)
+        answer = await pipeline.query(
+            query_req.question,
+            top_k=query_req.top_k,
+            tenant_uuid=tenant_id  # 🆕
+        )
         duration = (datetime.now() - start_time).total_seconds()
         
         return QueryResponse(
@@ -446,10 +509,12 @@ async def query_knowledge_base(request: Request, query_req: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 @router.get("/rag/index/status", response_model=IndexStatusResponse, tags=["RAG"])
 async def get_index_status(request: Request):
-    """获取 RAG 索引状态（当前仅返回文档总数）"""
+    """获取 RAG 索引状态"""
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        docs = engine.rag_engine.list_documents()
+        pipeline = engine.get_rag_engine(tenant_id)
+        docs = pipeline.list_documents(tenant_uuid=tenant_id)  # 🆕
 
         return IndexStatusResponse(
             success=True,
@@ -462,11 +527,17 @@ async def get_index_status(request: Request):
     
 @router.get("/config", response_model=ConfigResponse, tags=["配置管理"])
 async def get_config(request: Request):
-    """读取配置"""
+    """
+    读取当前租户的配置
+    🆕 多租户：每个租户有独立的配置
+    """
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        if engine.settings.CONFIG_FILE.exists():
-            data = json.loads(engine.settings.CONFIG_FILE.read_text(encoding='utf-8'))
+        # 🆕 按租户获取配置文件路径
+        config_file = engine.settings.get_tenant_config_file(tenant_id)
+        if config_file.exists():
+            data = json.loads(config_file.read_text(encoding='utf-8'))
             return ConfigResponse(success=True, message="OK", config=data)
         return ConfigResponse(success=True, message="Empty Config", config={})
     except Exception as e:
@@ -474,20 +545,26 @@ async def get_config(request: Request):
 
 @router.post("/config", response_model=ConfigResponse, tags=["配置管理"])
 async def update_config(request: Request, config: Dict[str, Any]):
-    """更新配置"""
+    """
+    更新当前租户的配置
+    🆕 多租户：每个租户有独立的配置
+    """
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        updated_nested_config = save_config_to_file(config)
-        engine.init_service()
+        updated_nested_config = save_config_to_file(config, tenant_uuid=tenant_id)  # 🆕
+        engine.init_service(tenant_uuid=tenant_id)  # 🆕
         return ConfigResponse(success=True, message="配置已保存，在新的对话中生效。", config=updated_nested_config)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/person_like", tags=["个人偏好挖掘"])
 async def get_person_like(request: Request):
+    """获取当前用户的画像"""
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        return engine.user_preference.get_frontend_format()
+        return engine.user_preference.get_frontend_format(tenant_uuid=tenant_id)  # 🆕
     except Exception as e:
          raise HTTPException(status_code=500, detail=str(e))
 
@@ -495,14 +572,17 @@ async def get_person_like(request: Request):
 async def list_output_files(request: Request, path: Optional[str] = None):
     """
     获取 output 目录下的文件列表
-    path: 可选的子目录路径（相对于 OUTPUT_DIR）
+    🆕 多租户：按租户隔离
+    path: 可选的子目录路径（相对于 OUTPUT_DIR/{tenant_id}/）
     """
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        base_path = engine.settings.OUTPUT_DIR
+        # 🆕 多租户：基础路径包含租户目录
+        base_path = engine.settings.get_tenant_output_dir(tenant_id)
         if path:
             current_path = base_path / path
-            # 安全检查：确保路径在 OUTPUT_DIR 内
+            # 安全检查：确保路径在租户输出目录内
             if not str(current_path.resolve()).startswith(str(base_path.resolve())):
                 raise HTTPException(status_code=400, detail="非法路径")
         else:
@@ -538,15 +618,19 @@ async def list_output_files(request: Request, path: Optional[str] = None):
 async def download_output_file(request: Request, path: str):
     """
     下载 output 目录下的指定文件
-    path: 文件路径（相对于 OUTPUT_DIR）
+    🆕 多租户：按租户隔离
+    path: 文件路径（相对于 OUTPUT_DIR/{tenant_id}/）
     """
     from fastapi.responses import FileResponse
 
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        file_path = engine.settings.OUTPUT_DIR / path
-        # 安全检查
-        if not str(file_path.resolve()).startswith(str(engine.settings.OUTPUT_DIR.resolve())):
+        # 🆕 多租户：基础路径包含租户目录
+        base_path = engine.settings.get_tenant_output_dir(tenant_id)
+        file_path = base_path / path
+        # 安全检查：确保路径在租户输出目录内
+        if not str(file_path.resolve()).startswith(str(base_path.resolve())):
             raise HTTPException(status_code=400, detail="非法路径")
 
         if not file_path.exists() or not file_path.is_file():
@@ -568,15 +652,19 @@ async def download_output_file(request: Request, path: str):
 async def preview_output_file(request: Request, path: str):
     """
     预览 output 目录下的文本文件内容
-    path: 文件路径（相对于 OUTPUT_DIR）
+    🆕 多租户：按租户隔离
+    path: 文件路径（相对于 OUTPUT_DIR/{tenant_id}/）
     """
     from fastapi.responses import PlainTextResponse
 
     engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
-        file_path = engine.settings.OUTPUT_DIR / path
-        # 安全检查
-        if not str(file_path.resolve()).startswith(str(engine.settings.OUTPUT_DIR.resolve())):
+        # 🆕 多租户：基础路径包含租户目录
+        base_path = engine.settings.get_tenant_output_dir(tenant_id)
+        file_path = base_path / path
+        # 安全检查：确保路径在租户输出目录内
+        if not str(file_path.resolve()).startswith(str(base_path.resolve())):
             raise HTTPException(status_code=400, detail="非法路径")
 
         if not file_path.exists() or not file_path.is_file():

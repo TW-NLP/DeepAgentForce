@@ -1,6 +1,10 @@
 """
 Skill 管理 API 路由
 提供 Skill 的增删改查、导入导出等接口
+
+多租户支持：
+- 内置 Skills：所有用户可见
+- 用户自定义 Skills：按 user_id 隔离
 """
 
 import logging
@@ -10,10 +14,31 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel, Field
 from datetime import datetime
+from src.services.auth_service import auth_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ==================== 多租户辅助函数 ====================
+
+def get_user_id_from_request(request: Request) -> Optional[int]:
+    """
+    从请求头中提取 user_id 和 tenant_id
+    用于 API 路由的用户隔离验证
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None, None
+    token = auth_header.replace("Bearer ", "")
+    try:
+        payload = auth_service.verify_token(token)
+        user_id = int(payload.get("sub"))
+        tenant_id = payload.get("tenant_id")
+        return user_id, tenant_id
+    except Exception:
+        return None, None
 
 
 # ==================== 数据模型 ====================
@@ -108,12 +133,17 @@ def get_skill_manager(request: Request) -> Any:
 @router.get("/skills", response_model=SkillListResponse, tags=["Skill 管理"])
 async def list_skills(request: Request):
     """
-    获取所有已安装的 Skills 列表
+    获取当前用户的 Skills 列表
+
+    返回合并结果：
+    - 内置 Skills（所有用户可见）
+    - 用户自己的 Skills（按 user_id 隔离）
     """
     try:
         skill_manager = get_skill_manager(request)
-        skills = skill_manager.list_skills()
-        
+        user_id, _ = get_user_id_from_request(request)  # 🆕 获取 user_id
+        skills = skill_manager.list_skills(user_id=user_id)  # 🆕 传递 user_id
+
         return SkillListResponse(
             success=True,
             total=len(skills),
@@ -128,14 +158,16 @@ async def list_skills(request: Request):
 async def get_skill(skill_id: str, request: Request):
     """
     获取指定 Skill 的详细信息
+    🆕 多租户：用户只能访问内置 Skills 和自己创建的 Skills
     """
     try:
         skill_manager = get_skill_manager(request)
-        skill = skill_manager.get_skill(skill_id)
-        
+        user_id, _ = get_user_id_from_request(request)  # 🆕
+        skill = skill_manager.get_skill(skill_id, user_id=user_id)  # 🆕
+
         if not skill:
-            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在")
-        
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在或无权限访问")
+
         return SkillDetailResponse(
             success=True,
             skill=skill
@@ -151,18 +183,20 @@ async def get_skill(skill_id: str, request: Request):
 async def get_skill_content(skill_id: str, request: Request):
     """
     获取 Skill 的完整内容 (SKILL.md + scripts)
+    🆕 多租户：验证用户是否有权限访问
     """
     try:
         skill_manager = get_skill_manager(request)
-        content = skill_manager.get_skill_content(skill_id)
-        
+        user_id, _ = get_user_id_from_request(request)  # 🆕
+        content = skill_manager.get_skill_content(skill_id, user_id=user_id)  # 🆕
+
         if not content:
-            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在")
-        
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在或无权限访问")
+
         # 提取内容
         skill_md = content.get('SKILL.md', '')
         scripts = content.get('scripts', {})
-        
+
         return SkillContentResponse(
             success=True,
             skill_md=skill_md,
@@ -193,7 +227,7 @@ async def validate_skill(
         from config.settings import get_settings
 
         settings = get_settings()
-        skill_manager = SkillManager(settings.SKILL_DIR)
+        skill_manager = SkillManager(settings.SKILL_DIR, settings.USER_SKILL_DIR)
 
         validation = skill_manager.validate_skill(skill_md, scripts_dict)
 
@@ -223,20 +257,29 @@ async def install_skill(
 ):
     """
     安装新的 Skill (从前端上传)
+    🆕 多租户：用户创建的 Skills 存储到用户专属目录
     """
     try:
         # 解析 scripts
         scripts_dict = json.loads(scripts) if scripts else {}
-        
+
         skill_manager = get_skill_manager(request)
+        user_id, _ = get_user_id_from_request(request)  # 🆕 获取 user_id
+
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="需要登录才能安装 Skill")
+
         result = skill_manager.install_skill(
             skill_name=skill_name,
             skill_md_content=skill_md,
             scripts=scripts_dict,
+            user_id=user_id,  # 🆕 传递 user_id
             force=force
         )
-        
+
         return SkillInstallResponse(**result)
+    except HTTPException:
+        raise
     except json.JSONDecodeError as e:
         return SkillInstallResponse(
             success=False,
@@ -256,16 +299,20 @@ async def install_skill(
 async def uninstall_skill(skill_id: str, request: Request):
     """
     卸载指定的 Skill
+    🆕 多租户：用户只能删除自己创建的 Skills
     """
     try:
         skill_manager = get_skill_manager(request)
-        result = skill_manager.uninstall_skill(skill_id)
-        
+        user_id, _ = get_user_id_from_request(request)  # 🆕
+        result = skill_manager.uninstall_skill(skill_id, user_id=user_id)  # 🆕
+
         if not result['success']:
-            if "内置" in result['message']:
+            if "内置" in result['message'] or "Builtin" in result['message']:
                 raise HTTPException(status_code=403, detail=result['message'])
+            if "无权限" in result['message'] or "not exist" in result['message'].lower():
+                raise HTTPException(status_code=404, detail=result['message'])
             raise HTTPException(status_code=404, detail=result['message'])
-        
+
         return SkillDeleteResponse(**result)
     except HTTPException:
         raise
@@ -278,14 +325,16 @@ async def uninstall_skill(skill_id: str, request: Request):
 async def export_skill(skill_id: str, request: Request):
     """
     导出 Skill 为可分享的格式
+    🆕 多租户：用户只能导出内置 Skills 和自己创建的 Skills
     """
     try:
         skill_manager = get_skill_manager(request)
-        export_data = skill_manager.export_skill(skill_id)
-        
+        user_id, _ = get_user_id_from_request(request)  # 🆕
+        export_data = skill_manager.export_skill(skill_id, user_id=user_id)  # 🆕
+
         if not export_data:
-            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在")
-        
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在或无权限访问")
+
         return SkillExportResponse(
             success=True,
             **export_data

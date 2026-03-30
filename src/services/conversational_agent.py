@@ -10,16 +10,49 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from src.services.person_like_service import UserPreferenceMining
 from src.workflow.callbacks import StatusCallback
 from config.settings import get_settings
+from src.utils.setting_utils import load_config_from_file
 
 logger = logging.getLogger(__name__)
 
+def get_tenant_settings(tenant_uuid: Optional[str] = None) -> Any:
+    """获取租户专属的设置对象（从 saved_config_{tenant_uuid}.json 读取）"""
+    settings = get_settings()
+    
+    if tenant_uuid:
+        # 从租户配置文件加载
+        tenant_config = load_config_from_file(tenant_uuid)
+        flat_config = tenant_config if isinstance(tenant_config, dict) else {}
+        
+        # 扁平配置键映射到 settings 属性
+        if "LLM_API_KEY" in flat_config:
+            settings.LLM_API_KEY = flat_config.get("LLM_API_KEY", "")
+        if "LLM_URL" in flat_config:
+            settings.LLM_URL = flat_config.get("LLM_URL", "")
+        if "LLM_MODEL" in flat_config:
+            settings.LLM_MODEL = flat_config.get("LLM_MODEL", "")
+        if "EMBEDDING_API_KEY" in flat_config:
+            settings.EMBEDDING_API_KEY = flat_config.get("EMBEDDING_API_KEY", "")
+        if "EMBEDDING_URL" in flat_config:
+            settings.EMBEDDING_URL = flat_config.get("EMBEDDING_URL", "")
+        if "EMBEDDING_MODEL" in flat_config:
+            settings.EMBEDDING_MODEL = flat_config.get("EMBEDDING_MODEL", "")
+        if "TAVILY_API_KEY" in flat_config:
+            settings.TAVILY_API_KEY = flat_config.get("TAVILY_API_KEY", "")
+        if "FIRECRAWL_API_KEY" in flat_config:
+            settings.FIRECRAWL_API_KEY = flat_config.get("FIRECRAWL_API_KEY", "")
+        if "FIRECRAWL_URL" in flat_config:
+            settings.FIRECRAWL_URL = flat_config.get("FIRECRAWL_URL", "")
+    
+    return settings
+
 class ConversationalAgent():
-    def __init__(self, settings, status_callback: Optional[StatusCallback] = None):
+    def __init__(self, settings, status_callback: Optional[StatusCallback] = None, tenant_uuid: Optional[str] = None):
         # 显式保存 settings 和 callback
         self.settings = settings
         self.status_callback = status_callback
+        self.tenant_uuid = tenant_uuid  # 🆕 保存租户 UUID
         self.workspace = Path(settings.SKILL_DIR)
-        self.user_profile_data = UserPreferenceMining(settings).get_frontend_format()
+        self.user_profile_data = UserPreferenceMining(settings).get_frontend_format(tenant_uuid=tenant_uuid)  # 🆕
         self.user_summary = self.user_profile_data.get("summary", "No specific preference.")
         self.exec_tool = ShellTool()
         self._instance = None
@@ -36,12 +69,14 @@ class ConversationalAgent():
         """
         构建 Deep Agent 实例
         """
-        if not self.settings.LLM_MODEL:
+        # 🆕 如果有 tenant_uuid，使用租户配置
+        if self.tenant_uuid:
+            self.settings = get_tenant_settings(self.tenant_uuid)
+        elif not self.settings.LLM_MODEL:
             self.settings = get_settings()
 
-
         # 1. 初始化模型
-        logger.info(f"正在使用模型: {self.settings.LLM_MODEL} 构建 Agent")
+        logger.info(f"正在使用模型: {self.settings.LLM_MODEL} 构建 Agent (tenant={self.tenant_uuid})")
         model = init_chat_model(
             model=self.settings.LLM_MODEL,
             model_provider="openai",
@@ -50,11 +85,14 @@ class ConversationalAgent():
         )
         self.exec_tool = ShellTool()
         self.exec_tool.name = "shell"
+        # 🆕 在 tool description 中包含 tenant_uuid
+        tenant_info = f"tenant_uuid={self.tenant_uuid}" if self.tenant_uuid else ""
         self.exec_tool.description = (
             f"运行 Python 脚本。ALL 命令必须相对于: {self.workspace}。 "
             "DO NOT use absolute paths. DO NOT use 'cd' or 'ls'."
             "\n\n【关键】当需要执行 SKILL 技能时，必须严格遵循 SKILL.md 文件中 Execution 部分指定的命令格式。"
             "\n【关键】查看 SKILL.md 后，执行对应 scripts/ 目录下的 .py 文件。"
+            + (f"\n【关键】当前租户: {self.tenant_uuid}，执行 RAG 查询时必须携带此参数。" if tenant_info else "")
         )
         system_prompt = f"""你是一个精确执行的智能体，需要判断是否进行工具的调用，如果是闲聊，则直接回答用户的问题，如果是需要提供的技能，需要根据用户的问题来寻找一个合适的技能，并执行技能。
 **【关键规则】技能执行必须严格遵循 SKILL.md 中的命令格式！**
@@ -66,7 +104,7 @@ class ConversationalAgent():
 **用户**:
 # 👤 用户上下文
 {self.user_summary}
-"""
+""" + (f"\n**当前租户 UUID**: {self.tenant_uuid} (RAG 查询时必须携带此参数)" if self.tenant_uuid else "")
         
         return create_deep_agent(
             model=model,

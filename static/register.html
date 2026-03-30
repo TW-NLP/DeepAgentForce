@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - DeepAgentForce</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --bg: #f9fafb;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            position: relative;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 24px;
+            box-shadow: var(--shadow-lg);
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 顶部装饰条 */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+            background-size: 200% 100%;
+            animation: gradientMove 3s ease infinite;
+        }
+
+        @keyframes gradientMove {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Logo 区域 */
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-bottom: 16px;
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .logo:hover .logo-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .logo p {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        /* 标题 */
+        .title {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .title h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .title p {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        /* 表单 */
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 8px;
+            transition: color 0.2s;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--white);
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-input:focus + .input-border-anim {
+            transform: scaleX(1);
+        }
+
+        .form-input.error {
+            border-color: var(--error);
+            animation: shake 0.4s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* 输入框图标 */
+        .input-icon {
+            position: absolute;
+            right: 16px;
+            top: 42px;
+            color: var(--text-light);
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s ease;
+        }
+
+        .input-icon.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .input-icon.success { color: var(--success); }
+        .input-icon.error { color: var(--error); }
+
+        /* 密码强度 */
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            background: #e5e7eb;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .strength-bar {
+            height: 100%;
+            width: 0;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .strength-weak { background: var(--error); width: 33%; }
+        .strength-medium { background: var(--warning); width: 66%; }
+        .strength-strong { background: var(--success); width: 100%; }
+
+        .strength-text {
+            font-size: 12px;
+            margin-top: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .strength-text.show { opacity: 1; }
+
+        /* 错误提示 */
+        .error-text {
+            color: var(--error);
+            font-size: 12px;
+            margin-top: 6px;
+            opacity: 0;
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+        }
+
+        .error-text.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 提示文字 */
+        .hint {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        /* 按钮 */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg);
+            color: var(--text);
+            border: 2px solid #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        /* 加载动画 */
+        .btn-loading .btn-text { opacity: 0; }
+        .btn-loading .spinner { display: block; }
+
+        .spinner {
+            display: none;
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 成功动画 */
+        .success-checkmark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 60px;
+            height: 60px;
+            background: var(--success);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .success-checkmark.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        /* 分割线 */
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0;
+        }
+
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider span {
+            padding: 0 16px;
+            color: var(--text-light);
+            font-size: 13px;
+        }
+
+        /* 链接 */
+        .link {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        .link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .link a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        /* 警告框 */
+        .alert {
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .alert.error.show { display: flex; align-items: center; gap: 10px; }
+
+        .alert.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .alert.success.show { display: flex; align-items: center; gap: 10px; }
+
+        /* 浮动粒子背景 */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: particleFloat 15s infinite;
+        }
+
+        @keyframes particleFloat {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% {
+                transform: translateY(-100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* 步骤指示器 */
+        .steps {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 28px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+        }
+
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .step.active .step-circle {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+        }
+
+        .step.completed .step-circle {
+            background: var(--success);
+            color: white;
+        }
+
+        .step-line {
+            width: 60px;
+            height: 2px;
+            background: #e5e7eb;
+            margin: 0 8px;
+            transition: background 0.3s ease;
+        }
+
+        .step-line.active {
+            background: var(--primary);
+        }
+
+        /* 表单切换动画 */
+        .form-section {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* 返回链接 */
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateX(-5px);
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景粒子 -->
+    <div class="particles" id="particles"></div>
+
+    <a href="/" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        返回首页
+    </a>
+
+    <div class="container">
+        <div class="card">
+            <!-- Logo -->
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                </div>
+                <h1>DeepAgentForce</h1>
+                <p>智能研究助手</p>
+            </div>
+
+            <!-- 标题 -->
+            <div class="title">
+                <h2>创建账号</h2>
+                <p>开启您的智能研究之旅</p>
+            </div>
+
+            <!-- 警告框 -->
+            <div class="alert" id="alertBox"></div>
+
+            <form id="registerForm">
+                <!-- 用户信息 -->
+                <div class="form-section active" id="sectionUser">
+                    <div class="form-group">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-input" id="username" placeholder="3-20个字符，可使用字母、数字、下划线" required minlength="3" maxlength="20">
+                        <span class="input-icon" id="usernameIcon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <div class="error-text" id="usernameError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">邮箱</label>
+                        <input type="email" class="form-input" id="email" placeholder="用于找回密码和接收通知" required>
+                        <span class="input-icon" id="emailIcon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <div class="error-text" id="emailError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">密码</label>
+                        <input type="password" class="form-input" id="password" placeholder="至少6个字符" required minlength="6">
+                        <div class="password-strength">
+                            <div class="strength-bar" id="strengthBar"></div>
+                        </div>
+                        <div class="strength-text" id="strengthText"></div>
+                        <div class="error-text" id="passwordError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">确认密码</label>
+                        <input type="password" class="form-input" id="confirmPassword" placeholder="再次输入密码" required>
+                        <span class="input-icon" id="confirmIcon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <div class="error-text" id="confirmError"></div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="nextBtn" onclick="goToNext()">
+                        <span class="btn-text">下一步</span>
+                        <span class="spinner"></span>
+                    </button>
+                </div>
+
+                <!-- 租户信息 -->
+                <div class="form-section" id="sectionTenant">
+                    <div class="form-group">
+                        <label class="form-label">工作空间名称</label>
+                        <input type="text" class="form-input" id="tenantName" placeholder="例如：我的团队" maxlength="100">
+                        <div class="hint">为您的团队或项目创建一个专属空间</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">工作空间代码</label>
+                        <input type="text" class="form-input" id="tenantCode" placeholder="英文或数字，如 my-team" maxlength="50">
+                        <div class="hint">用于团队成员加入，长度 3-50 个字符</div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button type="button" class="btn btn-secondary" onclick="goToPrev()" style="flex: 1;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                            上一步
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="submitBtn" style="flex: 2;">
+                            <span class="btn-text">创建账号</span>
+                            <span class="spinner"></span>
+                        </button>
+                    </div>
+
+                    <!-- 跳过选项 -->
+                    <div style="text-align: center; margin-top: 16px;">
+                        <a href="login.html" style="color: var(--text-light); font-size: 13px;">暂不创建工作空间，直接登录</a>
+                    </div>
+                </div>
+            </form>
+
+            <div class="link">
+                已有账号？<a href="login.html">立即登录</a>
+            </div>
+
+            <!-- 成功动画 -->
+            <div class="success-checkmark" id="successCheck">
+                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = localStorage.getItem('api_base') || `${window.location.protocol}//${window.location.hostname}:8000/api`;
+        // 创建背景粒子
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 20; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 15 + 's';
+            particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+            particle.style.width = (5 + Math.random() * 10) + 'px';
+            particle.style.height = particle.style.width;
+            particlesContainer.appendChild(particle);
+        }
+
+        // 检查是否已登录
+        if (localStorage.getItem('access_token')) {
+            window.location.href = 'index.html';
+        }
+
+        let currentSection = 0;
+
+        // 输入验证动画
+        const username = document.getElementById('username');
+        const email = document.getElementById('email');
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirmPassword');
+
+        // 实时验证
+        username.addEventListener('input', () => {
+            const valid = /^[a-zA-Z0-9_]{3,20}$/.test(username.value);
+            toggleIcon('username', valid);
+        });
+
+        email.addEventListener('input', () => {
+            const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value);
+            toggleIcon('email', valid);
+        });
+
+        confirmPassword.addEventListener('input', () => {
+            const valid = confirmPassword.value === password.value && confirmPassword.value.length > 0;
+            toggleIcon('confirm', valid);
+        });
+
+        function toggleIcon(field, isValid) {
+            const icon = document.getElementById(field + 'Icon');
+            if (field === 'username' || field === 'email' || field === 'confirm') {
+                if (icon) {
+                    icon.classList.toggle('show', isValid);
+                    icon.classList.toggle('success', isValid);
+                    icon.classList.toggle('error', !isValid && icon.classList.contains('show'));
+                }
+            }
+        }
+
+        // 密码强度检测
+        password.addEventListener('input', () => {
+            const val = password.value;
+            const bar = document.getElementById('strengthBar');
+            const text = document.getElementById('strengthText');
+
+            let strength = 0;
+            if (val.length >= 6) strength++;
+            if (val.length >= 8) strength++;
+            if (/[A-Z]/.test(val)) strength++;
+            if (/[0-9]/.test(val)) strength++;
+            if (/[^A-Za-z0-9]/.test(val)) strength++;
+
+            bar.className = 'strength-bar';
+            text.classList.remove('show');
+
+            if (val.length === 0) {
+                bar.style.width = '0';
+                return;
+            }
+
+            text.classList.add('show');
+
+            if (strength <= 2) {
+                bar.classList.add('strength-weak');
+                text.textContent = '密码强度：弱';
+                text.style.color = '#ef4444';
+            } else if (strength <= 3) {
+                bar.classList.add('strength-medium');
+                text.textContent = '密码强度：中等';
+                text.style.color = '#f59e0b';
+            } else {
+                bar.classList.add('strength-strong');
+                text.textContent = '密码强度：强';
+                text.style.color = '#10b981';
+            }
+        });
+
+        // 表单切换
+        function goToNext() {
+            // 验证第一部分
+            const usernameVal = username.value.trim();
+            const emailVal = email.value.trim();
+            const passwordVal = password.value;
+            const confirmVal = confirmPassword.value;
+
+            let hasError = false;
+
+            if (!/^[a-zA-Z0-9_]{3,20}$/.test(usernameVal)) {
+                showError('usernameError', '用户名必须为3-20个字符');
+                username.classList.add('error');
+                setTimeout(() => username.classList.remove('error'), 400);
+                hasError = true;
+            } else {
+                hideError('usernameError');
+            }
+
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+                showError('emailError', '请输入有效的邮箱地址');
+                email.classList.add('error');
+                setTimeout(() => email.classList.remove('error'), 400);
+                hasError = true;
+            } else {
+                hideError('emailError');
+            }
+
+            if (passwordVal.length < 6) {
+                showError('passwordError', '密码至少6个字符');
+                password.classList.add('error');
+                setTimeout(() => password.classList.remove('error'), 400);
+                hasError = true;
+            } else {
+                hideError('passwordError');
+            }
+
+            if (passwordVal !== confirmVal) {
+                showError('confirmError', '两次输入的密码不一致');
+                confirmPassword.classList.add('error');
+                setTimeout(() => confirmPassword.classList.remove('error'), 400);
+                hasError = true;
+            } else {
+                hideError('confirmError');
+            }
+
+            if (hasError) return;
+
+            // 切换到下一步
+            document.getElementById('sectionUser').classList.remove('active');
+            document.getElementById('sectionTenant').classList.add('active');
+        }
+
+        function goToPrev() {
+            document.getElementById('sectionTenant').classList.remove('active');
+            document.getElementById('sectionUser').classList.add('active');
+        }
+
+        function showError(id, msg) {
+            const el = document.getElementById(id);
+            el.textContent = msg;
+            el.classList.add('show');
+        }
+
+        function hideError(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        // 表单提交
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const usernameVal = username.value.trim();
+            const emailVal = email.value.trim();
+            const passwordVal = password.value;
+            const tenantNameVal = document.getElementById('tenantName').value.trim();
+            const tenantCodeVal = document.getElementById('tenantCode').value.trim();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const alertBox = document.getElementById('alertBox');
+
+            alertBox.className = 'alert';
+            alertBox.textContent = '';
+
+            // 显示加载
+            submitBtn.disabled = true;
+            submitBtn.classList.add('btn-loading');
+            btnText.textContent = '创建中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: usernameVal,
+                        email: emailVal,
+                        password: passwordVal,
+                        tenant_name: tenantNameVal || null,
+                        tenant_code: tenantCodeVal || null,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '注册失败');
+                }
+
+                if (data.success) {
+                    // 成功动画
+                    document.getElementById('successCheck').classList.add('show');
+                    alertBox.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 注册成功！正在跳转...';
+                    alertBox.className = 'alert success show';
+
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || '注册失败');
+                }
+            } catch (error) {
+                alertBox.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' + error.message;
+                alertBox.className = 'alert error show';
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('btn-loading');
+                btnText.textContent = '创建账号';
+            }
+        });
+    </script>
+</body>
+</html>

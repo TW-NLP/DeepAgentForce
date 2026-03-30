@@ -11,6 +11,49 @@ function getSkillApiUrl() {
     return `${window.location.protocol}//${window.location.hostname}:8000/api`;
 }
 
+// 🆕 获取带认证的请求头
+function getSkillHeaders() {
+    const token = localStorage.getItem('access_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
+// 🆕 带认证的 fetch 请求
+async function authSkillFetch(url, options = {}) {
+    const token = localStorage.getItem('access_token');
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const mergedOptions = {
+        ...options,
+        headers: {
+            ...headers,
+            ...options.headers,
+        },
+    };
+
+    let response = await fetch(url, mergedOptions);
+
+    // 如果收到 401，尝试刷新 Token
+    if (response.status === 401 && token) {
+        const refreshed = await window.auth?.refreshAccessToken?.();
+        if (refreshed) {
+            headers['Authorization'] = `Bearer ${localStorage.getItem('access_token')}`;
+            response = await fetch(url, { ...options, headers });
+        } else {
+            window.location.href = 'login.html';
+            return null;
+        }
+    }
+
+    return response;
+}
+
 // 全局变量
 let skills = [];
 let currentSkillId = null;
@@ -29,9 +72,12 @@ let isEditMode = false;
 async function loadSkills() {
     try {
         console.log('📡 正在请求 Skills API...');
-        const response = await fetch(`${getSkillApiUrl()}/skills`);
+        // 🆕 使用 authFetch 携带认证信息
+        const response = await authSkillFetch(`${getSkillApiUrl()}/skills`);
+        if (!response) return;  // 未登录
+
         console.log('📬 响应状态:', response.status);
-        
+
         const data = await response.json();
         console.log('📦 获取到数据:', data);
 
@@ -211,7 +257,10 @@ async function loadSkillForEdit(skill) {
 
     // 加载 SKILL.md 内容
     try {
-        const response = await fetch(`${getSkillApiUrl()}/skills/${skill.id}/content`);
+        // 🆕 使用 authFetch
+        const response = await authSkillFetch(`${getSkillApiUrl()}/skills/${skill.id}/content`);
+        if (!response) return;
+
         const data = await response.json();
 
         if (data.success) {
@@ -365,8 +414,16 @@ async function installSkill() {
         formData.append('scripts', JSON.stringify(scripts));
         formData.append('force', isEditMode ? 'true' : 'false');
 
+        // 🆕 添加 Authorization header
+        const token = localStorage.getItem('access_token');
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch(`${getSkillApiUrl()}/skills/install`, {
             method: 'POST',
+            headers: headers,
             body: formData
         });
 
@@ -394,7 +451,10 @@ async function viewSkill(skillId) {
     currentSkillId = skillId;
 
     try {
-        const response = await fetch(`${getSkillApiUrl()}/skills/${skillId}/content`);
+        // 🆕 使用 authFetch
+        const response = await authSkillFetch(`${getSkillApiUrl()}/skills/${skillId}/content`);
+        if (!response) return;
+
         const data = await response.json();
 
         if (data.success) {
@@ -507,7 +567,10 @@ async function exportCurrentSkill() {
     if (!currentSkillId) return;
 
     try {
-        const response = await fetch(`${getSkillApiUrl()}/skills/${currentSkillId}/export`);
+        // 🆕 使用 authFetch
+        const response = await authSkillFetch(`${getSkillApiUrl()}/skills/${currentSkillId}/export`);
+        if (!response) return;
+
         const data = await response.json();
 
         if (data.success) {
@@ -565,9 +628,11 @@ function closeConfirmModal() {
 
 async function deleteSkill(skillId) {
     try {
-        const response = await fetch(`${getSkillApiUrl()}/skills/${skillId}`, {
+        // 🆕 使用 authFetch
+        const response = await authSkillFetch(`${getSkillApiUrl()}/skills/${skillId}`, {
             method: 'DELETE'
         });
+        if (!response) return;
 
         const result = await response.json();
 
