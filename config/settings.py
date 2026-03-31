@@ -155,8 +155,11 @@ class Settings(ServerConfig):
 
     @property
     def RAG_API_URL(self) -> str:
-        """动态生成 RAG 查询地址"""
-        return f"{self.API_BASE}/rag/query"
+        """
+        动态生成 RAG 查询地址
+        内部服务调用走 localhost（同服务器内部 HTTP 调用无需绕公网）
+        """
+        return f"http://127.0.0.1:{self.PORT}/api/rag/query"
 
     # ==================== 执行计划配置 ====================
     MAX_PLAN_STEPS: int = Field(default=10, ge=1, le=20, description="最大计划步骤数")

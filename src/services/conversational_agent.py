@@ -57,7 +57,12 @@ class ConversationalAgent():
         self.exec_tool = ShellTool()
         self._instance = None
         self.exec_tool.description = (
-            f"允许这个shell的时候，请先看对应的SKILL.md，然后去对应的scripts里面执行对应的py文件，这个流程不要变,如果有新的文件生成，请统一放在{self.settings.OUTPUT_DIR}目录下。"
+            f"运行 Python 脚本。ALL 命令必须相对于: {self.workspace}。 "
+            "DO NOT use absolute paths. DO NOT use 'cd' or 'ls'."
+            "\n\n【关键】当需要执行 SKILL 技能时，必须严格遵循 SKILL.md 文件中 Execution 部分指定的命令格式。"
+            "\n【关键】查看 SKILL.md 后，执行对应 scripts/ 目录下的 .py 文件。"
+            "\n【⚠️极其重要格式要求⚠️】参数必须是纯文本的命令字符串！绝对不要使用 JSON 数组格式！直接输出 `python xxx`，不要输出 `[\"python xxx\"]`！" # 🆕 新增
+            + (f"\n【关键】当前租户: {self.tenant_uuid}，执行 RAG 查询时必须携带此参数。")
         )
     def get_instance(self):
         """获取或创建 Deep Agent 实例（单例模式）"""
