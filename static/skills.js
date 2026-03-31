@@ -46,7 +46,7 @@ async function authSkillFetch(url, options = {}) {
             headers['Authorization'] = `Bearer ${localStorage.getItem('access_token')}`;
             response = await fetch(url, { ...options, headers });
         } else {
-            window.location.href = 'login.html';
+            window.location.href = '/login.html';
             return null;
         }
     }

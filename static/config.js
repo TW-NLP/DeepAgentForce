@@ -150,8 +150,8 @@ function getWsUrl() {
  */
 async function syncServerConfig() {
     try {
-        // 使用已自动检测到的 API 地址
-        const apiBase = CONFIG._apiBase || `http://${CONFIG.API_HOST}:${CONFIG.API_PORT}`;
+        // 用浏览器地址构建基础 URL，始终以此为基准
+        const apiBase = CONFIG._apiBase || `${location.protocol}//${location.hostname}:8000/api`;
         const response = await fetch(`${apiBase}/server_info`);
 
         if (!response.ok) {
@@ -160,14 +160,11 @@ async function syncServerConfig() {
 
         const serverInfo = await response.json();
 
-        // 用后端返回的覆盖（如果后端有特殊配置的话）
-        CONFIG.API_HOST = serverInfo.host || CONFIG.API_HOST;
-        CONFIG.API_PORT = serverInfo.port || CONFIG.API_PORT;
-        CONFIG._apiBase = serverInfo.api_base || apiBase;
-        CONFIG._wsBase = serverInfo.ws_base || `${apiBase.replace(/^http/, 'ws')}/ws/stream`;
-        CONFIG.FRONTEND_HOST = serverInfo.frontend_host || CONFIG.FRONTEND_HOST;
-        CONFIG.FRONTEND_PORT = serverInfo.frontend_port || CONFIG.FRONTEND_PORT;
-        CONFIG._frontendBase = serverInfo.frontend_base || CONFIG._frontendBase;
+        // 只同步非地址字段，地址信息永远以浏览器 URL 为准
+        // 避免后端返回的内网 IP（如 172.x、192.x）污染前端配置
+        if (serverInfo.frontend_port) CONFIG.FRONTEND_PORT = serverInfo.frontend_port;
+
+        // 标记初始化完成（地址已在 autoDetectFromBrowser 中设置，无需覆盖）
         CONFIG._initialized = true;
 
         console.log('✅ 服务器配置同步成功:', {

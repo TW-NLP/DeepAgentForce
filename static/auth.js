@@ -251,7 +251,7 @@ async function authFetch(url, options = {}) {
             response = await fetch(url, mergedOptions);
         } else {
             // 刷新失败，跳转到登录页
-            window.location.href = 'login.html';
+            window.location.href = '/login.html';
             return null;
         }
     }
@@ -266,7 +266,7 @@ async function authFetch(url, options = {}) {
  */
 function requireAuth() {
     if (!isLoggedIn()) {
-        window.location.href = 'login.html';
+        window.location.href = '/login.html';
         return false;
     }
     return true;
@@ -277,7 +277,7 @@ function requireAuth() {
  */
 function redirectIfLoggedIn() {
     if (isLoggedIn()) {
-        window.location.href = 'index.html';
+        window.location.href = '/index.html';
         return true;
     }
     return false;
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchCurrentUser().then(user => {
             if (!user) {
                 // Token 已失效
-                window.location.href = 'login.html';
+                window.location.href = '/login.html';
             }
         });
     }
