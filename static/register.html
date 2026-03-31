@@ -641,13 +641,13 @@
 
                     <!-- 跳过选项 -->
                     <div style="text-align: center; margin-top: 16px;">
-                        <a href="login.html" style="color: var(--text-light); font-size: 13px;">暂不创建工作空间，直接登录</a>
+                        <a href="/login.html" style="color: var(--text-light); font-size: 13px;">暂不创建工作空间，直接登录</a>
                     </div>
                 </div>
             </form>
 
             <div class="link">
-                已有账号？<a href="login.html">立即登录</a>
+                已有账号？<a href="/login.html">立即登录</a>
             </div>
 
             <!-- 成功动画 -->
@@ -674,7 +674,7 @@
 
         // 检查是否已登录
         if (localStorage.getItem('access_token')) {
-            window.location.href = 'index.html';
+            window.location.href = '/index.html';
         }
 
         let currentSection = 0;
@@ -870,7 +870,7 @@
                     localStorage.setItem('user', JSON.stringify(data.user));
 
                     setTimeout(() => {
-                        window.location.href = 'index.html';
+                        window.location.href = '/index.html';
                     }, 1500);
                 } else {
                     throw new Error(data.error || '注册失败');

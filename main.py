@@ -56,6 +56,11 @@ async def login():
 async def register():
     return FileResponse(os.path.join(STATIC_DIR, "register.html"))
 
+# 主页面路由
+@app.get("/index.html")
+async def index():
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
 class DeepAgentForce:
     def __init__(self):
         self.settings = get_settings()

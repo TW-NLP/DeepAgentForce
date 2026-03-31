@@ -622,7 +622,7 @@
   const API_BASE = localStorage.getItem('api_base') ||
     `${location.protocol}//${location.hostname}:8000/api`;
 
-  if (localStorage.getItem('access_token')) location.href = 'index.html';
+  if (localStorage.getItem('access_token')) location.href = '/index.html';
 
   // ── DOM refs ─────────────────────────────────────────────
   const panda       = document.getElementById('pandaSVG');
@@ -765,7 +765,7 @@
         // panda wave celebration
         showPanda();
         panda.classList.add('panda-wave');
-        setTimeout(() => { location.href = 'index.html'; }, 900);
+        setTimeout(() => { location.href = '/index.html'; }, 900);
       } else {
         throw new Error(data.error || '登录失败');
       }
