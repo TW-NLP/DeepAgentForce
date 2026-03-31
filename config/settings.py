@@ -125,6 +125,13 @@ class Settings(ServerConfig):
     LLM_URL: str = ""
     LLM_API_KEY: str = ""
 
+    @property
+    def LLM_BASE_URL(self) -> str:
+        """LLM API 的 base URL（自动去掉 /chat/completions 后缀，避免路径重复）"""
+        if not self.LLM_URL:
+            return ""
+        return self.LLM_URL.rstrip("/").replace("/chat/completions", "")
+
     # ==================== 搜索配置 ====================
     TAVILY_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
@@ -133,6 +140,13 @@ class Settings(ServerConfig):
     EMBEDDING_API_KEY: str = ""
     EMBEDDING_URL: str = ""
     EMBEDDING_MODEL: str = ""
+
+    @property
+    def EMBEDDING_BASE_URL(self) -> str:
+        """Embedding API 的 base URL（自动去掉 /embeddings 后缀，避免路径重复）"""
+        if not self.EMBEDDING_URL:
+            return ""
+        return self.EMBEDDING_URL.rstrip("/").replace("/embeddings", "")
     EMBEDDING_DIM: int = 1024
     SIMPLE_RAG: bool = True
     T_SCORE: float = Field(default=0.3, description="RAG 检索阈值")
@@ -320,7 +334,7 @@ def get_llm_config() -> dict:
     return {
         "model": settings.LLM_MODEL,
         "api_key": settings.LLM_API_KEY,
-        "base_url": settings.LLM_URL,
+        "base_url": settings.LLM_BASE_URL,
         "streaming": True,
     }
 
@@ -331,7 +345,7 @@ def get_planner_config() -> dict:
     return {
         "model": settings.LLM_MODEL,
         "api_key": settings.LLM_API_KEY,
-        "base_url": settings.LLM_URL,
+        "base_url": settings.LLM_BASE_URL,
         "streaming": False,
     }
 

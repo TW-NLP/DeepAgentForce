@@ -81,7 +81,7 @@ class ConversationalAgent():
             model=self.settings.LLM_MODEL,
             model_provider="openai",
             api_key=self.settings.LLM_API_KEY,
-            base_url=self.settings.LLM_URL
+            base_url=self.settings.LLM_BASE_URL
         )
         self.exec_tool = ShellTool()
         self.exec_tool.name = "shell"

@@ -23,7 +23,7 @@ class UserPreferenceMining():
     def __init__(self, settings):
         self.settings = settings
         self.client = ChatOpenAI(
-            base_url=settings.LLM_URL,
+            base_url=settings.LLM_BASE_URL,
             api_key=settings.LLM_API_KEY,
             model=settings.LLM_MODEL
         )

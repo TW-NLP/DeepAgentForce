@@ -123,8 +123,8 @@ class MilvusRAGPipeline():
         初始化 Milvus 客户端和 OpenAI 客户端"""
         self.settings = settings
         logger.info(f"📌 RAG 初始化 - EMBEDDING_URL: {self.settings.EMBEDDING_URL}")
-        self.client_rag = AsyncOpenAI(api_key=self.settings.EMBEDDING_API_KEY, base_url=self.settings.EMBEDDING_URL)
-        self.client_llm = AsyncOpenAI(api_key=self.settings.LLM_API_KEY, base_url=self.settings.LLM_URL)
+        self.client_rag = AsyncOpenAI(api_key=self.settings.EMBEDDING_API_KEY, base_url=self.settings.EMBEDDING_BASE_URL)
+        self.client_llm = AsyncOpenAI(api_key=self.settings.LLM_API_KEY, base_url=self.settings.LLM_BASE_URL)
         
         # Milvus Client
         self.milvus = MilvusClient(uri=self.settings.MILVUS_URL)
