@@ -1,12 +1,19 @@
 import logging
 from pathlib import Path
-from typing import List, Dict, Optional, Any
+from typing import Optional, Any
+import json
+import subprocess
+import os
+
 from deepagents import create_deep_agent
 from deepagents.backends.filesystem import FilesystemBackend
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.chat_models import init_chat_model
 from langchain_community.tools import ShellTool
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from langchain_core.messages import HumanMessage
+from langchain.tools import BaseTool
+from pydantic import Field
+
 from src.services.person_like_service import UserPreferenceMining
 from src.workflow.callbacks import StatusCallback
 from config.settings import get_settings
@@ -14,172 +21,254 @@ from src.utils.setting_utils import load_config_from_file
 
 logger = logging.getLogger(__name__)
 
+
 def get_tenant_settings(tenant_uuid: Optional[str] = None) -> Any:
-    """获取租户专属的设置对象（从 saved_config_{tenant_uuid}.json 读取）"""
+    """获取租户专属的设置对象"""
     settings = get_settings()
-    
-    if tenant_uuid:
-        # 从租户配置文件加载
-        tenant_config = load_config_from_file(tenant_uuid)
-        flat_config = tenant_config if isinstance(tenant_config, dict) else {}
-        
-        # 扁平配置键映射到 settings 属性
-        if "LLM_API_KEY" in flat_config:
-            settings.LLM_API_KEY = flat_config.get("LLM_API_KEY", "")
-        if "LLM_URL" in flat_config:
-            settings.LLM_URL = flat_config.get("LLM_URL", "")
-        if "LLM_MODEL" in flat_config:
-            settings.LLM_MODEL = flat_config.get("LLM_MODEL", "")
-        if "EMBEDDING_API_KEY" in flat_config:
-            settings.EMBEDDING_API_KEY = flat_config.get("EMBEDDING_API_KEY", "")
-        if "EMBEDDING_URL" in flat_config:
-            settings.EMBEDDING_URL = flat_config.get("EMBEDDING_URL", "")
-        if "EMBEDDING_MODEL" in flat_config:
-            settings.EMBEDDING_MODEL = flat_config.get("EMBEDDING_MODEL", "")
-        if "TAVILY_API_KEY" in flat_config:
-            settings.TAVILY_API_KEY = flat_config.get("TAVILY_API_KEY", "")
-        if "FIRECRAWL_API_KEY" in flat_config:
-            settings.FIRECRAWL_API_KEY = flat_config.get("FIRECRAWL_API_KEY", "")
-        if "FIRECRAWL_URL" in flat_config:
-            settings.FIRECRAWL_URL = flat_config.get("FIRECRAWL_URL", "")
-    
+    if not tenant_uuid:
+        return settings
+
+    tenant_config = load_config_from_file(tenant_uuid)
+    flat_config = tenant_config if isinstance(tenant_config, dict) else {}
+
+    field_map = [
+        "LLM_API_KEY", "LLM_URL", "LLM_MODEL",
+        "EMBEDDING_API_KEY", "EMBEDDING_URL", "EMBEDDING_MODEL",
+        "TAVILY_API_KEY", "FIRECRAWL_API_KEY", "FIRECRAWL_URL",
+    ]
+    for key in field_map:
+        if key in flat_config:
+            setattr(settings, key, flat_config[key])
+
     return settings
 
-class ConversationalAgent():
-    def __init__(self, settings, status_callback: Optional[StatusCallback] = None, tenant_uuid: Optional[str] = None):
-        # 显式保存 settings 和 callback
+
+class SafeShellTool(BaseTool):
+    """
+    包装 ShellTool，自动修复 LLM 输出 JSON 数组格式的命令。
+    例如：'["python x.py"]' → 'python x.py'
+    """
+    name: str = "shell"
+    description: str = ""
+    inner_tool: Any = Field(default=None)
+
+    def _run(self, commands: Any) -> str:
+        commands = self._sanitize(commands)
+        logger.debug(f"[SafeShellTool] 执行命令: {commands}")
+        return self.inner_tool._run(commands)
+
+    async def _arun(self, commands: Any) -> str:
+        commands = self._sanitize(commands)
+        logger.debug(f"[SafeShellTool] 异步执行命令: {commands}")
+        return await self.inner_tool._arun(commands)
+
+    @staticmethod
+    def _sanitize(commands: Any) -> str:
+        """将 JSON 数组格式命令还原为纯字符串"""
+        if not isinstance(commands, str):
+            return str(commands)
+        stripped = commands.strip()
+        if stripped.startswith("["):
+            try:
+                parsed = json.loads(stripped)
+                if isinstance(parsed, list) and parsed:
+                    # 单命令直接取出，多命令用 && 连接
+                    return " && ".join(str(c) for c in parsed)
+            except json.JSONDecodeError:
+                pass
+        return commands
+
+
+class ConversationalAgent:
+    def __init__(
+        self,
+        settings,
+        status_callback: Optional[StatusCallback] = None,
+        tenant_uuid: Optional[str] = None,
+    ):
         self.settings = settings
         self.status_callback = status_callback
-        self.tenant_uuid = tenant_uuid  # 🆕 保存租户 UUID
+        self.tenant_uuid = tenant_uuid
         self.workspace = Path(settings.SKILL_DIR)
-        self.user_profile_data = UserPreferenceMining(settings).get_frontend_format(tenant_uuid=tenant_uuid)  # 🆕
-        self.user_summary = self.user_profile_data.get("summary", "No specific preference.")
-        self.exec_tool = ShellTool()
-        self._instance = None
-        self.exec_tool.description = (
-            f"运行 Python 脚本。ALL 命令必须相对于: {self.workspace}。 "
-            "DO NOT use absolute paths. DO NOT use 'cd' or 'ls'."
-            "\n\n【关键】当需要执行 SKILL 技能时，必须严格遵循 SKILL.md 文件中 Execution 部分指定的命令格式。"
-            "\n【关键】查看 SKILL.md 后，执行对应 scripts/ 目录下的 .py 文件。"
-            "\n【⚠️极其重要格式要求⚠️】参数必须是纯文本的命令字符串！绝对不要使用 JSON 数组格式！直接输出 `python xxx`，不要输出 `[\"python xxx\"]`！" # 🆕 新增
-            + (f"\n【关键】当前租户: {self.tenant_uuid}，执行 RAG 查询时必须携带此参数。")
+        self.user_profile_data = UserPreferenceMining(settings).get_frontend_format(
+            tenant_uuid=tenant_uuid
         )
+        self.user_summary = self.user_profile_data.get("summary", "No specific preference.")
+        self._instance = None
+
+        # ✅ 项目根路径在初始化时解析一次，后续直接用
+        self.project_root = self._resolve_project_root()
+        logger.info(f"[ConversationalAgent] 项目根路径解析结果: {self.project_root}")
+
+    # ------------------------------------------------------------------
+    # 路径解析（只在启动时执行一次，不让 Agent 自己 find）
+    # ------------------------------------------------------------------
+    def _resolve_project_root(self) -> str:
+        # 1. 优先读环境变量
+        env_root = os.environ.get("DEEPAGENTFORCE_ROOT", "")
+        if env_root and Path(env_root).exists():
+            return env_root
+
+        # 2. 从当前文件向上找，定位包含 src/services/skills 的目录
+        current = Path(__file__).resolve()
+        for parent in current.parents:
+            if (parent / "src" / "services" / "skills").exists():
+                return str(parent)
+
+        # 3. 最终 fallback：find（仅在 init 时执行一次）
+        try:
+            result = subprocess.run(
+                ["find", "/Users", "/home", "-type", "d",
+                 "-name", "DeepAgentForce", "-maxdepth", "8"],
+                capture_output=True, text=True, timeout=15,
+            )
+            first = result.stdout.strip().split("\n")[0]
+            if first:
+                return first
+        except Exception as e:
+            logger.warning(f"find 查找项目根失败: {e}")
+
+        return ""
+
+    # ------------------------------------------------------------------
+    # 构建 SafeShellTool（每次 build_instance 时调用，保持配置最新）
+    # ------------------------------------------------------------------
+    def _build_shell_tool(self) -> SafeShellTool:
+        rag_script = (
+            f"{self.project_root}/src/services/skills/rag-query/scripts/query.py"
+            if self.project_root else "<未找到项目根，请设置 DEEPAGENTFORCE_ROOT 环境变量>"
+        )
+        description = (
+            "执行 shell 命令。\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "⚠️  格式规则（违反将导致执行失败）：\n"
+            "  ✅ 正确: python /absolute/path/script.py 参数\n"
+            "  ❌ 错误: [\"python /absolute/path/script.py 参数\"]  ← JSON 数组格式\n"
+            "  ❌ 错误: 相对路径如 src/services/...\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"RAG 查询命令（直接复制使用，替换 <问题>）：\n"
+            f"  python {rag_script} \"<问题>\" --tenant-uuid {self.tenant_uuid}\n"
+        )
+        return SafeShellTool(inner_tool=ShellTool(), description=description)
+
+    # ------------------------------------------------------------------
+    # 单例
+    # ------------------------------------------------------------------
     def get_instance(self):
-        """获取或创建 Deep Agent 实例（单例模式）"""
         if self._instance is None:
             self._instance = self.build_instance()
         return self._instance
 
+    # ------------------------------------------------------------------
+    # 构建 Agent
+    # ------------------------------------------------------------------
     def build_instance(self):
-        """
-        构建 Deep Agent 实例
-        """
-        # 🆕 如果有 tenant_uuid，使用租户配置
+        # 加载租户配置
         if self.tenant_uuid:
             self.settings = get_tenant_settings(self.tenant_uuid)
         elif not self.settings.LLM_MODEL:
             self.settings = get_settings()
 
-        # 1. 初始化模型
-        logger.info(f"正在使用模型: {self.settings.LLM_MODEL} 构建 Agent (tenant={self.tenant_uuid})")
+        logger.info(
+            f"正在使用模型: {self.settings.LLM_MODEL} 构建 Agent (tenant={self.tenant_uuid})"
+        )
+
         model = init_chat_model(
             model=self.settings.LLM_MODEL,
             model_provider="openai",
             api_key=self.settings.LLM_API_KEY,
-            base_url=self.settings.LLM_BASE_URL
+            base_url=self.settings.LLM_BASE_URL,
         )
-        self.exec_tool = ShellTool()
-        self.exec_tool.name = "shell"
-        # 🆕 在 tool description 中包含 tenant_uuid
-        tenant_info = f"tenant_uuid={self.tenant_uuid}" if self.tenant_uuid else ""
-        self.exec_tool.description = (
-            f"运行 Python 脚本。ALL 命令必须相对于: {self.workspace}。 "
-            "DO NOT use absolute paths. DO NOT use 'cd' or 'ls'."
-            "\n\n【关键】当需要执行 SKILL 技能时，必须严格遵循 SKILL.md 文件中 Execution 部分指定的命令格式。"
-            "\n【关键】查看 SKILL.md 后，执行对应 scripts/ 目录下的 .py 文件。"
-            + (f"\n【关键】当前租户: {self.tenant_uuid}，执行 RAG 查询时必须携带此参数。" if tenant_info else "")
-        )
-        system_prompt = f"""你是一个精确执行的智能体，需要判断是否进行工具的调用，如果是闲聊，则直接回答用户的问题，如果是需要提供的技能，需要根据用户的问题来寻找一个合适的技能，并执行技能。
-**【关键规则】技能执行必须严格遵循 SKILL.md 中的命令格式！**
-1. 首先读取对应技能的 SKILL.md 文件
-2. 严格按照 SKILL.md 中 Execution 部分的命令格式执行
-3. 不得自行添加、删除或修改命令参数
-4. 特别注意：区分位置参数（positional）和选项参数（--flag）
-**技能目录**：你可以使用的技能目录是 {self.workspace}，不允许访问其他目录。
-**用户**:
-# 👤 用户上下文
+
+        # ✅ 使用 SafeShellTool，不再覆盖回 ShellTool
+        exec_tool = self._build_shell_tool()
+
+        # ✅ 项目根路径直接注入 system prompt，Agent 无需自己 find
+        rag_cmd_example = (
+            f"python {self.project_root}/src/services/skills/rag-query/scripts/query.py "
+            f'"<问题>" --tenant-uuid {self.tenant_uuid}'
+        ) if self.project_root else "（项目根路径未找到，请设置 DEEPAGENTFORCE_ROOT）"
+
+        system_prompt = f"""你是一个精确执行的智能体。闲聊直接回答，需要技能时找到对应技能并执行。
+
+## 关键规则
+1. 读取技能的 SKILL.md，严格按照其中 Execution 部分的命令格式执行
+2. 区分位置参数和 --flag 参数，不得自行修改
+3. 命令必须是纯文本字符串，绝对禁止 JSON 数组格式
+
+## 环境信息（已解析，直接使用，禁止再次 find）
+- 项目根路径: `{self.project_root}`
+- 当前租户 UUID: `{self.tenant_uuid}`
+- 技能目录: `{self.workspace}`
+
+## RAG 查询命令模板（直接使用）
+{rag_cmd_example}
+
+## 用户上下文
 {self.user_summary}
-""" + (f"\n**当前租户 UUID**: {self.tenant_uuid} (RAG 查询时必须携带此参数)" if self.tenant_uuid else "")
-        
+"""
+
         return create_deep_agent(
             model=model,
             backend=FilesystemBackend(root_dir=str(self.settings.PROJECT_ROOT)),
-            skills=[str(self.workspace)], 
-            tools=[self.exec_tool],
+            skills=[str(self.workspace)],
+            tools=[exec_tool],
             checkpointer=MemorySaver(),
-            system_prompt=system_prompt
+            system_prompt=system_prompt,
         )
+
+    # ------------------------------------------------------------------
+    # 对话入口
+    # ------------------------------------------------------------------
     async def chat(self, user_input: str, thread_id: str = "default_thread") -> str:
         config = {"configurable": {"thread_id": thread_id}}
         agent_instance = self.get_instance()
-        final_response = ""
         token_buffer = ""
-        
+
         try:
-            # 【修改】移入 try 块，并增加日志
             if self.status_callback:
                 logger.info(f"[{thread_id}] 触发 on_agent_start...")
                 await self.status_callback.on_agent_start({"input": user_input})
-            
-            logger.info(f"[{thread_id}] 开始 Agent 流式处理: {user_input[:30]}")
-            
-            # 使用流式模式获取 token
+
+            logger.info(f"[{thread_id}] 开始 Agent 流式处理: {user_input[:50]}")
+
             async for event in agent_instance.astream(
                 {"messages": [HumanMessage(content=user_input)]},
                 config=config,
-                stream_mode="messages"
+                stream_mode="messages",
             ):
-                # event 是一个元组 (chunk, metadata)
-                chunk = event[0]
-                metadata = event[1]
-                
-                # 获取 token 内容
-                if hasattr(chunk, 'content') and chunk.content:
+                chunk, metadata = event[0], event[1]
+
+                if hasattr(chunk, "content") and chunk.content:
                     token = chunk.content
                     if isinstance(token, str):
                         token_buffer += token
-                        # 逐个 token 发送
                         if self.status_callback:
                             await self.status_callback.on_token(token)
                     elif isinstance(token, list):
-                        # 有时候 content 是列表形式
                         for item in token:
-                            if isinstance(item, dict) and item.get('type') == 'text':
-                                text = item.get('text', '')
+                            if isinstance(item, dict) and item.get("type") == "text":
+                                text = item.get("text", "")
                                 token_buffer += text
                                 if self.status_callback:
                                     await self.status_callback.on_token(text)
-                
-                # 获取消息用于检测工具调用
-                if hasattr(metadata, 'langgraph_node') and metadata.get('langgraph_node') == 'agent':
-                    if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
-                        for tool_call in chunk.tool_calls:
-                            if self.status_callback:
-                                await self.status_callback.on_tool_start(
-                                    {"name": tool_call['name'], "args": tool_call['args']}
-                                )
-                elif hasattr(metadata, 'langgraph_node') and metadata.get('langgraph_node') == 'tools':
-                    if hasattr(chunk, 'content') and self.status_callback:
-                        await self.status_callback.on_tool_end(
-                            {"output": str(chunk.content)[:100] + "..."}
-                        )
 
-            final_response = token_buffer
-            
+                node = metadata.get("langgraph_node") if hasattr(metadata, "get") else None
+                if node == "agent" and hasattr(chunk, "tool_calls") and chunk.tool_calls:
+                    for tc in chunk.tool_calls:
+                        if self.status_callback:
+                            await self.status_callback.on_tool_start(
+                                {"name": tc["name"], "args": tc["args"]}
+                            )
+                elif node == "tools" and self.status_callback and hasattr(chunk, "content"):
+                    await self.status_callback.on_tool_end(
+                        {"output": str(chunk.content)[:200]}
+                    )
+
             if self.status_callback:
-                await self.status_callback.on_agent_finish({"output": final_response})
-                
-            return final_response
+                await self.status_callback.on_agent_finish({"output": token_buffer})
+
+            return token_buffer
 
         except Exception as e:
             logger.error(f"Chat 处理失败: {e}", exc_info=True)
