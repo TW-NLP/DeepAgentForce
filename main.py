@@ -34,7 +34,9 @@ app.add_middleware(
 
 # 挂载静态文件目录
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+IMAGES_DIR = os.path.join(os.path.dirname(__file__), "images")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 # 首页路由 - 返回 index.html
 @app.get("/")

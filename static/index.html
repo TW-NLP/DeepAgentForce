@@ -425,7 +425,7 @@
             justify-content: center;
             padding: 40px 20px;
             text-align: center;
-            height: 100%;
+            min-height: calc(100vh - 200px);
         }
 
         .welcome-icon {
@@ -1792,6 +1792,100 @@
             background: #2d2d2d;
         }
 
+        /* 下载列表模态框样式 */
+        .downloads-modal .modal {
+            max-width: 600px;
+            width: 90%;
+        }
+
+        .downloads-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .download-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            gap: 12px;
+        }
+
+        .download-item-icon {
+            font-size: 24px;
+        }
+
+        .download-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .download-item-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .download-item-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .download-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .download-item-btn {
+            padding: 6px 12px;
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .download-item-btn.download {
+            background: var(--accent-primary);
+            color: #fff;
+        }
+
+        .download-item-btn.download:hover {
+            background: #0056b3;
+        }
+
+        .download-item-btn.delete {
+            background: transparent;
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+        }
+
+        .download-item-btn.delete:hover {
+            background: var(--accent-red);
+            color: #fff;
+        }
+
+        .downloads-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .downloads-empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .downloads-refresh {
+            margin-bottom: 16px;
+        }
+
         /* 表单样式 */
         .form-section {
             margin-bottom: 24px;
@@ -2255,6 +2349,10 @@
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                         <span>手册</span>
                     </button>
+                    <button class="header-help-btn" id="headerDownloadsBtn" title="下载列表" onclick="showDownloadsModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span>下载</span>
+                    </button>
                     <div class="status-indicator" id="statusIndicator">
                         <span class="status-dot"></span>
                         <span id="statusText">连接中...</span>
@@ -2700,8 +2798,21 @@
     }
 
     // ============ 消息处理 ============
+    // ============ 欢迎屏幕控制 ============
     function hideWelcomeScreen() {
         if (welcomeScreen) welcomeScreen.style.display = 'none';
+    }
+
+    function showWelcomeScreen() {
+        if (welcomeScreen) welcomeScreen.style.display = 'flex';
+    }
+
+    function clearMessages() {
+        if (messagesWrapper) {
+            // 只清除消息，保留欢迎屏幕
+            const messages = messagesWrapper.querySelectorAll('.message');
+            messages.forEach(msg => msg.remove());
+        }
     }
 
     function addMessage(role, content) {
@@ -3089,7 +3200,7 @@
 
     function startNewChat() {
         currentSessionId = null;
-        messagesWrapper.innerHTML = '';
+        clearMessages();
         showWelcomeScreen();
         loadSavedHistory(); // 刷新列表
     }
@@ -3105,13 +3216,13 @@
             const data = await response.json();
 
             currentSessionId = sessionId;
-            messagesWrapper.innerHTML = '';
+            clearMessages();
 
             if (data.messages && data.messages.length > 0) {
                 data.messages.forEach(msg => {
                     addMessage(msg.role, msg.content);
                 });
-                        } else {
+            } else {
                 showWelcomeScreen();
             }
 
@@ -3183,6 +3294,97 @@
 
     // 暴露到全局，让其他脚本可以使用
     window.showToast = showToast;
+
+    // ============ 下载管理（使用 output 目录） ============
+    async function loadDownloadsList() {
+        try {
+            const token = localStorage.getItem('access_token');
+            const headers = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const response = await fetch(`${getApiUrl()}/output/files`, { headers });
+            const data = await response.json();
+
+            const listContainer = document.getElementById('downloadsList');
+            if (!data.files || data.files.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="downloads-empty">
+                        <div class="downloads-empty-icon">📂</div>
+                        <div>暂无下载文件</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // 过滤只显示文件，不显示目录
+            const files = data.files.filter(f => !f.is_directory);
+
+            listContainer.innerHTML = files.map(file => {
+                const fileSize = formatFileSize(file.size);
+                const fileIcon = getFileIcon(file.name);
+                return `
+                    <div class="download-item" data-file-path="${escapeHtml(file.path)}">
+                        <div class="download-item-icon">${fileIcon}</div>
+                        <div class="download-item-info">
+                            <div class="download-item-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+                            <div class="download-item-meta">${fileSize} · ${new Date(file.modified_at).toLocaleString('zh-CN')}</div>
+                        </div>
+                        <div class="download-item-actions">
+                            <button class="download-item-btn download" onclick="downloadOutputFile('${escapeHtml(file.path)}')">下载</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('加载下载列表失败:', error);
+            showToast('加载下载列表失败', 'error');
+        }
+    }
+
+    async function downloadOutputFile(filePath) {
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${getApiUrl()}/output/files/download?path=${encodeURIComponent(filePath)}`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+
+            if (!response.ok) throw new Error('下载失败');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filePath.split('/').pop();
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            showToast('下载成功');
+        } catch (error) {
+            console.error('下载失败:', error);
+            showToast('下载失败', 'error');
+        }
+    }
+
+    function showDownloadsModal() {
+        const modal = document.getElementById('downloadsModal');
+        if (modal) {
+            modal.classList.add('active');
+            loadDownloadsList();
+        }
+    }
+
+    function closeDownloadsModal() {
+        const modal = document.getElementById('downloadsModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+
+    window.showDownloadsModal = showDownloadsModal;
+    window.closeDownloadsModal = closeDownloadsModal;
+    window.loadDownloadsList = loadDownloadsList;
+    window.downloadOutputFile = downloadOutputFile;
 
     // ============ 配置保存 ============
     document.getElementById('saveConfigBtn').addEventListener('click', async () => {
@@ -3453,6 +3655,29 @@ Use this skill when the user wants to..."></textarea>
         </div>
     `;
     document.body.appendChild(confirmModal);
+
+    // Downloads Modal
+    const downloadsModal = document.createElement('div');
+    downloadsModal.id = 'downloadsModal';
+    downloadsModal.className = 'modal-overlay downloads-modal';
+    downloadsModal.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">📥 下载列表</h3>
+                <button class="modal-close" onclick="closeDownloadsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <button class="btn btn-secondary downloads-refresh" onclick="loadDownloadsList()">🔄 刷新</button>
+                <div class="downloads-list" id="downloadsList">
+                    <div class="downloads-empty">
+                        <div class="downloads-empty-icon">📂</div>
+                        <div>暂无下载文件</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(downloadsModal);
 
     // Toast Container
     const toastContainer = document.createElement('div');

@@ -400,7 +400,7 @@ async def get_session_messages(session_id: str, request: Request):
 
         # 提取消息列表
         messages = []
-        for conv in session_data.get("conversation", []):
+        for conv in session_data.get("conversations", []):
             user_content = conv.get("user_content", "")
             ai_content = conv.get("ai_content", "")
             if user_content:

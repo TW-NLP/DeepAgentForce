@@ -515,6 +515,31 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--text-muted);
     }
+
+    /* Screenshot images */
+    .screenshot {
+      width: 100%;
+      max-width: 900px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      margin: 16px 0;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .screenshot-small {
+      max-width: 700px;
+    }
+
+    .screenshot-caption {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .img-section {
+      margin: 24px 0;
+    }
   </style>
 </head>
 <body>
@@ -542,6 +567,10 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           核心功能
         </a>
+        <a href="#downloads" class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          文件下载
+        </a>
         <a href="#chat" class="nav-item">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           智能对话
@@ -553,6 +582,10 @@
         <a href="#skills" class="nav-item">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
           Agent Skills
+        </a>
+        <a href="#skills-demo" class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Skill 演示
         </a>
         <a href="#config" class="nav-item">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -623,7 +656,14 @@
             <span class="icon">⭐</span>
             核心功能
           </h2>
-          
+
+          <div class="img-section">
+            <div align="center">
+              <img src="/images/frame.png" alt="系统架构" class="screenshot" />
+            </div>
+            <p class="screenshot-caption">图 1：DeepAgentForce 系统架构</p>
+          </div>
+
           <div class="feature-grid">
             <div class="feature-item">
               <div class="feature-icon">💬</div>
@@ -646,6 +686,11 @@
               <p class="feature-desc">模块化工具扩展系统，支持 PDF 处理、联网搜索等自动调用能力。</p>
             </div>
             <div class="feature-item">
+              <div class="feature-icon">📥</div>
+              <h3 class="feature-title">文件下载</h3>
+              <p class="feature-desc">AI 生成的文件（作文、报告等）自动保存，点击即可下载。</p>
+            </div>
+            <div class="feature-item">
               <div class="feature-icon">👤</div>
               <h3 class="feature-title">用户画像</h3>
               <p class="feature-desc">AI 自动学习用户偏好和行为模式，越用越懂你。</p>
@@ -658,13 +703,64 @@
           </div>
         </section>
 
+        <!-- Downloads Section -->
+        <section class="section" id="downloads">
+          <h2 class="section-title">
+            <span class="icon">📥</span>
+            文件下载
+          </h2>
+          
+          <div class="card">
+            <h3 class="card-title">下载 AI 生成的文件</h3>
+            <p class="card-desc">当 AI 生成文件（如作文、报告、代码等）时，可以要求 AI 保存到指定位置。文件会自动保存到你的下载目录中。</p>
+          </div>
+
+          <div class="step-list">
+            <div class="step-item">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <h3 class="step-title">请求 AI 保存文件</h3>
+                <p class="step-desc">例如：「帮我写一篇关于春天的作文，并保存到文件」</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <h3 class="step-title">AI 自动保存</h3>
+                <p class="step-desc">AI 会将文件保存到 <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">data/outputs/{租户ID}/</code> 目录</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">3</div>
+              <div class="step-content">
+                <h3 class="step-title">点击下载</h3>
+                <p class="step-desc">点击页面右上角的「下载」按钮，在弹出的列表中查看和下载文件</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tip-box">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div class="tip-text">
+              <strong>提示：</strong>每个租户的文件是隔离存储的，只能查看和下载自己账号生成的文件。
+            </div>
+          </div>
+        </section>
+
         <!-- Chat Section -->
         <section class="section" id="chat">
           <h2 class="section-title">
             <span class="icon">💬</span>
             智能对话
           </h2>
-          
+
+          <div class="img-section">
+            <div align="center">
+              <img src="/images/chat.jpg" alt="智能对话界面" class="screenshot" />
+            </div>
+            <p class="screenshot-caption">图 2：智能对话界面</p>
+          </div>
+
           <div class="card">
             <h3 class="card-title">
               <span class="tag">基础</span>
@@ -687,6 +783,21 @@
               多会话管理
             </h3>
             <p class="card-desc">点击左侧的「+」按钮可开启新对话。所有对话会自动保存在历史记录中，方便随时回顾和继续。</p>
+          </div>
+        </section>
+
+        <!-- Skills Management Demo -->
+        <section class="section" id="skills-demo">
+          <h2 class="section-title">
+            <span class="icon">🛠️</span>
+            Skill 管理界面
+          </h2>
+
+          <div class="img-section">
+            <div align="center">
+              <img src="/images/skill.png" alt="Skill 管理界面" class="screenshot" />
+            </div>
+            <p class="screenshot-caption">图 3：可视化 Skill 管理界面</p>
           </div>
         </section>
 
@@ -728,6 +839,13 @@
               </tr>
             </tbody>
           </table>
+
+          <div class="img-section">
+            <div align="center">
+              <img src="/images/rag.png" alt="知识库管理界面" class="screenshot" />
+            </div>
+            <p class="screenshot-caption">图 4：知识库管理界面</p>
+          </div>
 
           <div class="warning-box">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -817,6 +935,13 @@
               <strong>提示：</strong>URL 只需填写 Base 地址（如 https://openrouter.ai/api/v1），系统会自动拼接正确的接口路径。
             </div>
           </div>
+
+          <div class="img-section">
+            <div align="center">
+              <img src="/images/config.png" alt="模型配置" class="screenshot screenshot-small" />
+            </div>
+            <p class="screenshot-caption">图 5：模型配置页面</p>
+          </div>
         </section>
 
         <!-- FAQ Section -->
@@ -834,6 +959,16 @@
           <div class="card">
             <h3 class="card-title">Q: AI 回复很慢或无响应？</h3>
             <p class="card-desc">可能是模型 API 响应较慢，或网络连接不稳定。可以检查「配置」页面的模型设置是否正确。</p>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">Q: 如何下载 AI 生成的文件？</h3>
+            <p class="card-desc">点击页面右上角的「下载」按钮。确保在对话中让 AI 保存了文件（如「帮我保存这篇作文」）。</p>
+          </div>
+          
+          <div class="card">
+            <h3 class="card-title">Q: 多租户是什么意思？</h3>
+            <p class="card-desc">每个账号（租户）有独立的数据空间，包括上传的文档、生成的配置文件等。不同租户之间数据完全隔离，确保隐私安全。</p>
           </div>
           
           <div class="card">
@@ -860,9 +995,11 @@
     <div class="quick-nav">
       <a href="#quickstart" class="active" title="快速开始"></a>
       <a href="#features" title="核心功能"></a>
+      <a href="#downloads" title="文件下载"></a>
       <a href="#chat" title="智能对话"></a>
       <a href="#knowledge" title="知识库"></a>
       <a href="#skills" title="Agent Skills"></a>
+      <a href="#skills-demo" title="Skill 演示"></a>
       <a href="#config" title="模型配置"></a>
       <a href="#faq" title="常见问题"></a>
     </div>

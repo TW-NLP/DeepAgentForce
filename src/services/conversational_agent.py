@@ -201,6 +201,14 @@ class ConversationalAgent:
 - 当前租户 UUID: `{self.tenant_uuid}`
 - 技能目录: `{self.workspace}`
 
+## 文件保存规则（必须遵守）
+当用户要求保存文件时，必须保存到以下目录：
+- **保存路径**: `{self.project_root}/data/outputs/{{tenant_uuid}}/`
+- **tenant_uuid**: `{self.tenant_uuid}`
+- 示例：保存到 `/Users/tianwei/paper/DeepAgentForce/data/outputs/{self.tenant_uuid}/作文.txt`
+
+⚠️ **禁止** 保存到其他任何目录（如项目根目录），否则文件不会被前端下载列表显示。
+
 ## RAG 查询命令模板（直接使用）
 {rag_cmd_example}
 
