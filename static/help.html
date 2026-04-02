@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>使用手册 - DeepAgentForce</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #212121;
+      --bg-secondary: #2d2d2d;
+      --bg-tertiary: #333333;
+      --bg-card: #2a2a2a;
+      --bg-hover: #383838;
+      --text-primary: #ececf1;
+      --text-secondary: #ababab;
+      --text-muted: #6d6d6d;
+      --accent-primary: #19c37d;
+      --accent-hover: #1db87a;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-orange: #f59e0b;
+      --accent-red: #ef4444;
+      --border-color: #3d3d3d;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(25, 195, 125, 0.12), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(25, 195, 125, 0.06), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Left sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      transition: all 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .back-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .back-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-primary), #10a060);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .brand-text {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    /* Navigation */
+    .nav {
+      padding: 16px 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .nav-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      padding: 0 12px;
+      margin-bottom: 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 14px;
+      transition: all 0.2s;
+      margin-bottom: 2px;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: var(--bg-tertiary);
+      color: var(--accent-primary);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    /* Main content */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px 60px;
+    }
+
+    .content-inner {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .page-header {
+      margin-bottom: 40px;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .page-title svg {
+      width: 32px;
+      height: 32px;
+      color: var(--accent-primary);
+    }
+
+    .page-desc {
+      font-size: 16px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 40px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title .icon {
+      width: 28px;
+      height: 28px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 16px;
+      transition: all 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--accent-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title .tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: var(--accent-primary);
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .card-title .tag.blue {
+      background: var(--accent-blue);
+    }
+
+    .card-title .tag.orange {
+      background: var(--accent-orange);
+    }
+
+    .card-title .tag.purple {
+      background: var(--accent-purple);
+    }
+
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Step list */
+    .step-list {
+      counter-reset: step;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .step-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 17px;
+      top: 40px;
+      bottom: -10px;
+      width: 2px;
+      background: var(--border-color);
+    }
+
+    .step-number {
+      width: 36px;
+      height: 36px;
+      background: var(--accent-primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      flex: 1;
+      padding-top: 6px;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Feature grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .feature-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: all 0.2s;
+    }
+
+    .feature-item:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      font-size: 20px;
+    }
+
+    .feature-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Tip box */
+    .tip-box {
+      background: rgba(25, 195, 125, 0.1);
+      border: 1px solid rgba(25, 195, 125, 0.3);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .tip-box svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-primary);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .tip-box .tip-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Warning box */
+    .warning-box {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .warning-box svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-orange);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .warning-box .warning-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Table */
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+
+    .info-table th,
+    .info-table td {
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 14px;
+    }
+
+    .info-table th {
+      color: var(--text-muted);
+      font-weight: 500;
+      background: var(--bg-tertiary);
+    }
+
+    .info-table th:first-child {
+      border-radius: var(--radius-md) 0 0 0;
+    }
+
+    .info-table th:last-child {
+      border-radius: 0 var(--radius-md) 0 0;
+    }
+
+    .info-table td:first-child {
+      font-weight: 500;
+    }
+
+    /* Quick nav dots */
+    .quick-nav {
+      position: fixed;
+      right: 30px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 100;
+    }
+
+    .quick-nav a {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border-color);
+      transition: all 0.2s;
+      display: block;
+    }
+
+    .quick-nav a:hover,
+    .quick-nav a.active {
+      background: var(--accent-primary);
+      transform: scale(1.3);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .content {
+        padding: 30px 30px;
+      }
+      
+      .quick-nav {
+        display: none;
+      }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="/index.html" class="back-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          返回主页
+        </a>
+        <div class="brand">
+          <div class="brand-icon">🤖</div>
+          <span class="brand-text">DeepAgentForce</span>
+        </div>
+      </div>
+      
+      <nav class="nav">
+        <div class="nav-title">目录</div>
+        <a href="#quickstart" class="nav-item active">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          快速开始
+        </a>
+        <a href="#features" class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          核心功能
+        </a>
+        <a href="#chat" class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          智能对话
+        </a>
+        <a href="#knowledge" class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          知识库
+        </a>
+        <a href="#skills" class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Agent Skills
+        </a>
+        <a href="#config" class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          模型配置
+        </a>
+        <a href="#faq" class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          常见问题
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+      <div class="content-inner">
+        
+        <!-- Page Header -->
+        <header class="page-header" id="quickstart">
+          <h1 class="page-title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            DeepAgentForce 使用手册
+          </h1>
+          <p class="page-desc">欢迎使用 DeepAgentForce 智能助手平台！本手册将帮助你快速上手并掌握核心功能。</p>
+        </header>
+
+        <!-- Quick Start Section -->
+        <section class="section" id="quickstart-section">
+          <h2 class="section-title">
+            <span class="icon">🚀</span>
+            快速开始
+          </h2>
+          
+          <div class="step-list">
+            <div class="step-item">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <h3 class="step-title">注册并登录</h3>
+                <p class="step-desc">首次访问系统，点击注册创建账号，或使用已有账号登录。登录后将进入主界面。</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <h3 class="step-title">配置大模型</h3>
+                <p class="step-desc">点击左侧「配置」菜单，填写模型 API 地址、API Key 和模型名称。支持 OpenAI、OpenRouter 等兼容接口。</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">3</div>
+              <div class="step-content">
+                <h3 class="step-title">开始对话</h3>
+                <p class="step-desc">在主对话界面输入问题，AI 将自动分析意图并生成回答。你还可以上传文件、构建知识库、使用各种工具技能。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tip-box">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div class="tip-text">
+              <strong>提示：</strong>系统支持多会话管理，每次对话会自动保存。你可以通过左侧栏查看历史会话，随时继续之前的讨论。
+            </div>
+          </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="section" id="features">
+          <h2 class="section-title">
+            <span class="icon">⭐</span>
+            核心功能
+          </h2>
+          
+          <div class="feature-grid">
+            <div class="feature-item">
+              <div class="feature-icon">💬</div>
+              <h3 class="feature-title">智能对话</h3>
+              <p class="feature-desc">基于大语言模型的智能问答，支持多轮对话、上下文理解和文件上传。</p>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">🧠</div>
+              <h3 class="feature-title">思考可视化</h3>
+              <p class="feature-desc">清晰展示 AI 的思考过程和工具调用步骤，让决策透明可见。</p>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">📚</div>
+              <h3 class="feature-title">知识库</h3>
+              <p class="feature-desc">上传私有文档，构建专属知识库。AI 会基于你的资料回答专业问题。</p>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">🛠️</div>
+              <h3 class="feature-title">Agent Skills</h3>
+              <p class="feature-desc">模块化工具扩展系统，支持 PDF 处理、联网搜索等自动调用能力。</p>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">👤</div>
+              <h3 class="feature-title">用户画像</h3>
+              <p class="feature-desc">AI 自动学习用户偏好和行为模式，越用越懂你。</p>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">🏢</div>
+              <h3 class="feature-title">多租户支持</h3>
+              <p class="feature-desc">支持团队协作，多成员共享工作空间，独立管理配置和知识库。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Chat Section -->
+        <section class="section" id="chat">
+          <h2 class="section-title">
+            <span class="icon">💬</span>
+            智能对话
+          </h2>
+          
+          <div class="card">
+            <h3 class="card-title">
+              <span class="tag">基础</span>
+              如何提问
+            </h3>
+            <p class="card-desc">在底部的输入框中输入你的问题，按 Enter 或点击发送按钮即可。AI 会自动分析问题并生成回答。</p>
+          </div>
+          
+          <div class="card">
+            <h3 class="card-title">
+              <span class="tag blue">进阶</span>
+              上传文件
+            </h3>
+            <p class="card-desc">点击输入框左侧的 📎 图标，可上传 PDF、Word、TXT、Markdown 等格式文件。AI 会读取文件内容并结合回答。</p>
+          </div>
+          
+          <div class="card">
+            <h3 class="card-title">
+              <span class="tag orange">技巧</span>
+              多会话管理
+            </h3>
+            <p class="card-desc">点击左侧的「+」按钮可开启新对话。所有对话会自动保存在历史记录中，方便随时回顾和继续。</p>
+          </div>
+        </section>
+
+        <!-- Knowledge Section -->
+        <section class="section" id="knowledge">
+          <h2 class="section-title">
+            <span class="icon">📚</span>
+            知识库管理
+          </h2>
+          
+          <div class="card">
+            <h3 class="card-title">构建专属知识库</h3>
+            <p class="card-desc">进入「知识库」页面，上传你的私有文档（PDF、Word、TXT、Markdown），系统会自动向量化并建立索引。之后的相关问题会优先检索你的知识库内容。</p>
+          </div>
+
+          <table class="info-table">
+            <thead>
+              <tr>
+                <th>支持的格式</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>PDF</td>
+                <td>最常用的文档格式，支持文本和图片提取</td>
+              </tr>
+              <tr>
+                <td>Word (.docx)</td>
+                <td>微软 Office 文档，支持段落和表格</td>
+              </tr>
+              <tr>
+                <td>TXT</td>
+                <td>纯文本文件，最简单可靠</td>
+              </tr>
+              <tr>
+                <td>Markdown</td>
+                <td>支持代码和格式的轻量级标记语言</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="warning-box">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="warning-text">
+              <strong>注意：</strong>上传文档后，系统需要一定时间处理和索引。处理完成后即可在对话中检索使用。
+            </div>
+          </div>
+        </section>
+
+        <!-- Skills Section -->
+        <section class="section" id="skills">
+          <h2 class="section-title">
+            <span class="icon">🛠️</span>
+            Agent Skills
+          </h2>
+          
+          <p style="color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6;">
+            Agent Skills 是系统的模块化扩展能力。当 AI 识别到需要特定工具时，会自动调用对应的 Skill。
+          </p>
+          
+          <div class="feature-grid">
+            <div class="feature-item">
+              <div class="feature-icon">📄</div>
+              <h3 class="feature-title">PDF Processing</h3>
+              <p class="feature-desc">PDF 文档处理：提取文本、表格，支持合并/拆分文档。</p>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">🔍</div>
+              <h3 class="feature-title">RAG Query</h3>
+              <p class="feature-desc">企业知识库问答：从你上传的文档中检索相关信息。</p>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">🌐</div>
+              <h3 class="feature-title">Web Search</h3>
+              <p class="feature-desc">联网搜索：实时获取网络上的最新信息。</p>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">➕</div>
+              <h3 class="feature-title">自定义 Skills</h3>
+              <p class="feature-desc">支持开发者自行扩展新的工具技能，满足个性化需求。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Config Section -->
+        <section class="section" id="config">
+          <h2 class="section-title">
+            <span class="icon">⚙️</span>
+            模型配置
+          </h2>
+          
+          <div class="card">
+            <h3 class="card-title">配置说明</h3>
+            <p class="card-desc">在「配置」页面填写大模型的连接信息。配置会自动保存，下次启动时无需重新填写。</p>
+          </div>
+          
+          <table class="info-table">
+            <thead>
+              <tr>
+                <th>配置项</th>
+                <th>说明</th>
+                <th>示例</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>LLM URL</td>
+                <td>模型 API 的 Base 地址</td>
+                <td>https://openrouter.ai/api/v1</td>
+              </tr>
+              <tr>
+                <td>LLM API Key</td>
+                <td>访问模型的密钥</td>
+                <td>sk-or-xxxxx</td>
+              </tr>
+              <tr>
+                <td>LLM Model</td>
+                <td>使用的模型名称</td>
+                <td>anthropic/claude-3.5-sonnet</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="tip-box">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div class="tip-text">
+              <strong>提示：</strong>URL 只需填写 Base 地址（如 https://openrouter.ai/api/v1），系统会自动拼接正确的接口路径。
+            </div>
+          </div>
+        </section>
+
+        <!-- FAQ Section -->
+        <section class="section" id="faq">
+          <h2 class="section-title">
+            <span class="icon">❓</span>
+            常见问题
+          </h2>
+          
+          <div class="card">
+            <h3 class="card-title">Q: 提示"未连接到服务器"怎么办？</h3>
+            <p class="card-desc">确保后端服务正在运行（执行 python main.py）。检查网络连接是否正常。</p>
+          </div>
+          
+          <div class="card">
+            <h3 class="card-title">Q: AI 回复很慢或无响应？</h3>
+            <p class="card-desc">可能是模型 API 响应较慢，或网络连接不稳定。可以检查「配置」页面的模型设置是否正确。</p>
+          </div>
+          
+          <div class="card">
+            <h3 class="card-title">Q: 如何让 AI 使用我的文档回答？</h3>
+            <p class="card-desc">在「知识库」页面先上传文档，之后的对话会自动检索相关内容。</p>
+          </div>
+          
+          <div class="card">
+            <h3 class="card-title">Q: 知识库搜索不准确？</h3>
+            <p class="card-desc">确保文档内容清晰、格式规范。复杂 PDF 建议先转换为纯文本格式上传。</p>
+          </div>
+        </section>
+
+        <!-- Footer -->
+        <footer style="text-align: center; padding: 40px 0; color: var(--text-muted); font-size: 13px; border-top: 1px solid var(--border-color); margin-top: 40px;">
+          <p>DeepAgentForce 智能助手平台 · 让 AI 真正成为你的智能助手</p>
+          <p style="margin-top: 8px;">有问题？联系开发者或查阅项目文档</p>
+        </footer>
+
+      </div>
+    </main>
+
+    <!-- Quick Navigation -->
+    <div class="quick-nav">
+      <a href="#quickstart" class="active" title="快速开始"></a>
+      <a href="#features" title="核心功能"></a>
+      <a href="#chat" title="智能对话"></a>
+      <a href="#knowledge" title="知识库"></a>
+      <a href="#skills" title="Agent Skills"></a>
+      <a href="#config" title="模型配置"></a>
+      <a href="#faq" title="常见问题"></a>
+    </div>
+  </div>
+
+  <script>
+    // Smooth scroll for nav links
+    document.querySelectorAll('.nav-item').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href').substring(1);
+        const target = document.getElementById(targetId) || document.getElementById(targetId + '-section');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // Update active state
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    // Quick nav
+    document.querySelectorAll('.quick-nav a').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href').substring(1);
+        const target = document.getElementById(targetId);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    // Update active nav on scroll
+    const sections = document.querySelectorAll('.section[id]');
+    const navItems = document.querySelectorAll('.nav-item');
+    const quickNavItems = document.querySelectorAll('.quick-nav a');
+    
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (scrollY >= sectionTop - 200) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('href') === '#' + current) {
+          item.classList.add('active');
+        }
+      });
+
+      quickNavItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('href') === '#' + current) {
+          item.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

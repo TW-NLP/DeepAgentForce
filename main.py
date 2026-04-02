@@ -56,6 +56,11 @@ async def login():
 async def register():
     return FileResponse(os.path.join(STATIC_DIR, "register.html"))
 
+# 帮助手册页面路由
+@app.get("/help.html")
+async def help_page():
+    return FileResponse(os.path.join(STATIC_DIR, "help.html"))
+
 # 主页面路由
 @app.get("/index.html")
 async def index():
