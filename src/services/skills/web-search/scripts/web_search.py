@@ -35,7 +35,8 @@ class TAVILYSearch():
             
             # Initialize client
             # get api key from settings
-            api_key_dict = json.loads(open(Settings.CONFIG_FILE,encoding='utf-8').read())
+            settings = Settings()
+            api_key_dict = json.loads(open(settings.CONFIG_FILE,encoding='utf-8').read())
             client = TavilyClient(api_key=api_key_dict.get("TAVILY_API_KEY"))
             
             print(f"🔍 Searching for: {query}")

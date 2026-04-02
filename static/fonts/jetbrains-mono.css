@@ -1,0 +1,16 @@
+/* JetBrains Mono 字体 - 本地版本，使用系统字体 fallback */
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: local('JetBrains Mono Regular'), local('JetBrainsMono-Regular');
+}
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: local('JetBrains Mono Medium'), local('JetBrainsMono-Medium');
+}

@@ -1,8 +1,8 @@
 /**
- * 对话功能 JavaScript
+ * DeepAgentForce - ChatGPT-Style Chat JavaScript
  */
 
-// ============ 0. 全局变量定义 ============
+// ============ 0. 全局变量 ============
 let ws = null;
 let isConnected = false;
 let isProcessing = false;
@@ -10,22 +10,20 @@ let currentThinkingContainer = null;
 let currentStreamingAnswer = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
-
-// 核心变量：全局 session ID
 let currentSessionId = null;
-
-// 文件上传相关变量
 let attachedFiles = [];
+let sessionListLoadedViaWebSocket = false; // 🆕 标记会话列表是否已通过 WebSocket 加载
 
 // DOM 元素引用
-let messagesWrapper, messagesArea, welcomeScreen, messageInput, sendButton;
+let messagesWrapper, messagesContainer, welcomeScreen, messageInput, sendButton;
 let attachButton, chatFileInput, fileAttachmentsContainer;
 let historyList, newChatBtn, sidebarNewChatBtn, statusIndicator, statusText;
+let chatTitle;
 
 // ============ 1. DOM 初始化 ============
 function initDOM() {
     messagesWrapper = document.getElementById('messagesWrapper');
-    messagesArea = document.getElementById('messagesArea');
+    messagesContainer = document.getElementById('messagesContainer');
     welcomeScreen = document.getElementById('welcomeScreen');
     messageInput = document.getElementById('messageInput');
     sendButton = document.getElementById('sendButton');
@@ -33,23 +31,25 @@ function initDOM() {
     chatFileInput = document.getElementById('chatFileInput');
     fileAttachmentsContainer = document.getElementById('fileAttachments');
     historyList = document.getElementById('historyList');
-    newChatBtn = document.getElementById('newChatBtn');
-    sidebarNewChatBtn = document.getElementById('sidebarNewChatBtn');
     statusIndicator = document.getElementById('statusIndicator');
     statusText = document.getElementById('statusText');
+    chatTitle = document.getElementById('chatTitle');
 }
 
-// ============ 2. 历史记录加载与管理 ============
+// ============ 2. 历史记录 ============
 async function loadSavedHistory() {
-    try {
-        console.log("正在加载历史记录...");
-        // 🆕 使用 authFetch 自动携带 Authorization header（用于后端提取 tenant_id）
-        const response = await window.auth.authFetch(`${getApiUrl()}/history/saved`);
+    // 🆕 如果已经通过 WebSocket 加载了会话列表，不再通过 API 重复加载
+    if (sessionListLoadedViaWebSocket) {
+        return;
+    }
 
-        if (!response.ok) {
-            console.warn("无法连接到历史记录接口");
-            return;
-        }
+    try {
+        const response = await window.auth?.authFetch?.(`${getApiUrl()}/history/saved`) || 
+                         fetch(`${getApiUrl()}/history/saved`, {
+                             headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                         });
+
+        if (!response.ok) return;
 
         const data = await response.json();
 
@@ -65,589 +65,495 @@ async function loadSavedHistory() {
             sortedSessions.forEach((session) => {
                 const li = document.createElement('li');
                 li.className = 'history-item';
-                li.dataset.sessionId = session.session_id;  // 🆕 保存 session_id 用于查找
+                li.dataset.sessionId = session.session_id;
 
                 if (currentSessionId === session.session_id) {
                     li.classList.add('active');
                 }
 
-                // 🆕 优先使用后端返回的 title（已根据第一条用户消息生成）
                 let title = session.title || '新对话';
-
-                // 兼容旧数据：如果 title 仍是默认值，尝试从对话内容生成
-                if ((title === '新对话' || title === '历史对话') && session.conversation && session.conversation.length > 0) {
+                if ((title === '新对话' || title === '历史对话') && session.conversation?.length > 0) {
                     const firstMsg = session.conversation[0].user_content;
                     if (firstMsg) {
-                        title = firstMsg.length > 30
-                            ? firstMsg.substring(0, 30) + '...'
-                            : firstMsg;
+                        title = firstMsg.length > 30 ? firstMsg.substring(0, 30) + '...' : firstMsg;
                     }
                 }
 
-                // 创建标题容器
-                const titleContainer = document.createElement('div');
-                titleContainer.className = 'history-item-content';
-                titleContainer.style.display = 'flex';
-                titleContainer.style.alignItems = 'center';
-                titleContainer.style.justifyContent = 'space-between';
-                titleContainer.style.width = '100%';
-                titleContainer.style.gap = '8px';
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'history-item-content';
+                contentDiv.innerHTML = `<span class="history-item-title">${escapeHtml(title)}</span>`;
 
-                // 标题文本
-                const titleSpan = document.createElement('span');
-                titleSpan.className = 'history-item-title';
-                titleSpan.textContent = title;
-                titleSpan.style.flex = '1';
-                titleSpan.style.overflow = 'hidden';
-                titleSpan.style.textOverflow = 'ellipsis';
-                titleSpan.style.whiteSpace = 'nowrap';
-                titleContainer.appendChild(titleSpan);
-
-                // 🆕 删除按钮
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'history-delete-btn';
-                deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>`;
-                deleteBtn.title = '删除会话';
-                deleteBtn.style.display = 'none';
-                deleteBtn.style.background = 'none';
-                deleteBtn.style.border = 'none';
-                deleteBtn.style.cursor = 'pointer';
-                deleteBtn.style.color = 'inherit';
-                deleteBtn.style.padding = '2px';
-                deleteBtn.style.borderRadius = '4px';
-                deleteBtn.style.transition = 'all 0.2s';
-
-                // 🆕 删除按钮悬停效果
-                deleteBtn.onmouseenter = () => {
-                    deleteBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-                    deleteBtn.style.color = '#ff4d4f';
-                };
-                deleteBtn.onmouseleave = () => {
-                    deleteBtn.style.background = 'none';
-                    deleteBtn.style.color = 'inherit';
-                };
-
-                // 🆕 点击删除按钮
+                deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
                 deleteBtn.onclick = (e) => {
                     e.stopPropagation();
-                    confirmDeleteSession(session.session_id, title);
+                    if (confirm(`确定要删除会话"${title}"吗？`)) {
+                        deleteSession(session.session_id);
+                    }
                 };
+                contentDiv.appendChild(deleteBtn);
+                li.appendChild(contentDiv);
 
-                titleContainer.appendChild(deleteBtn);
-                li.appendChild(titleContainer);
-
-                // 🆕 悬停时显示删除按钮
-                li.onmouseenter = () => {
-                    deleteBtn.style.display = 'flex';
-                };
-                li.onmouseleave = () => {
-                    deleteBtn.style.display = 'none';
-                };
-
-                // 🆕 保留原有的悬停样式（如果需要调整可以在这里修改）
-                const conversationInfo = document.createElement('span');
-                conversationInfo.className = 'conversation-info';
-                conversationInfo.textContent = `${session.conversation_count}条`;
-                conversationInfo.style.fontSize = '0.85em';
-                conversationInfo.style.color = '#999';
-                // 🆕 高亮状态下使用浅色文字
-                if (li.classList.contains('active')) {
-                    conversationInfo.style.color = 'rgba(255, 255, 255, 0.7)';
-                }
-                li.appendChild(conversationInfo);
-
-                li.title = `${title}\n对话数: ${session.conversation_count}\n时间: ${new Date(session.updated_at).toLocaleString('zh-CN')}`;
                 li.onclick = () => restoreSession(session);
-
                 historyList.appendChild(li);
             });
         } else {
-            const emptyTip = document.createElement('li');
-            emptyTip.className = 'history-empty';
-            emptyTip.textContent = '暂无历史记录';
-            emptyTip.style.textAlign = 'center';
-            emptyTip.style.color = '#999';
-            emptyTip.style.padding = '20px';
-            historyList.appendChild(emptyTip);
+            historyList.innerHTML = '<li class="history-empty">暂无历史记录</li>';
         }
     } catch (error) {
         console.error("加载历史记录失败:", error);
     }
 }
 
-// 🆕 删除会话确认和执行
-async function confirmDeleteSession(sessionId, title) {
-    const confirmed = confirm(`确定要删除会话"${title}"吗？\n此操作不可恢复。`);
-    if (confirmed) {
-        await deleteSession(sessionId);
+// 处理从 WebSocket 收到的历史记录（页面加载时）
+function renderSessionHistory(historyData) {
+    if (!historyData?.conversations?.length) return;
+
+    hideWelcomeScreen();
+
+    historyData.conversations.forEach(conv => {
+        if (conv.user_content) addMessage('user', conv.user_content);
+        if (conv.thinking_steps?.length > 0) renderThinkingSteps(conv.thinking_steps);
+        if (conv.ai_content) addMessage('assistant', conv.ai_content);
+    });
+}
+
+// 处理 WebSocket 发送的会话列表（用于侧边栏显示）
+function renderSessionList(sessions) {
+    if (!sessions || !Array.isArray(sessions)) return;
+
+    // 🆕 标记会话列表已通过 WebSocket 加载
+    sessionListLoadedViaWebSocket = true;
+
+    if (historyList) {
+        historyList.innerHTML = '';
     }
+
+    if (sessions.length === 0) {
+        historyList.innerHTML = '<li class="history-empty">暂无历史记录</li>';
+        return;
+    }
+
+    const sortedSessions = [...sessions].sort((a, b) =>
+        new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
+    );
+
+    sortedSessions.forEach((session) => {
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        li.dataset.sessionId = session.session_id;
+
+        if (currentSessionId === session.session_id) {
+            li.classList.add('active');
+        }
+
+        let title = session.title || '新对话';
+        if ((title === '新对话' || title === '历史对话') && session.conversation?.length > 0) {
+            const firstMsg = session.conversation[0].user_content;
+            if (firstMsg) {
+                title = firstMsg.length > 30 ? firstMsg.substring(0, 30) + '...' : firstMsg;
+            }
+        }
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'history-item-content';
+        contentDiv.innerHTML = `<span class="history-item-title">${escapeHtml(title)}</span>`;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'history-delete-btn';
+        deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+        deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (confirm(`确定要删除会话"${title}"吗？`)) {
+                deleteSession(session.session_id);
+            }
+        };
+        contentDiv.appendChild(deleteBtn);
+        li.appendChild(contentDiv);
+
+        li.onclick = () => restoreSession(session);
+        historyList.appendChild(li);
+    });
 }
 
 async function deleteSession(sessionId) {
     try {
-        const response = await window.auth.authFetch(`${getApiUrl()}/history/session/${sessionId}`, {
+        const response = await window.auth?.authFetch?.(`${getApiUrl()}/history/session/${sessionId}`, {
             method: 'DELETE'
+        }) || fetch(`${getApiUrl()}/history/session/${sessionId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
         });
 
         if (response.ok) {
-            console.log('会话已删除:', sessionId);
-
-            // 如果删除的是当前会话，重置UI
             if (currentSessionId === sessionId) {
                 currentSessionId = null;
+                if (chatTitle) chatTitle.textContent = '新对话';
                 messagesWrapper.innerHTML = '';
                 messagesWrapper.appendChild(welcomeScreen);
                 welcomeScreen.style.display = 'flex';
             }
-
-            // 重新加载历史列表
             loadSavedHistory();
-
-            // 显示成功提示
-            if (window.showToast) {
-                window.showToast('会话已删除', 'success');
-            }
-        } else {
-            throw new Error('删除失败');
+            if (window.showToast) window.showToast('会话已删除', 'success');
         }
     } catch (error) {
         console.error('删除会话失败:', error);
-        if (window.showToast) {
-            window.showToast('删除会话失败', 'error');
-        } else {
-            alert('删除会话失败');
-        }
     }
 }
 
 function restoreSession(session) {
     currentSessionId = session.session_id;
-    console.log("已恢复会话 ID:", currentSessionId);
+    if (chatTitle) chatTitle.textContent = session.title || '对话';
 
-    // 🆕 更新所有历史项的高亮状态
-    const allHistoryItems = document.querySelectorAll('.history-item');
-    allHistoryItems.forEach(item => {
-        if (item.dataset.sessionId === currentSessionId) {
-            item.classList.add('active');
-            // 🆕 高亮状态下更新子元素样式
-            const info = item.querySelector('.conversation-info');
-            if (info) info.style.color = 'rgba(255, 255, 255, 0.7)';
-        } else {
-            item.classList.remove('active');
-            // 🆕 移除高亮时恢复默认样式
-            const info = item.querySelector('.conversation-info');
-            if (info) info.style.color = '#999';
-        }
+    // 更新高亮
+    document.querySelectorAll('.history-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.sessionId === currentSessionId);
     });
 
     resetChatUI();
 
-    if (session.conversation && session.conversation.length > 0) {
+    // 如果本地有对话数据，直接渲染
+    if (session.conversation?.length > 0) {
         session.conversation.forEach(conv => {
-            if (conv.user_content) {
-                addMessage('user', conv.user_content);
-            }
-
-            if (conv.thinking_steps && conv.thinking_steps.length > 0) {
-                renderThinkingSteps(conv.thinking_steps);
-            }
-
-            if (conv.ai_content) {
-                addMessage('assistant', conv.ai_content);
-            }
+            if (conv.user_content) addMessage('user', conv.user_content);
+            if (conv.thinking_steps?.length > 0) renderThinkingSteps(conv.thinking_steps);
+            if (conv.ai_content) addMessage('assistant', conv.ai_content);
         });
+    } else {
+        // 本地没有数据，通过 API 加载完整会话
+        loadSessionMessages(session.session_id);
     }
 }
 
-function renderThinkingSteps(steps) {
-    if (!steps || steps.length === 0) return;
+// 从 API 加载会话消息
+async function loadSessionMessages(sessionId) {
+    try {
+        const response = await window.auth?.authFetch?.(`${getApiUrl()}/history/session/${sessionId}`) ||
+                         fetch(`${getApiUrl()}/history/session/${sessionId}`, {
+                             headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                         });
 
-    const thinkingContainer = document.createElement('div');
-    thinkingContainer.className = 'thinking-process';
-    thinkingContainer.innerHTML = `
-        <div class="thinking-header" onclick="toggleThinking(this)">
-            <span class="thinking-toggle">▼</span>
-            <span class="thinking-title">思考过程</span>
-            <span class="thinking-icon">⚙️</span>
-        </div>
-        <div class="thinking-content"></div>
-    `;
+        if (!response.ok) return;
 
-    const stepsContainer = thinkingContainer.querySelector('.thinking-content');
-
-    steps.forEach(step => {
-        const stepDiv = document.createElement('div');
-        stepDiv.className = `thinking-step ${getStepClass(step.step_type)}`;
-
-        const icon = getStepIcon(step.step_type);
-        const title = step.title || '处理中';
-        const description = step.description || '';
-
-        stepDiv.innerHTML = `
-            <span class="step-icon">${icon}</span>
-            <div class="step-content">
-                <div class="step-title">${title}</div>
-                <div class="step-description">${description}</div>
-            </div>
-        `;
-
-        stepsContainer.appendChild(stepDiv);
-    });
-
-    messagesWrapper.appendChild(thinkingContainer);
-    scrollToBottom();
-}
-
-function resetChatUI() {
-    messagesWrapper.innerHTML = '';
-    hideWelcomeScreen();
-    currentThinkingContainer = null;
-    currentStreamingAnswer = null;
-    isProcessing = false;
-    clearAttachedFiles();
-}
-
-function startNewChat() {
-    currentSessionId = null;
-    console.log("开启新会话，Session ID 已重置");
-
-    loadSavedHistory();
-
-    messagesWrapper.innerHTML = '';
-    messagesWrapper.appendChild(welcomeScreen);
-    welcomeScreen.style.display = 'flex';
-
-    currentThinkingContainer = null;
-    currentStreamingAnswer = null;
-    isProcessing = false;
-    messageInput.value = '';
-    messageInput.focus();
-    clearAttachedFiles();
-}
-
-// ============ 3. WebSocket 连接管理 ============
-function getWsUrl() {
-    // 优先使用 autoDetectFromBrowser 设置好的 _wsBase（浏览器 URL 自动检测）
-    if (CONFIG._wsBase) {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            const sep = CONFIG._wsBase.includes('?') ? '&' : '?';
-            return `${CONFIG._wsBase}${sep}token=${encodeURIComponent(token)}`;
+        const data = await response.json();
+        if (data.success && data.session?.conversations?.length > 0) {
+            data.session.conversations.forEach(conv => {
+                if (conv.user_content) addMessage('user', conv.user_content);
+                if (conv.thinking_steps?.length > 0) renderThinkingSteps(conv.thinking_steps);
+                if (conv.ai_content) addMessage('assistant', conv.ai_content);
+            });
         }
-        return CONFIG._wsBase;
+    } catch (error) {
+        console.error('加载会话消息失败:', error);
     }
+}
 
-    // 回退：使用浏览器当前地址（前后端同服务器）
+// ============ 3. WebSocket ============
+function getWsUrl() {
+    if (CONFIG?._wsBase) {
+        const token = localStorage.getItem('access_token');
+        const sep = CONFIG._wsBase.includes('?') ? '&' : '?';
+        return token ? `${CONFIG._wsBase}${sep}token=${encodeURIComponent(token)}` : CONFIG._wsBase;
+    }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
     const token = localStorage.getItem('access_token');
     const url = `${protocol}//${host}:8000/ws/stream`;
-    if (token) {
-        return `${url}?token=${encodeURIComponent(token)}`;
-    }
-    return url;
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
 }
 
 function connectWebSocket() {
-    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
-        return;
-    }
+    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
 
-    // 🆕 动态获取包含 token 的 WebSocket URL
+    // 🆕 重连时重置会话列表加载标志，确保能接收新的会话列表
+    sessionListLoadedViaWebSocket = false;
+
     const wsUrl = getWsUrl();
-    console.log('🔌 正在连接 WebSocket:', wsUrl.replace(/token=[^&]+/, 'token=***')); // 脱敏日志
+    console.log('WebSocket 连接 URL:', wsUrl);
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-        console.log('✅ WebSocket 连接成功');
         isConnected = true;
         reconnectAttempts = 0;
         updateStatus(true);
+        console.log('WebSocket 已连接');
     };
 
     ws.onmessage = (event) => {
+        console.log('WebSocket 收到消息:', event.data);
         const data = JSON.parse(event.data);
         handleWebSocketMessage(data);
     };
 
-    ws.onerror = (error) => {
-        console.error('❌ WebSocket 错误:', error);
-        updateStatus(false);
-    };
+    ws.onerror = () => updateStatus(false);
 
     ws.onclose = () => {
-        console.log('🔌 WebSocket 连接关闭');
         isConnected = false;
         updateStatus(false);
-
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttempts++;
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-            setTimeout(connectWebSocket, delay);
+            setTimeout(connectWebSocket, Math.min(1000 * Math.pow(2, reconnectAttempts), 30000));
         }
     };
 }
 
 function handleWebSocketMessage(payload) {
-    console.log('📨 收到 WebSocket 消息:', payload);
-
+    console.log('处理消息类型:', payload.type);
     switch (payload.type) {
         case 'step':
             handleStepUpdate(payload);
             break;
-
         case 'token':
-            const token = payload.content || (payload.data ? payload.data.content : '');
-            if (token) handleTokenUpdate(token);
+            handleTokenUpdate(payload.content || payload.data?.content || '');
             break;
-
         case 'done':
-            const finalMsg = (payload.data && payload.data.message)
-                ? payload.data.message
-                : payload.message;
-
-            if (payload.data && payload.data.session_id) {
-                currentSessionId = payload.data.session_id;
-            }
-
-            console.log('✅ 提取到最终消息:', finalMsg);
-            handleDone(finalMsg);
+            if (payload.data?.session_id) currentSessionId = payload.data.session_id;
+            handleDone(payload.data?.message || payload.message);
             break;
-
         case 'error':
-            const errMsg = payload.data ? payload.data.message : payload.message;
-            handleError(errMsg);
+            handleError(payload.data?.message || payload.message);
+            break;
+        case 'history':
+            // 处理页面加载时从后端发送的历史记录
+            if (payload.data?.conversations?.length > 0) {
+                renderSessionHistory(payload.data);
+            }
+            break;
+        case 'session_list':
+            // 处理 WebSocket 发送的会话列表（用于侧边栏显示）
+            console.log('收到 session_list 消息:', payload.data);
+            if (payload.data?.sessions?.length > 0) {
+                renderSessionList(payload.data.sessions);
+            }
             break;
     }
 }
 
 function updateStatus(connected) {
     if (statusIndicator) {
-        if (connected) {
-            statusIndicator.className = 'status-indicator connected';
-            if (statusText) statusText.textContent = '已连接';
-        } else {
-            statusIndicator.className = 'status-indicator disconnected';
-            if (statusText) statusText.textContent = '未连接';
-        }
+        statusIndicator.className = `status-indicator ${connected ? 'connected' : ''}`;
+        if (statusText) statusText.textContent = connected ? '在线' : '连接中';
     }
 }
 
-// ============ 4. 步骤状态处理（集成到消息框内） ============
-// 记录当前处理状态
-let currentProcessingStatus = null;
-
-function handleStepUpdate(payload) {
-    hideWelcomeScreen();
-
-    const stepData = payload.data || {};
-    const stepType = stepData.step || 'processing';
-    const title = stepData.title || '处理中';
-    const description = stepData.description || '';
-
-    console.log("处理步骤更新:", stepType, title);
-
-    // 记录当前状态
-    currentProcessingStatus = { stepType, title, description };
-
-    // 如果已经有流式消息，更新其状态指示器
-    if (currentStreamingAnswer) {
-        updateStreamingStatus(stepType, title);
-    } else {
-        // 创建 AI 消息框并显示状态
-        createStatusMessage(title, description, stepType);
-    }
-}
-
-function createStatusMessage(title, description, stepType) {
-    const statusDiv = document.createElement('div');
-    statusDiv.className = 'message assistant processing';
-    statusDiv.id = 'processingStatus';
-
-    const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-
-    // 根据步骤类型选择图标
-    let icon = getStepIcon(stepType);
-    let statusClass = getStepClass(stepType);
-
-    statusDiv.innerHTML = `
-        <div class="message-header">
-            <div class="message-avatar status-avatar ${statusClass}">${icon}</div>
-            <div class="message-author">AI 助手</div>
-            <div class="message-time">${time}</div>
-        </div>
-        <div class="message-content processing-content">
-            <div class="processing-indicator">
-                <div class="processing-dots">
-                    <span class="dot"></span>
-                    <span class="dot"></span>
-                    <span class="dot"></span>
-                </div>
-                <span class="processing-text">${title}</span>
-            </div>
-            ${description ? `<div class="processing-description">${escapeHtml(description)}</div>` : ''}
-        </div>
-    `;
-
-    messagesWrapper.appendChild(statusDiv);
-    scrollToBottom();
-}
-
-function updateStreamingStatus(stepType, title) {
-    const statusEl = currentStreamingAnswer.querySelector('.processing-indicator .processing-text');
-    if (statusEl) {
-        statusEl.textContent = title;
-    }
-}
-
-function getStepIcon(step) {
-    if (!step || typeof step !== 'string') return '⚙️';
-    const s = step.toLowerCase();
-
-    if (s.includes('init') || s.includes('开始')) return '🚀';
-    if (s.includes('tool_start') || s.includes('调用')) return '🔧';
-    if (s.includes('tool_end') || s.includes('完成')) return '✅';
-    if (s.includes('finish') || s.includes('结束')) return '🎯';
-    if (s.includes('error')) return '❌';
-
-    return '⚙️';
-}
-
-function getStepClass(step) {
-    if (!step || typeof step !== 'string') return 'processing';
-    const s = step.toLowerCase();
-    if (s.includes('init') || s.includes('开始')) return 'starting';
-    if (s.includes('tool_start') || s.includes('调用')) return 'tooling';
-    if (s.includes('tool_end') || s.includes('完成')) return 'complete';
-    if (s.includes('finish') || s.includes('结束')) return 'done';
-    if (s.includes('error')) return 'error';
-    return 'processing';
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// ============ 5. 消息渲染与流式处理 ============
+// ============ 4. 消息渲染 ============
 function hideWelcomeScreen() {
-    if (welcomeScreen) {
+    if (welcomeScreen && welcomeScreen.style.display !== 'none') {
         welcomeScreen.style.display = 'none';
     }
+}
+
+// ============ 工具函数 ============
+
+// 过滤 AI 响应的原始内部内容，只保留友好的最终结果
+function filterAIResponse(content, removeHtmlImages = false) {
+    if (!content || typeof content !== 'string') return content;
+
+    // 移除 Skill 定义块 (--- ... --- 格式)
+    content = content.replace(/^---[\s\S]*?---\s*/gm, '');
+
+    // 移除命令行格式的内容
+    content = content.replace(/^(\$\s*|```bash\n|```sh\n|```shell\n)/gm, '');
+    content = content.replace(/(\$\s*python.*$)/gm, '');
+    content = content.replace(/^(python.*$)/gm, '');
+
+    // 移除 JSON 格式的工具调用定义
+    content = content.replace(/^(\{[\s\S]*?"name":\s*"[^"]+")/gm, '');
+    content = content.replace(/(```json\n[\s\S]*?```)/g, '');
+
+    // 移除代码块中的命令
+    content = content.replace(/(python \/.*?\.py)/g, '');
+
+    // 移除 Markdown 图片语法
+    content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
+
+    // 移除搜索日志信息（多种格式）
+    content = content.replace(/成功从\s*[\/].*?加载配置\s*/g, '');
+    content = content.replace(/🔍\s*Searching for:.*$/gm, '');
+    content = content.replace(/Searching for:.*$/gm, '');
+
+    // 移除 JSON 代码块（多行）
+    content = content.replace(/```json\s*[\s\S]*?```/g, '');
+
+    // 移除 "根据搜索结果" 之后的所有内容
+    content = content.replace(/根据搜索结果[\s\S]*$/gm, '');
+    content = content.replace(/根据查询结果[\s\S]*$/gm, '');
+
+    // 使用更强大的 JSON 移除逻辑：检测包含 query/total_results/results 的行，然后移除连续的多行 JSON
+    const lines = content.split('\n');
+    const filteredLines = [];
+    let inJsonBlock = false;
+    let braceCount = 0;
+    let skipUntilMeaningfulContent = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // 检测是否是 JSON 开始的行
+        if (!inJsonBlock && (line.includes('"query"') || line.includes('"total_results"') || line.includes('"results"'))) {
+            inJsonBlock = true;
+            braceCount = 0;
+            skipUntilMeaningfulContent = false;
+        }
+
+        if (inJsonBlock) {
+            // 统计大括号
+            braceCount += (line.match(/\{/g) || []).length;
+            braceCount -= (line.match(/\}/g) || []).length;
+
+            // 如果 JSON 结束
+            if (braceCount <= 0 && line.includes('}')) {
+                inJsonBlock = false;
+            }
+            continue; // 跳过这行
+        }
+
+        // 检测 "根据搜索结果" 之后的内容
+        if (line.includes('根据搜索结果') || line.includes('根据查询结果')) {
+            skipUntilMeaningfulContent = true;
+            continue;
+        }
+
+        // 如果正在跳过，检查是否有有意义的内容（新段落）
+        if (skipUntilMeaningfulContent) {
+            // 如果是空行或只有空白，继续跳过
+            if (line.trim() === '' || line.match(/^\s+$/)) {
+                continue;
+            }
+            // 如果是正常内容段落（不以 { 或 [ 开头）
+            if (!line.trim().startsWith('{') && !line.trim().startsWith('[')) {
+                skipUntilMeaningfulContent = false;
+            } else {
+                continue;
+            }
+        }
+
+        filteredLines.push(line);
+    }
+
+    content = filteredLines.join('\n');
+
+    // 如果需要，移除 HTML img 标签
+    if (removeHtmlImages) {
+        content = content.replace(/<img[^>]*>/gi, '');
+    }
+
+    // 清理多余的空行
+    content = content.replace(/\n{3,}/g, '\n\n');
+
+    // 去除首尾空白
+    content = content.trim();
+
+    return content;
 }
 
 function addMessage(role, content) {
     hideWelcomeScreen();
 
-    const div = document.createElement('div');
-    div.className = `message ${role}`;
-
-    const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-
-    let innerHTML = '';
-
-    if (role === 'user') {
-        const textDiv = document.createElement('div');
-        textDiv.textContent = content;
-        innerHTML = `
-            <div class="message-header">
-                <div class="message-avatar"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-                <div class="message-author">你</div>
-                <div class="message-time">${time}</div>
-            </div>
-            <div class="message-content">${textDiv.innerHTML}</div>
-        `;
-    } else {
-        const parsed = typeof marked !== 'undefined' ? marked.parse(content) : content;
-        innerHTML = `
-            <div class="message-header">
-                <div class="message-avatar"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10h-10V2z"/></svg></div>
-                <div class="message-author">AI 助手</div>
-                <div class="message-time">${time}</div>
-            </div>
-            <div class="message-content">${parsed}</div>
-        `;
+    // AI 消息需要过滤原始内容
+    if (role === 'assistant') {
+        content = filterAIResponse(content);
     }
 
-    div.innerHTML = innerHTML;
+    const div = document.createElement('div');
+    div.className = `message message-${role}`;
+
+    const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    let messageHtml;
+
+    if (role === 'assistant') {
+        // 过滤原始内容
+        let filtered = filterAIResponse(content, false);
+        // 完成后解析 markdown
+        if (typeof marked !== 'undefined') {
+            let parsed = marked.parse(filtered);
+            parsed = filterAIResponse(parsed, true); // 移除 HTML img
+            messageHtml = parsed;
+        } else {
+            messageHtml = escapeHtml(filtered);
+        }
+    } else {
+        messageHtml = escapeHtml(content);
+    }
+
+    div.innerHTML = `
+        <div class="message-avatar">
+            ${role === 'user'
+                ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`
+            }
+        </div>
+        <div class="message-content">
+            <div class="message-text">${messageHtml}</div>
+        </div>
+    `;
+
     messagesWrapper.appendChild(div);
     scrollToBottom();
+    return div;
 }
 
 function handleTokenUpdate(token) {
-    // 收到 token 时，如果有状态消息，移除它
     const statusEl = document.getElementById('processingStatus');
-    if (statusEl) {
-        statusEl.remove();
-    }
-
-    // 清除当前处理状态
-    currentProcessingStatus = null;
+    if (statusEl) statusEl.remove();
 
     if (!currentStreamingAnswer) {
         currentStreamingAnswer = document.createElement('div');
-        currentStreamingAnswer.className = 'message assistant';
+        currentStreamingAnswer.className = 'message message-assistant';
         const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-
         currentStreamingAnswer.innerHTML = `
-            <div class="message-header">
-                <div class="message-avatar">🤖</div>
-                <div class="message-author">AI 助手</div>
-                <div class="message-time">${time}</div>
+            <div class="message-avatar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
             </div>
-            <div class="message-content streaming" data-raw=""><span class="cursor-blink">|</span></div>
+            <div class="message-content">
+                <div class="message-text streaming" data-raw=""><span class="cursor-blink">▎</span></div>
+            </div>
         `;
         messagesWrapper.appendChild(currentStreamingAnswer);
     }
 
-    const contentDiv = currentStreamingAnswer.querySelector('.message-content');
+    const contentDiv = currentStreamingAnswer.querySelector('.message-content .message-text');
     const cursor = contentDiv.querySelector('.cursor-blink');
     const currentRaw = contentDiv.dataset.raw || '';
     const newRaw = currentRaw + token;
     contentDiv.dataset.raw = newRaw;
 
-    // 先移除光标再渲染
     if (cursor) cursor.remove();
 
-    if (typeof marked !== 'undefined') {
-        contentDiv.innerHTML = marked.parse(newRaw) + '<span class="cursor-blink">|</span>';
-    } else {
-        contentDiv.textContent = newRaw;
-    }
+    // 流式输出时先过滤不需要的内容，只做 HTML 转义
+    let filteredRaw = filterAIResponse(newRaw, false);
+    filteredRaw = escapeHtml(filteredRaw).replace(/\n/g, '<br>');
+    contentDiv.innerHTML = filteredRaw + '<span class="cursor-blink">▎</span>';
 
     scrollToBottom();
 }
 
 function handleDone(finalMessage) {
-    console.log('🏁 handleDone 执行,finalMessage:', finalMessage);
-
-    // 移除可能存在的状态消息
     const statusEl = document.getElementById('processingStatus');
-    if (statusEl) {
-        statusEl.remove();
-    }
-    currentProcessingStatus = null;
+    if (statusEl) statusEl.remove();
+
+    // 过滤原始内容
+    finalMessage = filterAIResponse(finalMessage);
 
     if (currentStreamingAnswer) {
-        const contentDiv = currentStreamingAnswer.querySelector('.message-content');
+        const contentDiv = currentStreamingAnswer.querySelector('.message-content .message-text');
         contentDiv.classList.remove('streaming');
         if (finalMessage) {
+            // 完成后过滤并解析 markdown
+            let filtered = filterAIResponse(finalMessage, false);
             if (typeof marked !== 'undefined') {
-                contentDiv.innerHTML = marked.parse(finalMessage);
+                let parsed = marked.parse(filtered);
+                parsed = filterAIResponse(parsed, true); // 移除 HTML img
+                contentDiv.innerHTML = parsed;
             } else {
-                contentDiv.textContent = finalMessage;
+                contentDiv.innerHTML = escapeHtml(filtered);
             }
         }
-    }
-    else if (finalMessage) {
-        console.log('📝 没有流式框,手动添加最终消息');
+    } else if (finalMessage) {
         addMessage('assistant', finalMessage);
-    } else {
-        console.warn('⚠️ handleDone 被调用但没有消息内容,也没有流式框');
     }
 
-    currentThinkingContainer = null;
     currentStreamingAnswer = null;
     isProcessing = false;
 
@@ -657,21 +563,99 @@ function handleDone(finalMessage) {
         messageInput.focus();
     }
 
-    if (typeof loadSavedHistory === 'function') {
-        loadSavedHistory();
-    }
+    loadSavedHistory();
 }
 
 function handleError(msg) {
-    addMessage('assistant', '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> 错误: ' + msg);
+    addMessage('assistant', `❌ 错误: ${escapeHtml(msg)}`);
     isProcessing = false;
     if (sendButton) sendButton.disabled = false;
     if (messageInput) messageInput.disabled = false;
 }
 
-// ============ 6. 文件上传功能 ============
+// ============ 5. 步骤处理 ============
+function handleStepUpdate(payload) {
+    hideWelcomeScreen();
+    const { step, title, description } = payload.data || payload;
+
+    if (currentStreamingAnswer) {
+        const textEl = currentStreamingAnswer.querySelector('.processing-text');
+        if (textEl) textEl.textContent = title || '处理中';
+    } else {
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'message message-assistant';
+        statusDiv.id = 'processingStatus';
+        statusDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="message-content">
+                <div class="processing-indicator">
+                    <div class="processing-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                    <span class="processing-text">${escapeHtml(title || '处理中')}</span>
+                </div>
+                ${description ? `<div class="processing-description">${escapeHtml(description)}</div>` : ''}
+            </div>
+        `;
+        messagesWrapper.appendChild(statusDiv);
+        scrollToBottom();
+    }
+}
+
+// ============ 6. 思考过程 ============
+function renderThinkingSteps(steps) {
+    if (!steps?.length) return;
+
+    const container = document.createElement('div');
+    container.className = 'thinking-process';
+    container.innerHTML = `
+        <div class="thinking-header" onclick="toggleThinking(this)">
+            <span class="thinking-toggle">▼</span>
+            <span class="thinking-title">思考过程</span>
+        </div>
+        <div class="thinking-content"></div>
+    `;
+
+    const content = container.querySelector('.thinking-content');
+    steps.forEach(step => {
+        const stepDiv = document.createElement('div');
+        stepDiv.className = 'thinking-step';
+        stepDiv.innerHTML = `
+            <span class="step-icon">${getStepIcon(step.step_type)}</span>
+            <div class="step-content">
+                <div class="step-title">${escapeHtml(step.title || '处理中')}</div>
+                ${step.description ? `<div class="step-description">${escapeHtml(step.description)}</div>` : ''}
+            </div>
+        `;
+        content.appendChild(stepDiv);
+    });
+
+    messagesWrapper.appendChild(container);
+    scrollToBottom();
+}
+
+function toggleThinking(header) {
+    const content = header.nextElementSibling;
+    const toggle = header.querySelector('.thinking-toggle');
+    const isCollapsed = content.classList.toggle('collapsed');
+    toggle.classList.toggle('collapsed', isCollapsed);
+    toggle.textContent = isCollapsed ? '▶' : '▼';
+}
+
+function getStepIcon(step) {
+    if (!step) return '⚙️';
+    const s = step.toLowerCase();
+    if (s.includes('init') || s.includes('开始')) return '🚀';
+    if (s.includes('tool') && s.includes('start')) return '🔧';
+    if (s.includes('tool') && s.includes('end')) return '✅';
+    if (s.includes('finish') || s.includes('结束')) return '🎯';
+    if (s.includes('error')) return '❌';
+    return '⚙️';
+}
+
+// ============ 7. 文件上传 ============
 function formatFileSize(bytes) {
-    if (bytes === 0) return '0 B';
+    if (!bytes) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -680,16 +664,10 @@ function formatFileSize(bytes) {
 
 function getFileIcon(filename) {
     const ext = filename.split('.').pop().toLowerCase();
-    const iconMap = {
-        'pdf': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
-        'doc': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>',
-        'docx': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>',
-        'txt': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
-        'md': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
-        'markdown': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
-        'csv': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>'
+    const icons = {
+        pdf: '📄', doc: '📝', docx: '📝', txt: '📃', md: '📋', csv: '📊'
     };
-    return iconMap[ext] || '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+    return icons[ext] || '📎';
 }
 
 function renderFileAttachments() {
@@ -717,74 +695,46 @@ function removeAttachment(index) {
     renderFileAttachments();
 }
 
-function clearAttachedFiles() {
-    attachedFiles = [];
-    renderFileAttachments();
-}
-
-// ============ 7. 发送与交互逻辑 ============
+// ============ 8. 发送消息 ============
 async function sendMessage(text = null) {
     const message = text || messageInput.value.trim();
 
     if ((!message && attachedFiles.length === 0) || !isConnected || isProcessing) {
-        if (!isConnected && window.showToast) {
-            window.showToast("未连接到服务器", "error");
-        }
+        if (!isConnected && window.showToast) window.showToast("未连接到服务器", "error");
         return;
     }
 
+    // 更新标题
+    if (chatTitle && !currentSessionId && message.length > 0) {
+        chatTitle.textContent = message.length > 20 ? message.substring(0, 20) + '...' : message;
+    }
+
     if (attachedFiles.length > 0) {
-        // 带附件的上传 (使用 HTTP POST)
+        // 带附件上传
         try {
             const formData = new FormData();
             formData.append('message', message);
+            if (currentSessionId) formData.append('session_id', currentSessionId);
+            attachedFiles.forEach(file => formData.append('files', file));
 
-            if (currentSessionId) {
-                formData.append('session_id', currentSessionId);
-            }
-
-            attachedFiles.forEach((file, index) => {
-                formData.append('files', file);
-            });
-
-            let userMessage = message;
-            if (attachedFiles.length > 0) {
-                const fileNames = attachedFiles.map(f => f.name).join(', ');
-                userMessage += `\n\n📎 附件: ${fileNames}`;
-            }
-            addMessage('user', userMessage);
+            addMessage('user', message + (attachedFiles.length ? `\n\n📎 ${attachedFiles.map(f => f.name).join(', ')}` : ''));
 
             isProcessing = true;
             sendButton.disabled = true;
             messageInput.disabled = true;
 
-            // 🆕 文件上传需要手动构造 Authorization header
-            const token = window.auth && window.auth.getAccessToken ? window.auth.getAccessToken() : null;
-            const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
+            const token = localStorage.getItem('access_token');
             const response = await fetch(`${getApiUrl()}/chat/upload`, {
                 method: 'POST',
-                headers: headers,
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 body: formData
             });
 
-            if (!response.ok) {
-                throw new Error('文件上传失败');
-            }
-
             const result = await response.json();
+            attachedFiles = [];
+            renderFileAttachments();
 
-            clearAttachedFiles();
-            console.log("收到附件上传回复:", result);
-
-            if (result.session_id) {
-                currentSessionId = result.session_id;
-                console.log("会话 ID 更新为:", currentSessionId);
-            }
-
+            if (result.session_id) currentSessionId = result.session_id;
             loadSavedHistory();
 
             if (result.message) {
@@ -794,20 +744,15 @@ async function sendMessage(text = null) {
                 sendButton.disabled = false;
                 messageInput.disabled = false;
             }
-
         } catch (error) {
-            console.error('文件上传错误:', error);
             handleError('文件上传失败: ' + error.message);
         }
     } else {
-        // 普通对话 (使用 WebSocket)
+        // 普通消息
         addMessage('user', message);
 
         const payload = { message };
-        if (currentSessionId) {
-            payload.session_id = currentSessionId;
-        }
-
+        if (currentSessionId) payload.session_id = currentSessionId;
         ws.send(JSON.stringify(payload));
 
         isProcessing = true;
@@ -823,8 +768,8 @@ async function sendMessage(text = null) {
 
 function scrollToBottom() {
     requestAnimationFrame(() => {
-        if (messagesArea) {
-            messagesArea.scrollTop = messagesArea.scrollHeight;
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
     });
 }
@@ -834,21 +779,51 @@ function autoResizeTextarea() {
     this.style.height = Math.min(this.scrollHeight, 200) + 'px';
 }
 
-function attachQuickPromptListeners() {
-    const cards = document.querySelectorAll('.quick-prompt-card');
-    cards.forEach(card => {
-        card.addEventListener('click', () => {
-            const prompt = card.getAttribute('data-prompt');
-            sendMessage(prompt);
-        });
-    });
+function resetChatUI() {
+    messagesWrapper.innerHTML = '';
+    currentStreamingAnswer = null;
+    isProcessing = false;
+    attachedFiles = [];
+    renderFileAttachments();
 }
 
-// ============ 8. 初始化 ============
+function startNewChat() {
+    currentSessionId = null;
+    if (chatTitle) chatTitle.textContent = '新对话';
+    messagesWrapper.innerHTML = '';
+    messagesWrapper.appendChild(welcomeScreen);
+    welcomeScreen.style.display = 'flex';
+    currentStreamingAnswer = null;
+    isProcessing = false;
+    attachedFiles = [];
+    renderFileAttachments();
+    if (messageInput) {
+        messageInput.value = '';
+        messageInput.focus();
+    }
+    loadSavedHistory();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============ 9. 初始化 ============
 document.addEventListener('DOMContentLoaded', () => {
+    // 检查登录状态
+    if (!localStorage.getItem('access_token')) {
+        window.location.href = '/login.html';
+        return;
+    }
+
     initDOM();
 
-    if (sendButton) sendButton.addEventListener('click', () => sendMessage());
+    if (sendButton) {
+        sendButton.addEventListener('click', () => sendMessage());
+    }
 
     if (messageInput) {
         messageInput.addEventListener('input', autoResizeTextarea);
@@ -860,63 +835,52 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
-    if (sidebarNewChatBtn) sidebarNewChatBtn.addEventListener('click', startNewChat);
-
     if (attachButton) {
-        attachButton.addEventListener('click', () => {
-            chatFileInput.click();
-        });
+        attachButton.addEventListener('click', () => chatFileInput?.click());
     }
 
     if (chatFileInput) {
         chatFileInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-
-            if (attachedFiles.length + files.length > 10) {
-                if (window.showToast) {
-                    window.showToast('最多只能上传10个文件', 'error');
-                } else {
-                    alert('最多只能上传10个文件');
-                }
-                chatFileInput.value = '';
-                return;
-            }
-
+            const files = Array.from(e.target.files || []);
+            const maxFiles = 10;
             const maxSize = 10 * 1024 * 1024;
-            for (let file of files) {
-                if (file.size > maxSize) {
-                    if (window.showToast) {
-                        window.showToast(`文件 ${file.name} 超过10MB限制`, 'error');
-                    } else {
-                        alert(`文件 ${file.name} 超过10MB限制`);
-                    }
-                    chatFileInput.value = '';
-                    return;
+
+            for (const file of files) {
+                if (attachedFiles.length >= maxFiles) {
+                    window.showToast?.('最多只能上传10个文件', 'error');
+                    break;
                 }
+                if (file.size > maxSize) {
+                    window.showToast?.(`文件 ${file.name} 超过10MB限制`, 'error');
+                    continue;
+                }
+                attachedFiles.push(file);
             }
 
-            attachedFiles.push(...files);
             renderFileAttachments();
             chatFileInput.value = '';
         });
     }
 
-    window.toggleThinking = function(header) {
-        const content = header.nextElementSibling;
-        const toggle = header.querySelector('.thinking-toggle');
-        if (content.style.display === 'none') {
-            content.style.display = 'block';
-            toggle.style.transform = 'rotate(0deg)';
-        } else {
-            content.style.display = 'none';
-            toggle.style.transform = 'rotate(-90deg)';
-        }
-    };
+    // 快捷提示点击
+    document.querySelectorAll('.quick-prompt-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const prompt = card.getAttribute('data-prompt');
+            if (prompt) sendMessage(prompt);
+        });
+    });
 
-    attachQuickPromptListeners();
+    // 全局函数
+    window.toggleThinking = toggleThinking;
+    window.removeAttachment = removeAttachment;
+    window.startNewChat = startNewChat;
+
+    // 启动
     connectWebSocket();
     loadSavedHistory();
 
-    console.log('✅ chat.js 已加载');
+    // 自动聚焦输入框
+    if (messageInput) messageInput.focus();
+
+    console.log('✅ DeepAgentForce Chat 已加载');
 });

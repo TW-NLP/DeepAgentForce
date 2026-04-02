@@ -4,167 +4,243 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>注册 - DeepAgentForce</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 本地字体 -->
+    <link href="fonts/inter.css" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
         :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --success: #10b981;
-            --error: #ef4444;
-            --warning: #f59e0b;
-            --text: #1f2937;
-            --text-light: #6b7280;
-            --bg: #f9fafb;
-            --white: #ffffff;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --bg-primary: #212121;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #333333;
+            --bg-input: #323232;
+            
+            --text-primary: #ececf1;
+            --text-secondary: #ababab;
+            --text-muted: #6d6d6d;
+            
+            --accent-primary: #19c37d;
+            --accent-hover: #1db87a;
+            --accent-muted: rgba(25, 195, 125, 0.15);
+            
+            --border-subtle: rgba(255, 255, 255, 0.05);
+            --border-light: rgba(255, 255, 255, 0.08);
+            --border-medium: rgba(255, 255, 255, 0.12);
+            
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+            
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 30px rgba(25, 195, 125, 0.2);
+            
+            --transition-fast: 150ms;
+            --transition-normal: 250ms;
         }
 
-        body {
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Background gradient */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(25, 195, 125, 0.12), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(25, 195, 125, 0.08), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            overflow-x: hidden;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 480px;
-            position: relative;
+            padding: 40px 20px;
         }
 
         .card {
-            background: var(--white);
-            border-radius: 24px;
-            box-shadow: var(--shadow-lg);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            width: 100%;
+            max-width: 480px;
             padding: 40px;
-            position: relative;
-            overflow: hidden;
+            box-shadow: var(--shadow-lg);
         }
 
-        /* 顶部装饰条 */
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
-            background-size: 200% 100%;
-            animation: gradientMove 3s ease infinite;
-        }
-
-        @keyframes gradientMove {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        /* Logo 区域 */
+        /* Logo */
         .logo {
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
             margin-bottom: 32px;
         }
 
         .logo-icon {
-            width: 64px;
-            height: 64px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 16px;
-            display: inline-flex;
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-primary), #10a060);
+            border-radius: var(--radius-lg);
+            display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .logo-icon svg {
+            width: 24px;
+            height: 24px;
             color: white;
-            margin-bottom: 16px;
-            transform: translateY(0);
-            transition: transform 0.3s ease;
-            animation: float 3s ease-in-out infinite;
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-        }
-
-        .logo:hover .logo-icon {
-            transform: scale(1.1) rotate(5deg);
-        }
-
-        .logo h1 {
-            font-size: 24px;
+        .logo-text {
+            font-size: 20px;
             font-weight: 700;
-            color: var(--text);
-            margin-bottom: 4px;
+            color: var(--text-primary);
         }
 
-        .logo p {
-            color: var(--text-light);
-            font-size: 14px;
-        }
-
-        /* 标题 */
-        .title {
+        /* Header */
+        .header {
             text-align: center;
-            margin-bottom: 28px;
+            margin-bottom: 32px;
         }
 
-        .title h2 {
-            font-size: 22px;
-            font-weight: 600;
-            color: var(--text);
+        .header h1 {
+            font-size: 26px;
+            font-weight: 700;
             margin-bottom: 8px;
+            color: var(--text-primary);
         }
 
-        .title p {
-            color: var(--text-light);
+        .header p {
             font-size: 14px;
+            color: var(--text-secondary);
         }
 
-        /* 表单 */
+        /* Alert */
+        .alert {
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            margin-bottom: 24px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert.show { display: flex; }
+
+        .alert.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .alert.success {
+            background: var(--accent-muted);
+            border: 1px solid rgba(25, 195, 125, 0.3);
+            color: var(--accent-primary);
+        }
+
+        .alert svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        /* Form */
+        .form-section {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .form-group {
             margin-bottom: 20px;
-            position: relative;
         }
 
         .form-label {
             display: block;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
-            color: var(--text);
+            color: var(--text-secondary);
             margin-bottom: 8px;
-            transition: color 0.2s;
         }
 
-        .form-input {
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+            transition: color var(--transition-fast);
+        }
+
+        .input-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .input-icon.valid { color: var(--accent-primary); }
+        .input-icon.error { color: #ef4444; }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
             width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
+            padding: 14px 14px 14px 46px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
             font-size: 15px;
             font-family: inherit;
-            color: var(--text);
-            background: var(--white);
-            transition: all 0.3s ease;
-        }
-
-        .form-input:focus {
+            color: var(--text-primary);
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            transition: all var(--transition-fast);
         }
 
-        .form-input:focus + .input-border-anim {
-            transform: scaleX(1);
+        input::placeholder { color: var(--text-muted); }
+
+        input:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px var(--accent-muted);
         }
 
-        .form-input.error {
-            border-color: var(--error);
+        input:focus ~ .input-icon,
+        .input-wrap:focus-within .input-icon {
+            color: var(--accent-primary);
+        }
+
+        input.error {
+            border-color: #ef4444;
             animation: shake 0.4s ease;
         }
 
@@ -174,30 +250,31 @@
             75% { transform: translateX(5px); }
         }
 
-        /* 输入框图标 */
-        .input-icon {
+        .input-icon-toggle {
             position: absolute;
-            right: 16px;
-            top: 42px;
-            color: var(--text-light);
-            opacity: 0;
-            transform: scale(0);
-            transition: all 0.3s ease;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px;
+            transition: color var(--transition-fast);
         }
 
-        .input-icon.show {
-            opacity: 1;
-            transform: scale(1);
+        .input-icon-toggle:hover { color: var(--text-secondary); }
+
+        .input-icon-toggle svg {
+            width: 18px;
+            height: 18px;
         }
 
-        .input-icon.success { color: var(--success); }
-        .input-icon.error { color: var(--error); }
-
-        /* 密码强度 */
+        /* Password strength */
         .password-strength {
             height: 4px;
             border-radius: 2px;
-            background: #e5e7eb;
+            background: var(--bg-tertiary);
             margin-top: 8px;
             overflow: hidden;
         }
@@ -209,110 +286,197 @@
             transition: all 0.3s ease;
         }
 
-        .strength-weak { background: var(--error); width: 33%; }
-        .strength-medium { background: var(--warning); width: 66%; }
-        .strength-strong { background: var(--success); width: 100%; }
+        .strength-weak { background: #ef4444; width: 33%; }
+        .strength-medium { background: #f59e0b; width: 66%; }
+        .strength-strong { background: var(--accent-primary); width: 100%; }
 
         .strength-text {
             font-size: 12px;
-            margin-top: 4px;
+            margin-top: 6px;
             opacity: 0;
             transition: opacity 0.3s;
         }
 
         .strength-text.show { opacity: 1; }
 
-        /* 错误提示 */
+        /* Error text */
         .error-text {
-            color: var(--error);
+            color: #ef4444;
             font-size: 12px;
             margin-top: 6px;
-            opacity: 0;
-            transform: translateY(-5px);
-            transition: all 0.3s ease;
+            display: none;
         }
 
-        .error-text.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        .error-text.show { display: block; }
 
-        /* 提示文字 */
-        .hint {
+        /* Hint */
+        .form-hint {
             font-size: 12px;
-            color: var(--text-light);
-            margin-top: 4px;
+            color: var(--text-muted);
+            margin-top: 6px;
         }
 
-        /* 按钮 */
+        /* Form row */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Buttons */
         .btn {
             width: 100%;
-            padding: 16px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
+            padding: 14px;
+            border-radius: var(--radius-md);
+            font-size: 15px;
             font-weight: 600;
             font-family: inherit;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all var(--transition-fast);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            position: relative;
-            overflow: hidden;
+            border: none;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--accent-primary);
             color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-        }
-
-        .btn-primary:active {
-            transform: translateY(0);
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-glow);
         }
 
         .btn-primary:disabled {
-            opacity: 0.7;
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
         }
 
         .btn-secondary {
-            background: var(--bg);
-            color: var(--text);
-            border: 2px solid #e5e7eb;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
         }
 
         .btn-secondary:hover {
-            background: #f3f4f6;
-            border-color: #d1d5db;
+            background: var(--bg-hover);
         }
 
-        /* 加载动画 */
-        .btn-loading .btn-text { opacity: 0; }
-        .btn-loading .spinner { display: block; }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+        }
 
         .spinner {
-            display: none;
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,0.3);
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-top-color: white;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            animation: spin 0.7s linear infinite;
+            display: none;
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* 成功动画 */
+        .btn-loading .btn-text { display: none; }
+        .btn-loading .spinner { display: block; }
+
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-subtle);
+        }
+
+        /* Link */
+        .link {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .link a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .link a:hover {
+            text-decoration: underline;
+        }
+
+        /* Steps indicator */
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 28px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .step.active .step-circle {
+            background: var(--accent-primary);
+            color: white;
+            box-shadow: 0 0 0 4px var(--accent-muted);
+        }
+
+        .step.completed .step-circle {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .step-line {
+            width: 40px;
+            height: 2px;
+            background: var(--bg-tertiary);
+            transition: background 0.3s;
+        }
+
+        .step-line.active {
+            background: var(--accent-primary);
+        }
+
+        /* Success animation */
         .success-checkmark {
             position: absolute;
             top: 50%;
@@ -320,7 +484,7 @@
             transform: translate(-50%, -50%) scale(0);
             width: 60px;
             height: 60px;
-            background: var(--success);
+            background: var(--accent-primary);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -334,555 +498,443 @@
             opacity: 1;
         }
 
-        /* 分割线 */
-        .divider {
-            display: flex;
-            align-items: center;
-            margin: 24px 0;
+        .success-checkmark svg {
+            width: 30px;
+            height: 30px;
+            color: white;
         }
 
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: #e5e7eb;
+        /* Skip link */
+        .skip-link {
+            text-align: center;
+            margin-top: 16px;
         }
 
-        .divider span {
-            padding: 0 16px;
-            color: var(--text-light);
+        .skip-link a {
+            color: var(--text-muted);
+            text-decoration: none;
             font-size: 13px;
         }
 
-        /* 链接 */
-        .link {
-            text-align: center;
-            margin-top: 24px;
-            font-size: 14px;
-            color: var(--text-light);
+        .skip-link a:hover {
+            color: var(--text-secondary);
         }
 
-        .link a {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-
-        .link a:hover {
-            color: var(--primary-dark);
-            text-decoration: underline;
-        }
-
-        /* 警告框 */
-        .alert {
-            padding: 14px 16px;
-            border-radius: 12px;
-            font-size: 14px;
-            margin-bottom: 20px;
-            display: none;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
+        /* Responsive */
+        @media (max-width: 520px) {
+            .card {
+                padding: 32px 24px;
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
+
+            .form-row {
+                grid-template-columns: 1fr;
             }
-        }
-
-        .alert.error {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--error);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-
-        .alert.error.show { display: flex; align-items: center; gap: 10px; }
-
-        .alert.success {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--success);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
-        .alert.success.show { display: flex; align-items: center; gap: 10px; }
-
-        /* 浮动粒子背景 */
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            overflow: hidden;
-            z-index: 0;
-        }
-
-        .particle {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            animation: particleFloat 15s infinite;
-        }
-
-        @keyframes particleFloat {
-            0% {
-                transform: translateY(100vh) rotate(0deg);
-                opacity: 0;
-            }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% {
-                transform: translateY(-100vh) rotate(720deg);
-                opacity: 0;
-            }
-        }
-
-        /* 步骤指示器 */
-        .steps {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 28px;
-        }
-
-        .step {
-            display: flex;
-            align-items: center;
-        }
-
-        .step-circle {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #e5e7eb;
-            color: var(--text-light);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .step.active .step-circle {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
-        }
-
-        .step.completed .step-circle {
-            background: var(--success);
-            color: white;
-        }
-
-        .step-line {
-            width: 60px;
-            height: 2px;
-            background: #e5e7eb;
-            margin: 0 8px;
-            transition: background 0.3s ease;
-        }
-
-        .step-line.active {
-            background: var(--primary);
-        }
-
-        /* 表单切换动画 */
-        .form-section {
-            display: none;
-            animation: fadeIn 0.4s ease;
-        }
-
-        .form-section.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateX(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        /* 返回链接 */
-        .back-link {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            color: white;
-            text-decoration: none;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 10px 16px;
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(10px);
-            border-radius: 30px;
-            transition: all 0.3s ease;
-        }
-
-        .back-link:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateX(-5px);
         }
     </style>
 </head>
 <body>
-    <!-- 背景粒子 -->
-    <div class="particles" id="particles"></div>
 
-    <a href="/" class="back-link">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-        返回首页
-    </a>
-
-    <div class="container">
-        <div class="card">
-            <!-- Logo -->
-            <div class="logo">
-                <div class="logo-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                </div>
-                <h1>DeepAgentForce</h1>
-                <p>智能研究助手</p>
+<div class="container">
+    <div class="card">
+        <!-- Logo -->
+        <div class="logo">
+            <div class="logo-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
             </div>
+            <span class="logo-text">DeepAgentForce</span>
+        </div>
 
-            <!-- 标题 -->
-            <div class="title">
-                <h2>创建账号</h2>
-                <p>开启您的智能研究之旅</p>
+        <!-- Steps -->
+        <div class="steps">
+            <div class="step active" id="step1">
+                <div class="step-circle">1</div>
             </div>
+            <div class="step-line" id="stepLine1"></div>
+            <div class="step" id="step2">
+                <div class="step-circle">2</div>
+            </div>
+        </div>
 
-            <!-- 警告框 -->
-            <div class="alert" id="alertBox"></div>
+        <!-- Header -->
+        <div class="header">
+            <h1 id="formTitle">创建账号</h1>
+            <p id="formSubtitle">开启您的智能研究之旅</p>
+        </div>
 
-            <form id="registerForm">
-                <!-- 用户信息 -->
-                <div class="form-section active" id="sectionUser">
-                    <div class="form-group">
-                        <label class="form-label">用户名</label>
-                        <input type="text" class="form-input" id="username" placeholder="3-20个字符，可使用字母、数字、下划线" required minlength="3" maxlength="20">
+        <!-- Alert -->
+        <div class="alert" id="alertBox"></div>
+
+        <!-- Form -->
+        <form id="registerForm">
+
+            <!-- Section 1: User Info -->
+            <div class="form-section active" id="sectionUser">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <div class="input-wrap">
                         <span class="input-icon" id="usernameIcon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
                         </span>
-                        <div class="error-text" id="usernameError"></div>
+                        <input type="text" id="username" placeholder="3-20个字符，可使用字母、数字、下划线" required minlength="3" maxlength="20">
                     </div>
+                    <div class="error-text" id="usernameError"></div>
+                </div>
 
-                    <div class="form-group">
-                        <label class="form-label">邮箱</label>
-                        <input type="email" class="form-input" id="email" placeholder="用于找回密码和接收通知" required>
+                <div class="form-group">
+                    <label class="form-label">邮箱</label>
+                    <div class="input-wrap">
                         <span class="input-icon" id="emailIcon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
                         </span>
-                        <div class="error-text" id="emailError"></div>
+                        <input type="email" id="email" placeholder="用于找回密码和接收通知" required>
                     </div>
+                    <div class="error-text" id="emailError"></div>
+                </div>
 
-                    <div class="form-group">
-                        <label class="form-label">密码</label>
-                        <input type="password" class="form-input" id="password" placeholder="至少6个字符" required minlength="6">
-                        <div class="password-strength">
-                            <div class="strength-bar" id="strengthBar"></div>
-                        </div>
-                        <div class="strength-text" id="strengthText"></div>
-                        <div class="error-text" id="passwordError"></div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                        </span>
+                        <input type="password" id="password" placeholder="至少6个字符" required minlength="6">
+                        <button type="button" class="input-icon-toggle" id="pwToggle">
+                            <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
                     </div>
+                    <div class="password-strength">
+                        <div class="strength-bar" id="strengthBar"></div>
+                    </div>
+                    <div class="strength-text" id="strengthText"></div>
+                    <div class="error-text" id="passwordError"></div>
+                </div>
 
-                    <div class="form-group">
-                        <label class="form-label">确认密码</label>
-                        <input type="password" class="form-input" id="confirmPassword" placeholder="再次输入密码" required>
+                <div class="form-group">
+                    <label class="form-label">确认密码</label>
+                    <div class="input-wrap">
                         <span class="input-icon" id="confirmIcon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
                         </span>
-                        <div class="error-text" id="confirmError"></div>
+                        <input type="password" id="confirmPassword" placeholder="再次输入密码" required>
                     </div>
+                    <div class="error-text" id="confirmError"></div>
+                </div>
 
-                    <button type="button" class="btn btn-primary" id="nextBtn" onclick="goToNext()">
-                        <span class="btn-text">下一步</span>
-                        <span class="spinner"></span>
+                <button type="button" class="btn btn-primary" id="nextBtn">
+                    <span class="btn-text">下一步</span>
+                    <div class="spinner"></div>
+                </button>
+            </div>
+
+            <!-- Section 2: Tenant Info -->
+            <div class="form-section" id="sectionTenant">
+                <div class="form-group">
+                    <label class="form-label">工作空间名称</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                <polyline points="9 22 9 12 15 12 15 22"/>
+                            </svg>
+                        </span>
+                        <input type="text" id="tenantName" placeholder="例如：我的团队" maxlength="100">
+                    </div>
+                    <div class="form-hint">为您的团队或项目创建一个专属空间（可选）</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">工作空间代码</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 18 22 12 16 6"/>
+                                <polyline points="8 6 2 12 8 18"/>
+                            </svg>
+                        </span>
+                        <input type="text" id="tenantCode" placeholder="英文或数字，如 my-team" maxlength="50">
+                    </div>
+                    <div class="form-hint">用于团队成员加入，长度 3-50 个字符（可选）</div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-secondary" id="prevBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15 18 9 12 15 6"/>
+                        </svg>
+                        上一步
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <span class="btn-text">创建账号</span>
+                        <div class="spinner"></div>
                     </button>
                 </div>
 
-                <!-- 租户信息 -->
-                <div class="form-section" id="sectionTenant">
-                    <div class="form-group">
-                        <label class="form-label">工作空间名称</label>
-                        <input type="text" class="form-input" id="tenantName" placeholder="例如：我的团队" maxlength="100">
-                        <div class="hint">为您的团队或项目创建一个专属空间</div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">工作空间代码</label>
-                        <input type="text" class="form-input" id="tenantCode" placeholder="英文或数字，如 my-team" maxlength="50">
-                        <div class="hint">用于团队成员加入，长度 3-50 个字符</div>
-                    </div>
-
-                    <div style="display: flex; gap: 12px;">
-                        <button type="button" class="btn btn-secondary" onclick="goToPrev()" style="flex: 1;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-                            上一步
-                        </button>
-                        <button type="submit" class="btn btn-primary" id="submitBtn" style="flex: 2;">
-                            <span class="btn-text">创建账号</span>
-                            <span class="spinner"></span>
-                        </button>
-                    </div>
-
-                    <!-- 跳过选项 -->
-                    <div style="text-align: center; margin-top: 16px;">
-                        <a href="/login.html" style="color: var(--text-light); font-size: 13px;">暂不创建工作空间，直接登录</a>
-                    </div>
+                <div class="skip-link">
+                    <a href="/login.html">暂不创建工作空间，直接登录</a>
                 </div>
-            </form>
-
-            <div class="link">
-                已有账号？<a href="/login.html">立即登录</a>
             </div>
 
-            <!-- 成功动画 -->
-            <div class="success-checkmark" id="successCheck">
-                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
+        </form>
+
+        <div class="divider">或</div>
+
+        <div class="link">
+            已有账号？<a href="/login.html">立即登录</a>
+        </div>
+
+        <!-- Success Animation -->
+        <div class="success-checkmark" id="successCheck">
+            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
         </div>
     </div>
+</div>
 
-    <script>
-        const API_BASE = localStorage.getItem('api_base') || `${window.location.protocol}//${window.location.hostname}:8000/api`;
-        // 创建背景粒子
-        const particlesContainer = document.getElementById('particles');
-        for (let i = 0; i < 20; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'particle';
-            particle.style.left = Math.random() * 100 + '%';
-            particle.style.animationDelay = Math.random() * 15 + 's';
-            particle.style.animationDuration = (15 + Math.random() * 10) + 's';
-            particle.style.width = (5 + Math.random() * 10) + 'px';
-            particle.style.height = particle.style.width;
-            particlesContainer.appendChild(particle);
+<script>
+    const API_BASE = localStorage.getItem('api_base') || `${window.location.protocol}//${window.location.hostname}:8000/api`;
+
+    // Check if already logged in
+    if (localStorage.getItem('access_token')) {
+        window.location.href = '/index.html';
+    }
+
+    // Elements
+    const username = document.getElementById('username');
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirmPassword');
+    const tenantName = document.getElementById('tenantName');
+    const tenantCode = document.getElementById('tenantCode');
+    const nextBtn = document.getElementById('nextBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const alertBox = document.getElementById('alertBox');
+
+    // Password toggle
+    const pwToggle = document.getElementById('pwToggle');
+    const eyeIcon = document.getElementById('eyeIcon');
+    const eyeOpenSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    const eyeCloseSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+    pwToggle.addEventListener('click', () => {
+        const isPassword = password.type === 'password';
+        password.type = isPassword ? 'text' : 'password';
+        eyeIcon.innerHTML = isPassword ? eyeCloseSVG : eyeOpenSVG;
+    });
+
+    // Real-time validation
+    username.addEventListener('input', () => {
+        const valid = /^[a-zA-Z0-9_]{3,20}$/.test(username.value);
+        toggleIcon('username', valid);
+    });
+
+    email.addEventListener('input', () => {
+        const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value);
+        toggleIcon('email', valid);
+    });
+
+    confirmPassword.addEventListener('input', () => {
+        const valid = confirmPassword.value === password.value && confirmPassword.value.length > 0;
+        toggleIcon('confirm', valid);
+    });
+
+    function toggleIcon(field, isValid) {
+        const icon = document.getElementById(field + 'Icon');
+        if (icon) {
+            icon.classList.toggle('valid', isValid);
+            icon.classList.toggle('error', !isValid && icon.classList.contains('valid'));
+        }
+    }
+
+    // Password strength
+    password.addEventListener('input', () => {
+        const val = password.value;
+        const bar = document.getElementById('strengthBar');
+        const text = document.getElementById('strengthText');
+
+        let strength = 0;
+        if (val.length >= 6) strength++;
+        if (val.length >= 8) strength++;
+        if (/[A-Z]/.test(val)) strength++;
+        if (/[0-9]/.test(val)) strength++;
+        if (/[^A-Za-z0-9]/.test(val)) strength++;
+
+        bar.className = 'strength-bar';
+        text.classList.remove('show');
+
+        if (val.length === 0) {
+            bar.style.width = '0';
+            return;
         }
 
-        // 检查是否已登录
-        if (localStorage.getItem('access_token')) {
-            window.location.href = '/index.html';
+        text.classList.add('show');
+
+        if (strength <= 2) {
+            bar.classList.add('strength-weak');
+            text.textContent = '密码强度：弱';
+            text.style.color = '#ef4444';
+        } else if (strength <= 3) {
+            bar.classList.add('strength-medium');
+            text.textContent = '密码强度：中等';
+            text.style.color = '#f59e0b';
+        } else {
+            bar.classList.add('strength-strong');
+            text.textContent = '密码强度：强';
+            text.style.color = '#19c37d';
+        }
+    });
+
+    // Show/hide error
+    function showError(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.classList.add('show');
+    }
+
+    function hideError(id) {
+        document.getElementById(id).classList.remove('show');
+    }
+
+    // Navigation
+    nextBtn.addEventListener('click', () => {
+        let hasError = false;
+
+        if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.value.trim())) {
+            showError('usernameError', '用户名必须为3-20个字符');
+            username.classList.add('error');
+            setTimeout(() => username.classList.remove('error'), 400);
+            hasError = true;
+        } else {
+            hideError('usernameError');
         }
 
-        let currentSection = 0;
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+            showError('emailError', '请输入有效的邮箱地址');
+            email.classList.add('error');
+            setTimeout(() => email.classList.remove('error'), 400);
+            hasError = true;
+        } else {
+            hideError('emailError');
+        }
 
-        // 输入验证动画
-        const username = document.getElementById('username');
-        const email = document.getElementById('email');
-        const password = document.getElementById('password');
-        const confirmPassword = document.getElementById('confirmPassword');
+        if (password.value.length < 6) {
+            showError('passwordError', '密码至少6个字符');
+            password.classList.add('error');
+            setTimeout(() => password.classList.remove('error'), 400);
+            hasError = true;
+        } else {
+            hideError('passwordError');
+        }
 
-        // 实时验证
-        username.addEventListener('input', () => {
-            const valid = /^[a-zA-Z0-9_]{3,20}$/.test(username.value);
-            toggleIcon('username', valid);
-        });
+        if (password.value !== confirmPassword.value) {
+            showError('confirmError', '两次输入的密码不一致');
+            confirmPassword.classList.add('error');
+            setTimeout(() => confirmPassword.classList.remove('error'), 400);
+            hasError = true;
+        } else {
+            hideError('confirmError');
+        }
 
-        email.addEventListener('input', () => {
-            const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value);
-            toggleIcon('email', valid);
-        });
+        if (hasError) return;
 
-        confirmPassword.addEventListener('input', () => {
-            const valid = confirmPassword.value === password.value && confirmPassword.value.length > 0;
-            toggleIcon('confirm', valid);
-        });
+        // Transition to step 2
+        document.getElementById('sectionUser').classList.remove('active');
+        document.getElementById('sectionTenant').classList.add('active');
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step1').classList.add('completed');
+        document.getElementById('stepLine1').classList.add('active');
+        document.getElementById('step2').classList.add('active');
+        document.getElementById('formTitle').textContent = '创建工作空间';
+        document.getElementById('formSubtitle').textContent = '为您的团队创建专属空间（可选）';
+    });
 
-        function toggleIcon(field, isValid) {
-            const icon = document.getElementById(field + 'Icon');
-            if (field === 'username' || field === 'email' || field === 'confirm') {
-                if (icon) {
-                    icon.classList.toggle('show', isValid);
-                    icon.classList.toggle('success', isValid);
-                    icon.classList.toggle('error', !isValid && icon.classList.contains('show'));
-                }
+    prevBtn.addEventListener('click', () => {
+        document.getElementById('sectionTenant').classList.remove('active');
+        document.getElementById('sectionUser').classList.add('active');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('stepLine1').classList.remove('active');
+        document.getElementById('step1').classList.remove('completed');
+        document.getElementById('step1').classList.add('active');
+        document.getElementById('formTitle').textContent = '创建账号';
+        document.getElementById('formSubtitle').textContent = '开启您的智能研究之旅';
+    });
+
+    // Form submission
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const usernameVal = username.value.trim();
+        const emailVal = email.value.trim();
+        const passwordVal = password.value;
+        const tenantNameVal = tenantName.value.trim();
+        const tenantCodeVal = tenantCode.value.trim();
+
+        alertBox.className = 'alert';
+        alertBox.innerHTML = '';
+
+        submitBtn.disabled = true;
+        submitBtn.classList.add('btn-loading');
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: usernameVal,
+                    email: emailVal,
+                    password: passwordVal,
+                    tenant_name: tenantNameVal || null,
+                    tenant_code: tenantCodeVal || null,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || '注册失败');
             }
-        }
 
-        // 密码强度检测
-        password.addEventListener('input', () => {
-            const val = password.value;
-            const bar = document.getElementById('strengthBar');
-            const text = document.getElementById('strengthText');
+            if (data.success) {
+                document.getElementById('successCheck').classList.add('show');
+                alertBox.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 注册成功！正在跳转...';
+                alertBox.className = 'alert success show';
 
-            let strength = 0;
-            if (val.length >= 6) strength++;
-            if (val.length >= 8) strength++;
-            if (/[A-Z]/.test(val)) strength++;
-            if (/[0-9]/.test(val)) strength++;
-            if (/[^A-Za-z0-9]/.test(val)) strength++;
+                localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+                localStorage.setItem('user', JSON.stringify(data.user));
 
-            bar.className = 'strength-bar';
-            text.classList.remove('show');
-
-            if (val.length === 0) {
-                bar.style.width = '0';
-                return;
-            }
-
-            text.classList.add('show');
-
-            if (strength <= 2) {
-                bar.classList.add('strength-weak');
-                text.textContent = '密码强度：弱';
-                text.style.color = '#ef4444';
-            } else if (strength <= 3) {
-                bar.classList.add('strength-medium');
-                text.textContent = '密码强度：中等';
-                text.style.color = '#f59e0b';
+                setTimeout(() => {
+                    window.location.href = '/index.html';
+                }, 1500);
             } else {
-                bar.classList.add('strength-strong');
-                text.textContent = '密码强度：强';
-                text.style.color = '#10b981';
+                throw new Error(data.error || '注册失败');
             }
-        });
-
-        // 表单切换
-        function goToNext() {
-            // 验证第一部分
-            const usernameVal = username.value.trim();
-            const emailVal = email.value.trim();
-            const passwordVal = password.value;
-            const confirmVal = confirmPassword.value;
-
-            let hasError = false;
-
-            if (!/^[a-zA-Z0-9_]{3,20}$/.test(usernameVal)) {
-                showError('usernameError', '用户名必须为3-20个字符');
-                username.classList.add('error');
-                setTimeout(() => username.classList.remove('error'), 400);
-                hasError = true;
-            } else {
-                hideError('usernameError');
-            }
-
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-                showError('emailError', '请输入有效的邮箱地址');
-                email.classList.add('error');
-                setTimeout(() => email.classList.remove('error'), 400);
-                hasError = true;
-            } else {
-                hideError('emailError');
-            }
-
-            if (passwordVal.length < 6) {
-                showError('passwordError', '密码至少6个字符');
-                password.classList.add('error');
-                setTimeout(() => password.classList.remove('error'), 400);
-                hasError = true;
-            } else {
-                hideError('passwordError');
-            }
-
-            if (passwordVal !== confirmVal) {
-                showError('confirmError', '两次输入的密码不一致');
-                confirmPassword.classList.add('error');
-                setTimeout(() => confirmPassword.classList.remove('error'), 400);
-                hasError = true;
-            } else {
-                hideError('confirmError');
-            }
-
-            if (hasError) return;
-
-            // 切换到下一步
-            document.getElementById('sectionUser').classList.remove('active');
-            document.getElementById('sectionTenant').classList.add('active');
+        } catch (error) {
+            alertBox.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' + error.message;
+            alertBox.className = 'alert error show';
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-loading');
         }
-
-        function goToPrev() {
-            document.getElementById('sectionTenant').classList.remove('active');
-            document.getElementById('sectionUser').classList.add('active');
-        }
-
-        function showError(id, msg) {
-            const el = document.getElementById(id);
-            el.textContent = msg;
-            el.classList.add('show');
-        }
-
-        function hideError(id) {
-            document.getElementById(id).classList.remove('show');
-        }
-
-        // 表单提交
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const usernameVal = username.value.trim();
-            const emailVal = email.value.trim();
-            const passwordVal = password.value;
-            const tenantNameVal = document.getElementById('tenantName').value.trim();
-            const tenantCodeVal = document.getElementById('tenantCode').value.trim();
-
-            const submitBtn = document.getElementById('submitBtn');
-            const btnText = submitBtn.querySelector('.btn-text');
-            const alertBox = document.getElementById('alertBox');
-
-            alertBox.className = 'alert';
-            alertBox.textContent = '';
-
-            // 显示加载
-            submitBtn.disabled = true;
-            submitBtn.classList.add('btn-loading');
-            btnText.textContent = '创建中...';
-
-            try {
-                const response = await fetch(`${API_BASE}/auth/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: usernameVal,
-                        email: emailVal,
-                        password: passwordVal,
-                        tenant_name: tenantNameVal || null,
-                        tenant_code: tenantCodeVal || null,
-                    }),
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.detail || '注册失败');
-                }
-
-                if (data.success) {
-                    // 成功动画
-                    document.getElementById('successCheck').classList.add('show');
-                    alertBox.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 注册成功！正在跳转...';
-                    alertBox.className = 'alert success show';
-
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('refresh_token', data.refresh_token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-
-                    setTimeout(() => {
-                        window.location.href = '/index.html';
-                    }, 1500);
-                } else {
-                    throw new Error(data.error || '注册失败');
-                }
-            } catch (error) {
-                alertBox.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' + error.message;
-                alertBox.className = 'alert error show';
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('btn-loading');
-                btnText.textContent = '创建账号';
-            }
-        });
-    </script>
+    });
+</script>
 </body>
 </html>

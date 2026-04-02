@@ -100,7 +100,8 @@ function updateStats() {
     const total = skills.length;
     const totalScripts = skills.reduce((sum, s) => sum + (s.script_count || 0), 0);
 
-    const statTotalEl = document.getElementById('statTotal');
+    // 兼容 skills.html 和 index.html 的元素 ID
+    const statTotalEl = document.getElementById('statTotal') || document.getElementById('skillCount');
     const statScriptsEl = document.getElementById('statScripts');
 
     if (statTotalEl) statTotalEl.textContent = total;
@@ -200,17 +201,25 @@ function openSkillModal(skillId = null) {
     const title = document.getElementById('modalTitle');
     const form = document.getElementById('skillForm');
 
+    if (!modal) {
+        console.error('skillModal not found');
+        return;
+    }
+
     // 重置表单
-    form.reset();
+    if (form) form.reset();
     scriptFields = [];
-    document.getElementById('scriptList').innerHTML = '';
-    document.getElementById('validationResults').classList.remove('show');
+
+    const scriptListEl = document.getElementById('scriptList');
+    const validationResultsEl = document.getElementById('validationResults');
+    if (scriptListEl) scriptListEl.innerHTML = '';
+    if (validationResultsEl) validationResultsEl.classList.remove('show');
 
     if (skillId) {
         // 编辑模式
         isEditMode = true;
         currentSkillId = skillId;
-        title.textContent = '编辑 Skill';
+        if (title) title.textContent = '编辑 Skill';
 
         const skill = skills.find(s => s.id === skillId);
         if (skill) {
@@ -220,7 +229,7 @@ function openSkillModal(skillId = null) {
         // 添加模式
         isEditMode = false;
         currentSkillId = null;
-        title.textContent = '添加新 Skill';
+        if (title) title.textContent = '添加新 Skill';
 
         // 添加默认脚本字段
         addScriptField();
@@ -229,13 +238,13 @@ function openSkillModal(skillId = null) {
     // 强制设置白色背景
     const modalInner = modal.querySelector('.modal');
     if (modalInner) {
-        modalInner.style.backgroundColor = '#ffffff';
+        modalInner.style.backgroundColor = '#2d2d2d';
         const header = modalInner.querySelector('.modal-header');
         const body = modalInner.querySelector('.modal-body');
         const footer = modalInner.querySelector('.modal-footer');
-        if (header) header.style.backgroundColor = '#ffffff';
-        if (body) body.style.backgroundColor = '#ffffff';
-        if (footer) footer.style.backgroundColor = '#ffffff';
+        if (header) header.style.backgroundColor = '#2d2d2d';
+        if (body) body.style.backgroundColor = '#2d2d2d';
+        if (footer) footer.style.backgroundColor = '#2d2d2d';
     }
 
     modal.classList.add('active');
@@ -243,7 +252,7 @@ function openSkillModal(skillId = null) {
 
 function closeSkillModal() {
     const modal = document.getElementById('skillModal');
-    modal.classList.remove('active');
+    if (modal) modal.classList.remove('active');
     isEditMode = false;
     currentSkillId = null;
 }
@@ -282,6 +291,10 @@ async function loadSkillForEdit(skill) {
 
 function addScriptField(name = '', content = '') {
     const container = document.getElementById('scriptList');
+    if (!container) {
+        console.error('scriptList not found');
+        return;
+    }
     const index = scriptFields.length;
 
     scriptFields.push({ name, content });
@@ -305,6 +318,8 @@ function addScriptField(name = '', content = '') {
 
 function removeScriptField(index) {
     const container = document.getElementById('scriptList');
+    if (!container) return;
+
     const items = container.querySelectorAll('.script-item');
 
     if (items[index]) {
@@ -473,6 +488,11 @@ function openViewModal(skillId, data) {
     const title = document.getElementById('viewModalTitle');
     const body = document.getElementById('viewModalBody');
 
+    if (!modal || !title || !body) {
+        console.error('ViewModal elements not found');
+        return;
+    }
+
     const skill = skills.find(s => s.id === skillId);
     if (!skill) return;
 
@@ -536,23 +556,23 @@ function openViewModal(skillId, data) {
         ${scriptsHtml}
     `;
 
-    // 强制设置白色背景
+    // 强制设置背景色
     const modalInner = modal.querySelector('.modal');
     if (modalInner) {
-        modalInner.style.backgroundColor = '#ffffff';
+        modalInner.style.backgroundColor = '#2d2d2d';
         const header = modalInner.querySelector('.modal-header');
         const footer = modalInner.querySelector('.modal-footer');
-        if (header) header.style.backgroundColor = '#ffffff';
-        if (footer) footer.style.backgroundColor = '#ffffff';
+        if (header) header.style.backgroundColor = '#2d2d2d';
+        if (footer) footer.style.backgroundColor = '#2d2d2d';
     }
-    body.style.backgroundColor = '#ffffff';
+    body.style.backgroundColor = '#2d2d2d';
 
     modal.classList.add('active');
 }
 
 function closeViewModal() {
     const modal = document.getElementById('viewModal');
-    modal.classList.remove('active');
+    if (modal) modal.classList.remove('active');
     currentSkillId = null;
 }
 
@@ -604,25 +624,30 @@ function confirmDelete(skillId) {
     const modal = document.getElementById('confirmModal');
     const skill = skills.find(s => s.id === skillId);
 
-    document.getElementById('confirmMessage').textContent =
-        `确定要删除 "${skill?.name || skillId}" 吗？此操作不可恢复。`;
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
-    document.getElementById('confirmDeleteBtn').onclick = () => deleteSkill(skillId);
-
-    // 强制设置白色背景
-    const modalInner = modal.querySelector('.modal');
-    if (modalInner) {
-        modalInner.style.backgroundColor = '#ffffff';
-        const body = modalInner.querySelector('.modal-body');
-        if (body) body.style.backgroundColor = '#ffffff';
+    if (confirmMessage) {
+        confirmMessage.textContent = `确定要删除 "${skill?.name || skillId}" 吗？此操作不可恢复。`;
+    }
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.onclick = () => deleteSkill(skillId);
     }
 
-    modal.classList.add('active');
+    // 强制设置背景色
+    const modalInner = modal?.querySelector('.modal');
+    if (modalInner) {
+        modalInner.style.backgroundColor = '#2d2d2d';
+        const body = modalInner.querySelector('.modal-body');
+        if (body) body.style.backgroundColor = '#2d2d2d';
+    }
+
+    if (modal) modal.classList.add('active');
 }
 
 function closeConfirmModal() {
     const modal = document.getElementById('confirmModal');
-    modal.classList.remove('active');
+    if (modal) modal.classList.remove('active');
     currentSkillId = null;
 }
 

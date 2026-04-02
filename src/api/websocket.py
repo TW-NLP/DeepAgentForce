@@ -62,6 +62,7 @@ def setup_websocket_routes(app: FastAPI):
         await websocket.accept()
         session_id = None
         tenant_uuid = None  # 🆕 多租户：当前会话所属租户
+        ws_connected = False  # 🆕 标记 WebSocket 是否已完成握手
         
         # 🆕 用于收集当前对话的思考过程
         current_thinking_steps = []
@@ -122,7 +123,39 @@ def setup_websocket_routes(app: FastAPI):
                 tenant_uuid=tenant_uuid  # 🆕 传递 tenant_uuid
             )
             
-            # 3. 发送历史记录（按租户隔离）
+            # 🆕 等待一段时间，确保客户端 onopen 已执行
+            await asyncio.sleep(0.5)
+            ws_connected = True
+            
+            # 3. 发送会话列表（按租户隔离）- 用于前端侧边栏显示
+            try:
+                all_sessions = engine.history_manager.list_sessions(tenant_uuid=tenant_uuid)
+                logger.info(f"📋 找到 {len(all_sessions)} 个会话")
+                if all_sessions:
+                    # 发送轻量版会话列表给前端
+                    session_list_payload = {
+                        "type": "session_list",
+                        "data": {
+                            "sessions": [
+                                {
+                                    "session_id": s.get("session_id"),
+                                    "title": s.get("title") or "新对话",
+                                    "created_at": s.get("created_at"),
+                                    "updated_at": s.get("updated_at"),
+                                    "conversation_count": s.get("conversation_count", 0)
+                                }
+                                for s in all_sessions
+                            ]
+                        },
+                        "ts": datetime.now().isoformat()
+                    }
+                    json_str = json.dumps(session_list_payload, default=safe_json_serializer)
+                    await websocket.send_text(json_str)
+                    logger.info(f"✅ 已发送会话列表到前端")
+            except Exception as e:
+                logger.error(f"发送会话列表失败: {e}", exc_info=True)
+
+            # 4. 发送当前 session 的历史（如果有的话）
             history = engine.history_manager.get_session_history(session_id, tenant_uuid=tenant_uuid)
             if history:
                 # 包装一下历史记录发送，防止这里也崩

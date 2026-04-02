@@ -110,7 +110,7 @@ class UserPreferenceMining():
 
 只返回 JSON，无其他内容。"""
 
-        print("🤖 LLM 提取实体和关系...")
+        print("🦀 LLM 提取实体和关系...")
         response = self.client.invoke(prompt)
 
         result_text = response.content

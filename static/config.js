@@ -184,8 +184,12 @@ async function syncServerConfig() {
 
 async function loadConfig() {
     try {
-        // 🆕 使用 authFetch（用于后端按租户返回配置）
-        const response = await authFetch(`${getApiUrl()}/config`);
+        const token = localStorage.getItem('access_token');
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${getApiUrl()}/config`, { headers });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -199,10 +203,14 @@ async function loadConfig() {
 
 async function saveConfig(formData) {
     try {
-        // 🆕 使用 authFetch（用于后端按租户保存配置）
-        const response = await authFetch(`${getApiUrl()}/config`, {
+        const token = localStorage.getItem('access_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${getApiUrl()}/config`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify(formData)
         });
         if (!response.ok) {

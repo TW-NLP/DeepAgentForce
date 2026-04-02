@@ -2,10 +2,12 @@ import logging
 import uuid
 import shutil
 import json
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Dict, List
 from fastapi import APIRouter, Form, HTTPException, UploadFile, File, BackgroundTasks, Request, Header
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from src.utils.content_parse import parse_uploaded_file
 from src.utils.setting_utils import save_config_to_file
@@ -127,9 +129,10 @@ class DocumentInfo(BaseModel):
     document_id: str
     name: str
     path: str
-    chunks: int
-    uploaded_at: str
-    metadata: Dict
+    chunks: int = 0
+    size: int = 0
+    uploaded_at: str = ""
+    metadata: Optional[Dict] = {}
 
 class ListDocumentsResponse(BaseModel):
     success: bool
@@ -159,6 +162,9 @@ class ConfigResponse(BaseModel):
 class IndexStatusResponse(BaseModel):
     success: bool
     document_count: int
+    chunks_count: int = 0
+    total_size: str = "0 KB"
+    last_updated: Optional[str] = None
     status: str = "ready"
 
 # ==================== API 路由实现 ====================
@@ -245,7 +251,177 @@ async def chat_with_upload(
     except Exception as e:
         logger.error(f"附件对话处理失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
+async def generate_upload_chat_stream(agent, session_id, full_prompt, message, files, tenant_id=None):
+    """生成上传文件对话的流式响应"""
+    try:
+        # 发送开始消息
+        yield f"event: start\ndata: {json.dumps({'session_id': session_id})}\n\n"
+
+        # 获取 agent 的流式响应
+        response_content = await agent.chat(full_prompt)
+
+        full_answer = ""
+        step_count = 0
+
+        if hasattr(response_content, '__aiter__'):
+            async for chunk in response_content:
+                if isinstance(chunk, str):
+                    full_answer += chunk
+                elif hasattr(chunk, 'content'):
+                    full_answer += chunk.content or ""
+                elif isinstance(chunk, dict):
+                    # 处理事件类型的数据
+                    chunk_type = chunk.get('type', '')
+                    if chunk_type == 'step':
+                        step_count += 1
+                        step_data = chunk.get('data', {})
+                        yield f"event: step\ndata: {json.dumps({'step': step_count, 'title': step_data.get('title', ''), 'description': step_data.get('description', '')})}\n\n"
+                    elif chunk_type == 'tool':
+                        yield f"event: tool\ndata: {json.dumps(chunk.get('data', {}))}\n\n"
+                    else:
+                        full_answer += str(chunk)
+                else:
+                    full_answer += str(chunk)
+
+                # 定期发送部分答案
+                if len(full_answer) > 0 and len(full_answer) % 50 == 0:
+                    yield f"event: chunk\ndata: {json.dumps({'content': full_answer})}\n\n"
+
+        # 发送最终答案
+        yield f"event: done\ndata: {json.dumps({'message': full_answer, 'session_id': session_id})}\n\n"
+
+    except Exception as e:
+        logger.error(f"流式对话失败: {e}", exc_info=True)
+        yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+
+@router.post("/chat/upload/stream")
+async def chat_with_upload_stream(
+    request: Request,
+    message: str = Form(...),
+    session_id: Optional[str] = Form(None),
+    files: List[UploadFile] = File(...)
+):
+    """
+    支持附件上传的对话接口（流式版本）
+    """
+    engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)
+
+    try:
+        # 1. 获取会话
+        session_id, agent = engine.get_or_create_session(
+            session_id,
+            tenant_uuid=tenant_id
+        )
+
+        logger.info(f"[{session_id}] 收到带附件的流式消息: {message[:50]}... (附件数: {len(files)})")
+
+        # 2. 解析所有文件
+        files_content = ""
+        for file in files:
+            file_content = await parse_uploaded_file(file)
+            files_content += file_content
+
+        # 3. 组合 Prompt
+        full_prompt = f"{message}\n{files_content}"
+
+        # 4. 返回流式响应
+        return StreamingResponse(
+            generate_upload_chat_stream(agent, session_id, full_prompt, message, files, tenant_id),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"流式附件对话失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/history/sessions", tags=["对话历史"])
+async def get_sessions_list(request: Request):
+    """
+    获取会话列表（轻量版，用于侧边栏显示）
+    🆕 多租户：只返回当前用户所属租户的会话
+    """
+    engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)
+    try:
+        sessions = engine.history_manager.list_sessions(tenant_uuid=tenant_id)
+
+        # 返回轻量版会话信息
+        session_list = []
+        for s in sessions:
+            # 获取第一条用户消息作为标题
+            first_message = ""
+            conversation = s.get("conversation", [])
+            if conversation and len(conversation) > 0:
+                for conv in conversation:
+                    user_content = conv.get("user_content", "")
+                    if user_content:
+                        first_message = user_content[:50]
+                        break
+
+            session_list.append({
+                "session_id": s.get("session_id", "unknown"),
+                "title": s.get("title") or first_message or "新对话",
+                "created_at": s.get("created_at"),
+                "updated_at": s.get("updated_at"),
+                "conversation_count": s.get("conversation_count", 0)
+            })
+
+        # 按更新时间倒序
+        session_list.sort(key=lambda x: x.get("updated_at") or "", reverse=True)
+
+        return {"sessions": session_list}
+    except Exception as e:
+        logger.error(f"获取会话列表失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/history/sessions/{session_id}/messages", tags=["对话历史"])
+async def get_session_messages(session_id: str, request: Request):
+    """
+    获取指定会话的消息列表
+    🆕 多租户：验证会话属于当前租户
+    """
+    engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)
+    try:
+        session_data = engine.history_manager.get_session_history(session_id, tenant_uuid=tenant_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="会话不存在或无权限访问")
+
+        # 提取消息列表
+        messages = []
+        for conv in session_data.get("conversation", []):
+            user_content = conv.get("user_content", "")
+            ai_content = conv.get("ai_content", "")
+            if user_content:
+                messages.append({
+                    "role": "user",
+                    "content": user_content
+                })
+            if ai_content:
+                messages.append({
+                    "role": "assistant",
+                    "content": ai_content
+                })
+
+        return {"messages": messages}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取会话消息失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/history/saved", response_model=SavedHistoryListResponse, tags=["对话历史"])
 async def get_saved_history_list(request: Request):
     """
@@ -480,6 +656,56 @@ async def delete_document(request: Request, document_id: str):
         logger.error(f"❌ 删除失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/rag/documents/{document_id}/content", tags=["RAG"])
+async def get_document_content(request: Request, document_id: str):
+    """获取文档内容预览"""
+    engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
+    try:
+        pipeline = engine.get_rag_engine(tenant_id)
+        docs = pipeline.list_documents(tenant_uuid=tenant_id)
+
+        # 找到指定文档 (uuid 是存储的字段名)
+        doc = None
+        doc_name = None
+        uploaded_at = None
+        for d in docs:
+            if d.get('uuid') == document_id:
+                doc = d
+                doc_name = d.get('title', '')
+                uploaded_at = d.get('added_at', '')
+                break
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="文档不存在")
+
+        # 从 Milvus 获取文档的所有 chunks
+        try:
+            collection_name = pipeline._get_tenant_collection(tenant_id)
+            milvus_results = pipeline.milvus.query(
+                collection_name=collection_name,
+                filter=f'doc_id == "{document_id}"',
+                output_fields=["text"]
+            )
+            content_chunks = [{'content': item.get('text', '')} for item in milvus_results if item.get('text')]
+        except Exception as e:
+            logger.warning(f"从 Milvus 获取 chunks 失败: {e}")
+            content_chunks = []
+
+        return {
+            "success": True,
+            "document_id": document_id,
+            "name": doc_name,
+            "chunks": content_chunks,
+            "uploaded_at": uploaded_at
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取文档内容失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/rag/query", response_model=QueryResponse, tags=["RAG"])
 async def query_knowledge_base(request: Request, query_req: QueryRequest):
     """查询知识库"""
@@ -516,9 +742,32 @@ async def get_index_status(request: Request):
         pipeline = engine.get_rag_engine(tenant_id)
         docs = pipeline.list_documents(tenant_uuid=tenant_id)  # 🆕
 
+        # 计算总块数和大小
+        total_chunks = sum(doc.get('chunks', 0) for doc in docs)
+        total_size = sum(doc.get('size', 0) for doc in docs)
+
+        # 格式化大小
+        def format_size(bytes_val):
+            if bytes_val == 0:
+                return "0 B"
+            k = 1024
+            sizes = ['B', 'KB', 'MB', 'GB']
+            i = int(math.floor(math.log(bytes_val) / math.log(k)))
+            return f"{bytes_val / k ** i:.1f} {sizes[i]}"
+
+        # 获取最后更新时间
+        last_updated = None
+        if docs:
+            uploaded_times = [doc.get('uploaded_at', '') for doc in docs if doc.get('uploaded_at')]
+            if uploaded_times:
+                last_updated = max(uploaded_times)
+
         return IndexStatusResponse(
             success=True,
             document_count=len(docs),
+            chunks_count=total_chunks,
+            total_size=format_size(total_size),
+            last_updated=last_updated,
             status="ready"
         )
     except Exception as e:
