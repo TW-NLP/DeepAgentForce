@@ -261,7 +261,7 @@ python scripts/main.py "<参数>"
 > **注意**：`LLM_URL` 填入 API 的 base 地址即可（不含 `/chat/completions` 后缀），系统会自动处理。
 
 <div align="center">
-  <img src="images/model_config.png" alt="模型配置" width="80%"/>
+  <img src="images/config.png" alt="模型配置" width="80%"/>
 </div>
 
 ### 3. 构建知识库（可选）
