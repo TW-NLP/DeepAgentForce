@@ -5,13 +5,14 @@ Skill 管理服务
 
 多租户设计：
 - 内置 Skills（src/services/skills/）：所有用户可见
-- 用户自定义 Skills（data/user_skills/{user_id}/）：按用户隔离
+- 用户自定义 Skills（data/user_skills/{tenant_uuid}/）：按租户隔离
 """
 
 import logging
 import shutil
 import uuid
 import json
+import yaml  # 🆕 用于正确解析 YAML frontmatter
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
@@ -28,7 +29,7 @@ class SkillManager:
 
     多租户隔离策略：
     1. 内置 Skills：从 src/services/skills/ 加载，所有用户可见
-    2. 用户自定义 Skills：从 data/user_skills/{user_id}/ 加载，按用户隔离
+    2. 用户自定义 Skills：从 data/user_skills/{tenant_uuid}/ 加载，按租户隔离
 
     当需要获取用户的完整 Skill 列表时，会合并两类 Skills，
     并标注每个 Skill 的来源（builtin/user）和所有者。
@@ -39,8 +40,8 @@ class SkillManager:
         初始化 SkillManager
 
         Args:
-            builtin_skills_dir: 内置 Skills 目录（src/services/skills/）
-            user_skills_base_dir: 用户 Skills 根目录（data/user_skills/）
+            builtin_skills_dir: 内置 Skills 目录（src/services/skills/，只读模板）
+            user_skills_base_dir: 用户 Skills 根目录（data/skill/）
         """
         self.builtin_skills_dir = Path(builtin_skills_dir)
         self.user_skills_base_dir = Path(user_skills_base_dir)
@@ -48,35 +49,47 @@ class SkillManager:
 
         # 内存缓存：{skill_id: skill_info}
         self._skills_cache: Dict[str, Dict[str, Any]] = {}
-        self._cache_user_id: Optional[int] = None
+        self._cache_tenant_uuid: Optional[str] = None
 
-    def _get_user_skill_dir(self, user_id: int) -> Path:
-        """获取指定用户的 Skills 目录"""
-        user_dir = self.user_skills_base_dir / str(user_id)
-        user_dir.mkdir(parents=True, exist_ok=True)
-        return user_dir
+    def _get_tenant_skill_dir(self, tenant_uuid: Optional[str]) -> Path:
+        """获取指定租户的 Skills 目录"""
+        if tenant_uuid is None:
+            return self.user_skills_base_dir
+        tenant_dir = self.user_skills_base_dir / tenant_uuid
+        tenant_dir.mkdir(parents=True, exist_ok=True)
+        return tenant_dir
 
-    def _resolve_skill_path(self, skill_id: str, user_id: Optional[int] = None) -> Optional[Path]:
+    def initialize_tenant_skills(self, tenant_uuid: str) -> None:
+        """🆕 首次初始化租户的 Skills：创建用户目录结构"""
+        tenant_dir = self._get_tenant_skill_dir(tenant_uuid)
+        if tenant_dir.exists() and any(tenant_dir.iterdir()):
+            return  # 已初始化过，跳过
+
+        logger.info(f"初始化租户 {tenant_uuid} 的 Skills 目录...")
+        # 只创建目录，不复制内置 Skills
+        # 内置 Skills 通过 workspace: src/services/skills:data/skill/{tenant_uuid} 访问
+
+    def _resolve_skill_path(self, skill_id: str, tenant_uuid: Optional[str] = None) -> Optional[Path]:
         """
         解析 Skill 的实际路径
 
         查找顺序：
-        1. 用户自定义目录（如果指定了 user_id）
+        1. 用户自定义目录（如果指定了 tenant_uuid）
         2. 内置 Skills 目录
 
         Args:
             skill_id: Skill 标识符
-            user_id: 用户ID（可选）
+            tenant_uuid: 租户UUID（可选）
 
         Returns:
             Skill 目录路径，如果不存在返回 None
         """
         # 1. 优先查找用户自定义目录
-        if user_id is not None:
-            user_dir = self._get_user_skill_dir(user_id)
-            user_skill_path = user_dir / skill_id
-            if user_skill_path.exists():
-                return user_skill_path
+        if tenant_uuid is not None:
+            tenant_dir = self._get_tenant_skill_dir(tenant_uuid)
+            tenant_skill_path = tenant_dir / skill_id
+            if tenant_skill_path.exists():
+                return tenant_skill_path
 
         # 2. 查找内置 Skills 目录
         builtin_path = self.builtin_skills_dir / skill_id
@@ -89,26 +102,29 @@ class SkillManager:
         """判断是否为内置 Skill"""
         return skill_id in BUILTIN_SKILL_IDS
 
-    def list_skills(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    def list_skills(self, tenant_uuid: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        列出指定用户的 Skills 列表
+        列出指定租户的 Skills 列表
 
-        合并返回：
-        - 内置 Skills（所有用户可见）
-        - 用户自己的 Skills（按 user_id 隔离）
+        返回：
+        - 内置 Skills（所有用户可见，来自 src/services/skills/）
+        - 租户自己的 Skills（来自 src/services/skills/_user_skills/{tenant_uuid}/）
 
         Args:
-            user_id: 用户ID（用于获取用户自己的 Skills）
+            tenant_uuid: 租户UUID（用于获取租户自己的 Skills）
 
         Returns:
             Skills 列表，按名称排序
         """
         skills = []
 
-        # 1. 添加内置 Skills
+        # 1. 添加内置 Skills（排除用户目录）
         if self.builtin_skills_dir.exists():
             for skill_path in self.builtin_skills_dir.iterdir():
                 if not skill_path.is_dir():
+                    continue
+                # 跳过用户 Skills 目录
+                if skill_path.name == '_user_skills':
                     continue
                 skill_info = self._parse_skill_info(skill_path)
                 if skill_info:
@@ -117,17 +133,17 @@ class SkillManager:
                     skill_info['is_deletable'] = False
                     skills.append(skill_info)
 
-        # 2. 添加用户自己的 Skills
-        if user_id is not None:
-            user_dir = self._get_user_skill_dir(user_id)
-            if user_dir.exists():
-                for skill_path in user_dir.iterdir():
+        # 2. 添加指定租户的 Skills
+        if tenant_uuid is not None:
+            tenant_dir = self._get_tenant_skill_dir(tenant_uuid)
+            if tenant_dir.exists():
+                for skill_path in tenant_dir.iterdir():
                     if not skill_path.is_dir():
                         continue
                     skill_info = self._parse_skill_info(skill_path)
                     if skill_info:
                         skill_info['source'] = 'user'
-                        skill_info['owner_id'] = user_id
+                        skill_info['owner_id'] = tenant_uuid
                         skill_info['is_deletable'] = True
                         skills.append(skill_info)
 
@@ -153,10 +169,11 @@ class SkillManager:
             if scripts_dir.exists():
                 for script_file in scripts_dir.iterdir():
                     if script_file.is_file() and script_file.suffix == '.py':
+                        # 使用 skill_path 作为基准，避免跨目录计算相对路径
                         scripts.append({
                             'name': script_file.stem,
                             'file': script_file.name,
-                            'path': str(script_file.relative_to(self.builtin_skills_dir.parent.parent))
+                            'path': str(script_file.relative_to(skill_path.parent))
                         })
 
             # 统计信息
@@ -181,7 +198,36 @@ class SkillManager:
             return None
 
     def _extract_frontmatter(self, content: str) -> Dict[str, Any]:
-        """提取 YAML frontmatter"""
+        """提取 YAML frontmatter，使用 PyYAML 正确解析"""
+        metadata = {}
+
+        if content.startswith('---'):
+            try:
+                lines = content.split('\n')
+                # 找到 frontmatter 的结束位置
+                end_idx = 1
+                for i, line in enumerate(lines[1:], 1):
+                    if line.strip() == '---':
+                        end_idx = i
+                        break
+
+                # 提取 frontmatter 部分
+                frontmatter_content = '\n'.join(lines[1:end_idx])
+
+                # 使用 PyYAML 解析
+                parsed = yaml.safe_load(frontmatter_content)
+                if parsed and isinstance(parsed, dict):
+                    metadata = parsed
+
+            except yaml.YAMLError as e:
+                logger.warning(f"YAML 解析失败，使用正则 fallback: {e}")
+                # 如果 PyYAML 解析失败，回退到简单的正则解析
+                metadata = self._extract_frontmatter_regex(content)
+
+        return metadata
+
+    def _extract_frontmatter_regex(self, content: str) -> Dict[str, Any]:
+        """正则方式提取 frontmatter（fallback）"""
         metadata = {}
 
         if content.startswith('---'):
@@ -229,40 +275,40 @@ class SkillManager:
 
         return metadata
 
-    def get_skill(self, skill_id: str, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    def get_skill(self, skill_id: str, tenant_uuid: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
         获取指定 Skill 的详细信息
 
         Args:
             skill_id: Skill 标识符
-            user_id: 用户ID（可选）
+            tenant_uuid: 用户ID（可选）
 
         Returns:
             Skill 信息，如果不存在返回 None
         """
-        skill_path = self._resolve_skill_path(skill_id, user_id)
+        skill_path = self._resolve_skill_path(skill_id, tenant_uuid)
         if not skill_path:
             return None
 
         skill_info = self._parse_skill_info(skill_path)
         if skill_info:
             skill_info['source'] = 'builtin' if self._is_builtin_skill(skill_id) else 'user'
-            skill_info['owner_id'] = None if self._is_builtin_skill(skill_id) else user_id
+            skill_info['owner_id'] = None if self._is_builtin_skill(skill_id) else tenant_uuid
             skill_info['is_deletable'] = not self._is_builtin_skill(skill_id)
         return skill_info
 
-    def get_skill_content(self, skill_id: str, user_id: Optional[int] = None) -> Optional[Dict[str, str]]:
+    def get_skill_content(self, skill_id: str, tenant_uuid: Optional[int] = None) -> Optional[Dict[str, str]]:
         """
         获取 Skill 文件内容 (SKILL.md 和 scripts)
 
         Args:
             skill_id: Skill 标识符
-            user_id: 用户ID（可选）
+            tenant_uuid: 用户ID（可选）
 
         Returns:
             包含 SKILL.md 和 scripts 的字典
         """
-        skill_path = self._resolve_skill_path(skill_id, user_id)
+        skill_path = self._resolve_skill_path(skill_id, tenant_uuid)
         if not skill_path:
             return None
 
@@ -325,20 +371,20 @@ class SkillManager:
         skill_name: str,
         skill_md_content: str,
         scripts: Dict[str, str],
-        user_id: int,
+        tenant_uuid: int,
         force: bool = False
     ) -> Dict[str, Any]:
         """
         安装/更新用户自定义 Skill
 
-        用户创建的 Skills 会存储到 data/user_skills/{user_id}/ 目录下，
+        用户创建的 Skills 会存储到 data/user_skills/{tenant_uuid}/ 目录下，
         实现用户级别的数据隔离。
 
         Args:
             skill_name: Skill 名称
             skill_md_content: SKILL.md 内容
             scripts: 脚本字典
-            user_id: 用户ID（用于确定存储位置）
+            tenant_uuid: 用户ID（用于确定存储位置）
             force: 是否强制覆盖
 
         Returns:
@@ -365,7 +411,7 @@ class SkillManager:
             }
 
         # 用户 Skills 存储到用户专属目录
-        user_dir = self._get_user_skill_dir(user_id)
+        user_dir = self._get_tenant_skill_dir(tenant_uuid)
         skill_path = user_dir / skill_id
 
         # 检查是否已存在
@@ -421,13 +467,13 @@ class SkillManager:
         skill_id = skill_id.strip('-')
         return skill_id
 
-    def uninstall_skill(self, skill_id: str, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def uninstall_skill(self, skill_id: str, tenant_uuid: Optional[int] = None) -> Dict[str, Any]:
         """
         卸载 Skill
 
         Args:
             skill_id: Skill 标识符
-            user_id: 用户ID（用于验证权限）
+            tenant_uuid: 用户ID（用于验证权限）
 
         Returns:
             卸载结果字典
@@ -440,7 +486,7 @@ class SkillManager:
             }
 
         # 2. 用户只能删除自己的 Skills
-        skill_path = self._resolve_skill_path(skill_id, user_id)
+        skill_path = self._resolve_skill_path(skill_id, tenant_uuid)
         if not skill_path:
             return {
                 'success': False,
@@ -448,8 +494,8 @@ class SkillManager:
             }
 
         # 3. 验证用户是否有权限删除（skill 必须在用户目录下）
-        if user_id is not None:
-            expected_user_dir = self._get_user_skill_dir(user_id)
+        if tenant_uuid is not None:
+            expected_user_dir = self._get_tenant_skill_dir(tenant_uuid)
             if not str(skill_path).startswith(str(expected_user_dir)):
                 return {
                     'success': False,
@@ -470,22 +516,22 @@ class SkillManager:
                 'message': f"卸载失败: {str(e)}"
             }
 
-    def export_skill(self, skill_id: str, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    def export_skill(self, skill_id: str, tenant_uuid: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
         导出 Skill 为可分享的格式
 
         Args:
             skill_id: Skill 标识符
-            user_id: 用户ID（可选）
+            tenant_uuid: 用户ID（可选）
 
         Returns:
             导出数据字典
         """
-        skill_path = self._resolve_skill_path(skill_id, user_id)
+        skill_path = self._resolve_skill_path(skill_id, tenant_uuid)
         if not skill_path:
             return None
 
-        content = self.get_skill_content(skill_id, user_id)
+        content = self.get_skill_content(skill_id, tenant_uuid)
         if not content:
             return None
 

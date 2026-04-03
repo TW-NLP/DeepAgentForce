@@ -4,7 +4,7 @@ Skill 管理 API 路由
 
 多租户支持：
 - 内置 Skills：所有用户可见
-- 用户自定义 Skills：按 user_id 隔离
+- 用户自定义 Skills：按 tenant_uuid 隔离
 """
 
 import logging
@@ -23,22 +23,20 @@ router = APIRouter()
 
 # ==================== 多租户辅助函数 ====================
 
-def get_user_id_from_request(request: Request) -> Optional[int]:
+def get_tenant_uuid_from_request(request: Request) -> Optional[str]:
     """
-    从请求头中提取 user_id 和 tenant_id
-    用于 API 路由的用户隔离验证
+    从请求中提取 tenant_uuid
+    用于多租户 Skills 隔离
     """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        return None, None
+        return None
     token = auth_header.replace("Bearer ", "")
     try:
         payload = auth_service.verify_token(token)
-        user_id = int(payload.get("sub"))
-        tenant_id = payload.get("tenant_id")
-        return user_id, tenant_id
+        return payload.get("tenant_uuid")
     except Exception:
-        return None, None
+        return None
 
 
 # ==================== 数据模型 ====================
@@ -137,12 +135,12 @@ async def list_skills(request: Request):
 
     返回合并结果：
     - 内置 Skills（所有用户可见）
-    - 用户自己的 Skills（按 user_id 隔离）
+    - 用户自己的 Skills（按 tenant_uuid 隔离）
     """
     try:
         skill_manager = get_skill_manager(request)
-        user_id, _ = get_user_id_from_request(request)  # 🆕 获取 user_id
-        skills = skill_manager.list_skills(user_id=user_id)  # 🆕 传递 user_id
+        tenant_uuid = get_tenant_uuid_from_request(request)  # 🆕 获取 tenant_uuid
+        skills = skill_manager.list_skills(tenant_uuid=tenant_uuid)  # 🆕 传递 tenant_uuid
 
         return SkillListResponse(
             success=True,
@@ -162,8 +160,8 @@ async def get_skill(skill_id: str, request: Request):
     """
     try:
         skill_manager = get_skill_manager(request)
-        user_id, _ = get_user_id_from_request(request)  # 🆕
-        skill = skill_manager.get_skill(skill_id, user_id=user_id)  # 🆕
+        tenant_uuid = get_tenant_uuid_from_request(request)  # 🆕
+        skill = skill_manager.get_skill(skill_id, tenant_uuid=tenant_uuid)  # 🆕
 
         if not skill:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在或无权限访问")
@@ -187,8 +185,8 @@ async def get_skill_content(skill_id: str, request: Request):
     """
     try:
         skill_manager = get_skill_manager(request)
-        user_id, _ = get_user_id_from_request(request)  # 🆕
-        content = skill_manager.get_skill_content(skill_id, user_id=user_id)  # 🆕
+        tenant_uuid = get_tenant_uuid_from_request(request)  # 🆕
+        content = skill_manager.get_skill_content(skill_id, tenant_uuid=tenant_uuid)  # 🆕
 
         if not content:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在或无权限访问")
@@ -264,16 +262,16 @@ async def install_skill(
         scripts_dict = json.loads(scripts) if scripts else {}
 
         skill_manager = get_skill_manager(request)
-        user_id, _ = get_user_id_from_request(request)  # 🆕 获取 user_id
+        tenant_uuid = get_tenant_uuid_from_request(request)  # 🆕 获取 tenant_uuid
 
-        if user_id is None:
+        if tenant_uuid is None:
             raise HTTPException(status_code=401, detail="需要登录才能安装 Skill")
 
         result = skill_manager.install_skill(
             skill_name=skill_name,
             skill_md_content=skill_md,
             scripts=scripts_dict,
-            user_id=user_id,  # 🆕 传递 user_id
+            tenant_uuid=tenant_uuid,  # 🆕 传递 tenant_uuid
             force=force
         )
 
@@ -303,8 +301,8 @@ async def uninstall_skill(skill_id: str, request: Request):
     """
     try:
         skill_manager = get_skill_manager(request)
-        user_id, _ = get_user_id_from_request(request)  # 🆕
-        result = skill_manager.uninstall_skill(skill_id, user_id=user_id)  # 🆕
+        tenant_uuid = get_tenant_uuid_from_request(request)  # 🆕
+        result = skill_manager.uninstall_skill(skill_id, tenant_uuid=tenant_uuid)  # 🆕
 
         if not result['success']:
             if "内置" in result['message'] or "Builtin" in result['message']:
@@ -329,8 +327,8 @@ async def export_skill(skill_id: str, request: Request):
     """
     try:
         skill_manager = get_skill_manager(request)
-        user_id, _ = get_user_id_from_request(request)  # 🆕
-        export_data = skill_manager.export_skill(skill_id, user_id=user_id)  # 🆕
+        tenant_uuid = get_tenant_uuid_from_request(request)  # 🆕
+        export_data = skill_manager.export_skill(skill_id, tenant_uuid=tenant_uuid)  # 🆕
 
         if not export_data:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' 不存在或无权限访问")

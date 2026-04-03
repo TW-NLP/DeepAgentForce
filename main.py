@@ -100,7 +100,7 @@ class DeepAgentForce:
         self,
         session_id: str = None,
         status_callback=None,
-        tenant_uuid: str = None  # 🆕 多租户
+        tenant_uuid: str = None,  # 🆕 多租户
     ) -> tuple[str, ConversationalAgent]:
         # 🆕 多租户会话 key
         session_key = f"{tenant_uuid}_{session_id}" if tenant_uuid else session_id
@@ -113,8 +113,12 @@ class DeepAgentForce:
         import uuid
         sid = session_id or str(uuid.uuid4())
         session_key = f"{tenant_uuid}_{sid}" if tenant_uuid else sid
-        # 🆕 传递 tenant_uuid 给 ConversationalAgent
-        self.sessions[session_key] = ConversationalAgent(self.settings, status_callback, tenant_uuid=tenant_uuid)
+        # 🆕 传递 tenant_uuid 给 ConversationalAgent（用于 Skills 隔离）
+        self.sessions[session_key] = ConversationalAgent(
+            self.settings,
+            status_callback,
+            tenant_uuid=tenant_uuid,
+        )
         return sid, self.sessions[session_key]
 
     def init_service(self, tenant_uuid: Optional[str] = None):

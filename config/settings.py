@@ -97,7 +97,7 @@ class Settings(ServerConfig):
     UPLOAD_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "uploads")
     MILVUS_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "rag_storage")
     SKILL_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "src" / "services" / "skills")
-    USER_SKILL_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "user_skills")
+    USER_SKILL_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "skill")
     OUTPUT_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "outputs")
 
     # ==================== 配置文件 ====================
@@ -305,9 +305,9 @@ class Settings(ServerConfig):
             return self.PERSON_LIKE_FILE
         return self.PERSON_LIKE_FILE.parent / f"person_like_{tenant_uuid}.json"
 
-    def get_user_skill_dir(self, user_id: int) -> Path:
-        """获取用户专属的 Skills 目录（按 user_id 隔离）"""
-        user_dir = self.USER_SKILL_DIR / str(user_id)
+    def get_user_skill_dir(self, tenant_uuid: str) -> Path:
+        """获取用户专属的 Skills 目录（按 tenant_uuid 隔离）"""
+        user_dir = self.USER_SKILL_DIR / tenant_uuid
         user_dir.mkdir(parents=True, exist_ok=True)
         return user_dir
 

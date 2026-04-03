@@ -30,7 +30,7 @@ def get_tenant_uuid_from_request(request: Request) -> Optional[str]:
     tenant_header = request.headers.get("X-Tenant-UUID")
     if tenant_header:
         return tenant_header
-    
+
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
@@ -40,6 +40,8 @@ def get_tenant_uuid_from_request(request: Request) -> Optional[str]:
         return payload.get("tenant_uuid")  # 🆕 使用 tenant_uuid
     except Exception:
         return None
+
+
 
 
 # ==================== 数据模型 (Pydantic) ====================
@@ -177,12 +179,12 @@ async def chat(request: Request, chat_req: ChatRequest):
     try:
         session_id, agent = engine.get_or_create_session(
             chat_req.session_id,
-            tenant_uuid=tenant_id  # 🆕
+            tenant_uuid=tenant_id,  # 🆕
         )
-        
+
         logger.info(f"[{session_id}] 收到消息: {chat_req.message[:50]}...")
         response_content = await agent.chat(chat_req.message)
-        
+
         return ChatResponse(
             message=response_content,
             session_id=session_id,
@@ -206,12 +208,12 @@ async def chat_with_upload(
     """
     engine = request.app.state.engine
     tenant_id = get_tenant_uuid_from_request(request)  # 🆕
-    
+
     try:
         # 1. 获取会话
         session_id, agent = engine.get_or_create_session(
             session_id,
-            tenant_uuid=tenant_id  # 🆕
+            tenant_uuid=tenant_id,  # 🆕
         )
         
         logger.info(f"[{session_id}] 收到带附件的消息: {message[:50]}... (附件数: {len(files)})")
@@ -314,7 +316,7 @@ async def chat_with_upload_stream(
         # 1. 获取会话
         session_id, agent = engine.get_or_create_session(
             session_id,
-            tenant_uuid=tenant_id
+            tenant_uuid=tenant_id,
         )
 
         logger.info(f"[{session_id}] 收到带附件的流式消息: {message[:50]}... (附件数: {len(files)})")

@@ -54,6 +54,8 @@ def extract_tenant_from_token(token: str) -> Optional[str]:
         logger.warning(f"从 Token 提取 tenant_uuid 失败: {e}")
         return None
 
+
+
 def setup_websocket_routes(app: FastAPI):
     engine = app.state.engine
 
@@ -62,17 +64,18 @@ def setup_websocket_routes(app: FastAPI):
         await websocket.accept()
         session_id = None
         tenant_uuid = None  # 🆕 多租户：当前会话所属租户
+        user_id = None  # 🆕 多租户 Skills 隔离（已废弃，统一使用 tenant_uuid）
         ws_connected = False  # 🆕 标记 WebSocket 是否已完成握手
-        
+
         # 🆕 用于收集当前对话的思考过程
         current_thinking_steps = []
-        
+
         try:
             # 🆕 多租户：从 query_params 获取 token，验证并提取 tenant_uuid
             token = websocket.query_params.get("token")
             if token:
                 tenant_uuid = extract_tenant_from_token(token)
-                logger.info(f"WebSocket 连接，提取的 tenant_uuid: {tenant_uuid}")
+                logger.info(f"WebSocket 连接，tenant_uuid: {tenant_uuid}")
             else:
                 logger.warning("WebSocket 连接未携带 token，视为匿名会话")
             
@@ -115,12 +118,12 @@ def setup_websocket_routes(app: FastAPI):
 
             status_callback.add_callback(ws_callback)
             
-            # 2. 获取 Session（传入 tenant_uuid 用于租户隔离）
+            # 2. 获取 Session（传入 tenant_uuid 用于多租户隔离）
             req_sid = websocket.query_params.get("session_id")
             session_id, agent = engine.get_or_create_session(
-                session_id=req_sid, 
+                session_id=req_sid,
                 status_callback=status_callback,
-                tenant_uuid=tenant_uuid  # 🆕 传递 tenant_uuid
+                tenant_uuid=tenant_uuid,  # 🆕 传递 tenant_uuid
             )
             
             # 🆕 等待一段时间，确保客户端 onopen 已执行
@@ -175,7 +178,7 @@ def setup_websocket_routes(app: FastAPI):
                     session_id, agent = engine.get_or_create_session(
                         session_id=session_id,
                         status_callback=status_callback,
-                        tenant_uuid=tenant_uuid  # 🆕 保持 tenant_uuid
+                        tenant_uuid=tenant_uuid,  # 🆕 保持 tenant_uuid
                     )
                 
                 # 🆕 重置思考过程列表（每次新对话开始时清空）

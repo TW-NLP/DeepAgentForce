@@ -89,7 +89,19 @@ class ConversationalAgent:
         self.settings = settings
         self.status_callback = status_callback
         self.tenant_uuid = tenant_uuid
-        self.workspace = Path(settings.SKILL_DIR)
+
+        # 🆕 多租户 Skills 目录
+        self.builtin_skills_dir = Path(settings.SKILL_DIR)  # src/services/skills/
+        self.user_skills_dir = Path(settings.USER_SKILL_DIR)  # data/skill/
+
+        # 🆕 首次初始化：复制内置 Skills 到用户目录
+        if self.tenant_uuid:
+            from src.services.skill_manager import SkillManager
+            skill_manager = SkillManager(self.builtin_skills_dir, self.user_skills_dir)
+            skill_manager.initialize_tenant_skills(self.tenant_uuid)
+
+        self.workspace = self._build_skills_workspace()
+
         self.user_profile_data = UserPreferenceMining(settings).get_frontend_format(
             tenant_uuid=tenant_uuid
         )
@@ -98,7 +110,17 @@ class ConversationalAgent:
 
         # ✅ 项目根路径在初始化时解析一次，后续直接用
         self.project_root = self._resolve_project_root()
-        logger.info(f"[ConversationalAgent] 项目根路径解析结果: {self.project_root}")
+        logger.info(f"[ConversationalAgent] 项目根路径: {self.project_root}, tenant_uuid: {tenant_uuid}, workspace: {self.workspace}")
+
+    def _build_skills_workspace(self) -> str:
+        """构建多租户 Skills 工作空间"""
+        paths = [str(self.builtin_skills_dir)]
+        # 🆕 用户 Skills 目录（每个 tenant_uuid 一个子目录）
+        if self.tenant_uuid:
+            tenant_dir = self.user_skills_dir / self.tenant_uuid
+            if tenant_dir.exists():
+                paths.append(str(tenant_dir))
+        return ":".join(paths)
 
     # ------------------------------------------------------------------
     # 路径解析（只在启动时执行一次，不让 Agent 自己 find）
@@ -134,10 +156,14 @@ class ConversationalAgent:
     # 构建 SafeShellTool（每次 build_instance 时调用，保持配置最新）
     # ------------------------------------------------------------------
     def _build_shell_tool(self) -> SafeShellTool:
+        # 🆕 使用项目根路径构建 RAG 脚本路径
         rag_script = (
             f"{self.project_root}/src/services/skills/rag-query/scripts/query.py"
             if self.project_root else "<未找到项目根，请设置 DEEPAGENTFORCE_ROOT 环境变量>"
         )
+        # 🆕 用户专属 Skills 目录
+        tenant_skills_info = f"\n  用户专属 Skills: {self.user_skills_dir}" if self.user_skills_dir.exists() else ""
+
         description = (
             "执行 shell 命令。\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -148,6 +174,10 @@ class ConversationalAgent:
             "━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"RAG 查询命令（直接复制使用，替换 <问题>）：\n"
             f"  python {rag_script} \"<问题>\" --tenant-uuid {self.tenant_uuid}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📁 Skills 搜索路径：\n"
+            f"  内置 Skills: {self.builtin_skills_dir}\n"
+            f"  用户专属 Skills: {self.user_skills_dir or '(未配置)'}\n"
         )
         return SafeShellTool(inner_tool=ShellTool(), description=description)
 
@@ -199,7 +229,8 @@ class ConversationalAgent:
 ## 环境信息（已解析，直接使用，禁止再次 find）
 - 项目根路径: `{self.project_root}`
 - 当前租户 UUID: `{self.tenant_uuid}`
-- 技能目录: `{self.workspace}`
+- 内置 Skills 目录: `{self.builtin_skills_dir}`
+- 用户专属 Skills 目录: `{self.user_skills_dir or '(无)'}` 🆕
 
 ## 文件保存规则（必须遵守）
 当用户要求保存文件时，必须保存到以下目录：
@@ -211,6 +242,12 @@ class ConversationalAgent:
 
 ## RAG 查询命令模板（直接使用）
 {rag_cmd_example}
+
+## Skills 隔离规则（重要）🆕
+- **内置 Skills**：所有用户共享，来自 `{self.builtin_skills_dir}`
+- **用户专属 Skills**：仅当前用户可见，来自 `{self.user_skills_dir or '(无)'}`
+- Agent 会自动搜索这两个目录查找可用的 Skill
+- ⚠️ 不得访问其他用户的 Skills 目录
 
 ## 用户上下文
 {self.user_summary}
