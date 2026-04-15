@@ -204,21 +204,25 @@ def setup_websocket_routes(app: FastAPI):
                 
                 # 🆕 发送结束信号（包含 session_id）
                 await ws_callback("done", {"message": response, "session_id": session_id})
-        
-        except WebSocketDisconnect:
-            logger.info(f"客户端断开连接: session={session_id}, tenant={tenant_uuid}")
+
+        except (WebSocketDisconnect, RuntimeError) as e:
+            # 客户端主动断开或连接异常
+            logger.info(f"WebSocket 连接结束: session={session_id}, tenant={tenant_uuid}, reason={type(e).__name__}")
             if session_id:
-                asyncio.get_running_loop().run_in_executor(
-                    mining_executor, engine.user_preference.person_like_save, tenant_uuid, None
-                )
+                try:
+                    asyncio.get_running_loop().run_in_executor(
+                        mining_executor, engine.user_preference.person_like_save, tenant_uuid, None
+                    )
+                except Exception as save_err:
+                    logger.error(f"保存用户偏好失败: {save_err}")
         except Exception as e:
             logger.error(f"WS 主循环异常: {e}", exc_info=True)
             # 尝试发送错误给前端
-            if websocket.client_state == WebSocketState.CONNECTED:
-                try:
+            try:
+                if websocket.client_state == WebSocketState.CONNECTED:
                     await websocket.send_json({"type": "error", "message": str(e)})
-                except:
-                    pass
+            except:
+                pass
 
 class ConversationHistoryManager:
     """

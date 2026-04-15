@@ -1,0 +1,43 @@
+# docker-compose.yml
+# DeepAgentForce 一键启动
+# 使用方式: docker compose up -d
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: deepagentforce-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: deepagentforce
+      MYSQL_USER: agent
+      MYSQL_PASSWORD: DeepAgentForce2024!
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uagent", "-pDeepAgentForce2024!"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: twnlp/deepagentforce:v1.0.0
+    container_name: deepagentforce-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: deepagentforce
+      DB_USERNAME: agent
+      DB_PASSWORD: DeepAgentForce2024!
+      JWT_SECRET_KEY: deepagentforce-secret-key
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

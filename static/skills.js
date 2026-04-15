@@ -235,18 +235,6 @@ function openSkillModal(skillId = null) {
         addScriptField();
     }
 
-    // 强制设置白色背景
-    const modalInner = modal.querySelector('.modal');
-    if (modalInner) {
-        modalInner.style.backgroundColor = '#2d2d2d';
-        const header = modalInner.querySelector('.modal-header');
-        const body = modalInner.querySelector('.modal-body');
-        const footer = modalInner.querySelector('.modal-footer');
-        if (header) header.style.backgroundColor = '#2d2d2d';
-        if (body) body.style.backgroundColor = '#2d2d2d';
-        if (footer) footer.style.backgroundColor = '#2d2d2d';
-    }
-
     modal.classList.add('active');
 }
 
@@ -511,7 +499,7 @@ function openViewModal(skillId, data) {
                                 <div class="script-icon">🐍</div>
                                 <div class="script-name">${name}</div>
                             </div>
-                            <textarea class="form-textarea" readonly style="min-height: 200px; background: #1e1e1e; color: #d4d4d4;">${escapeHtml(content)}</textarea>
+                            <pre class="code-block">${escapeHtml(content)}</pre>
                         </div>
                     `).join('')}
                 </div>
@@ -525,47 +513,36 @@ function openViewModal(skillId, data) {
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">名称</label>
-                    <div style="padding: 8px 0;">${skill.name}</div>
+                    <div class="info-value">${skill.name}</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">版本</label>
-                    <div style="padding: 8px 0;">v${skill.version}</div>
+                    <div class="info-value">v${skill.version}</div>
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label">描述</label>
-                <div style="padding: 8px 0;">${skill.description || '暂无描述'}</div>
+                <div class="info-value">${skill.description || '暂无描述'}</div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">作者</label>
-                    <div style="padding: 8px 0;">${skill.author || '未知'}</div>
+                    <div class="info-value">${skill.author || '未知'}</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">脚本数量</label>
-                    <div style="padding: 8px 0;">${skill.script_count}</div>
+                    <div class="info-value">${skill.script_count}</div>
                 </div>
             </div>
         </div>
 
         <div class="form-section">
             <div class="form-section-title">📄 SKILL.md 内容</div>
-            <textarea class="form-textarea" readonly style="min-height: 200px; background: #1e1e1e; color: #d4d4d4;">${escapeHtml(data.skill_md || '')}</textarea>
+            <pre class="code-block">${escapeHtml(data.skill_md || '')}</pre>
         </div>
 
         ${scriptsHtml}
     `;
-
-    // 强制设置背景色
-    const modalInner = modal.querySelector('.modal');
-    if (modalInner) {
-        modalInner.style.backgroundColor = '#2d2d2d';
-        const header = modalInner.querySelector('.modal-header');
-        const footer = modalInner.querySelector('.modal-footer');
-        if (header) header.style.backgroundColor = '#2d2d2d';
-        if (footer) footer.style.backgroundColor = '#2d2d2d';
-    }
-    body.style.backgroundColor = '#2d2d2d';
 
     modal.classList.add('active');
 }
@@ -637,9 +614,9 @@ function confirmDelete(skillId) {
     // 强制设置背景色
     const modalInner = modal?.querySelector('.modal');
     if (modalInner) {
-        modalInner.style.backgroundColor = '#2d2d2d';
+        modalInner.style.removeProperty('background-color');
         const body = modalInner.querySelector('.modal-body');
-        if (body) body.style.backgroundColor = '#2d2d2d';
+        if (body) body.style.removeProperty('background-color');
     }
 
     if (modal) modal.classList.add('active');

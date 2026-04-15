@@ -1,0 +1,98 @@
+# =============================================================================
+# DeepAgentForce .dockerignore
+# 排除不需要复制到镜像的文件
+# =============================================================================
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Docker 相关（防止循环构建）
+Dockerfile
+docker-compose.yml
+*.sh
+.dockerignore
+
+# 数据文件（运行时挂载）
+data/
+mysql-init/
+
+# 文档
+*.md
+!README.md
+docs/
+
+# 测试
+tests/
+*.test.py
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node.js（如果有用到）
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Electron（桌面应用相关）
+electron/node_modules/
+electron/dist/
+electron/build/
+
+# 日志
+*.log
+logs/
+
+# 其他
+*.bak
+*.tmp
+/.vscode/
+*.pyc
+/config/saved_config.json
+/config/saved_history.json
+/uploads/
+/data/
+/tests/
+/output/
+.env
+/pdfs/

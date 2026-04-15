@@ -16,6 +16,7 @@
             --bg-hover: #333;
             --border-color: #3d3d3d;
             --border-light: #4a4a4a;
+            --text-color: #ececf1;
             --text-primary: #ececf1;
             --text-secondary: #b0b0b0;
             --text-tertiary: #808080;
@@ -198,10 +199,44 @@
             letter-spacing: 0.5px;
             color: var(--text-tertiary);
             padding: 16px 12px 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s;
         }
 
         .nav-section-title:first-child {
             padding-top: 8px;
+        }
+
+        .nav-section-title.collapsible:hover {
+            color: var(--text-secondary);
+        }
+
+        .collapse-icon {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.3s ease;
+        }
+
+        .nav-section-title.collapsed .collapse-icon {
+            transform: rotate(-90deg);
+        }
+
+        .office-assistant-submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .office-assistant-submenu.expanded {
+            max-height: 200px;
+        }
+
+        .nav-item.sub-item {
+            padding-left: 32px;
+            font-size: 13px;
         }
 
         .nav-item {
@@ -795,6 +830,717 @@
             color: var(--accent-green);
         }
 
+        .config-tip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            color: var(--accent-blue);
+            margin-bottom: 16px;
+        }
+
+        .config-tip svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        /* ============ 校对页面 - 参考讯飞风格 ============ */
+        .proofread-new-layout {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        /* 顶部工具栏 */
+        .proofread-new-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: #fff;
+            border-bottom: 1px solid #e8e8e8;
+            flex-shrink: 0;
+        }
+
+        .toolbar-left, .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .file-upload-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #f5f6f7;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-upload-btn:hover {
+            background: #e8e8e8;
+        }
+
+        .toolbar-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toolbar-btn:hover {
+            background: #f5f6f7;
+            color: #333;
+        }
+
+        .check-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 24px;
+            background: #1a73e8;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+        }
+
+        .check-btn:hover {
+            background: #1557b0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
+        }
+
+        .check-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 主内容区 */
+        .proofread-new-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 0;
+            overflow: hidden;
+            background: #f5f6f7;
+        }
+
+        /* 输入区 */
+        .input-area {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            margin: 16px;
+            margin-right: 8px;
+            border-radius: 8px;
+            border: 1px solid #e8e8e8;
+            overflow: hidden;
+        }
+
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .input-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .char-count {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .char-count span {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .textarea-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .proofread-textarea-new {
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.8;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            position: relative;
+            z-index: 2;
+        }
+
+        .proofread-textarea-new::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        /* 高亮层 - 叠加在 textarea 上面，仅在校对后显示 */
+        .highlight-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: auto;
+            pointer-events: none;
+            z-index: 3;
+            background: transparent;
+        }
+
+        /* textarea-wrapper 有内容时隐藏 textarea 的文本显示 */
+        .textarea-wrapper.has-highlight .proofread-textarea-new {
+            color: transparent;
+        }
+
+        .highlight-layer mark,
+        .highlight-mark {
+            background: #fff3bf;
+            color: var(--text-primary) !important;
+            border-radius: 2px;
+            padding: 1px 0;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.2s;
+        }
+
+        .highlight-layer mark.error,
+        .highlight-mark.error {
+            background: #ffcccc;
+        }
+
+        .highlight-layer mark.warning,
+        .highlight-mark.warning {
+            background: #fff3bf;
+        }
+
+        .highlight-layer mark.suggestion,
+        .highlight-mark.suggestion {
+            background: #d4edff;
+        }
+
+        .highlight-layer mark.active,
+        .highlight-mark.active {
+            background: #ffd700 !important;
+            color: #333;
+            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.5);
+            animation: highlightPulse 0.5s ease;
+        }
+
+        .highlight-layer mark.adopted,
+        .highlight-mark.adopted {
+            background: #c8e6c9 !important;
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        @keyframes highlightPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        /* 亮色模式支持 */
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-primary: #ffffff;
+                --bg-secondary: #f5f6f7;
+                --bg-tertiary: #eeeeef;
+                --bg-elevated: #fff;
+                --bg-hover: #f0f0f1;
+                --border-color: #e8e8e8;
+                --border-light: #f0f0f0;
+                --text-color: #333333;
+                --text-primary: #333333;
+                --text-secondary: #666666;
+                --text-tertiary: #999999;
+            }
+
+            .highlight-layer mark,
+            .highlight-mark {
+                background: #fff3bf;
+                color: #333;
+            }
+
+            .highlight-layer mark.active {
+                color: #333;
+            }
+
+            /* 模态框亮色模式 */
+            .modal {
+                background: #ffffff;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            }
+
+            .modal-header,
+            .modal-body,
+            .modal-footer {
+                background: #ffffff;
+            }
+
+            .code-block {
+                background: #f5f5f5;
+                border-color: #e0e0e0;
+            }
+
+            .info-value {
+                color: #333;
+            }
+
+            .form-textarea {
+                background: #f5f5f5;
+                border-color: #e0e0e0;
+                color: #333;
+            }
+
+            .form-input {
+                background: #f5f5f5;
+                border-color: #e0e0e0;
+                color: #333;
+            }
+        }
+
+        /* 结果区 */
+        .result-area {
+            display: flex;
+            flex-direction: column;
+            background: transparent;
+            margin: 16px;
+            margin-left: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color, #e8e8e8);
+            overflow: hidden;
+        }
+
+        .result-placeholder {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .placeholder-icon-new {
+            width: 80px;
+            height: 80px;
+            background: var(--bg-secondary, #f5f6f7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .placeholder-icon-new svg {
+            color: var(--text-secondary, #ccc);
+        }
+
+        .placeholder-title-new {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-color, #333);
+            margin-bottom: 4px;
+        }
+
+        .placeholder-subtitle-new {
+            font-size: 13px;
+            color: var(--text-secondary, #999);
+        }
+
+        .result-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 结果头部 */
+        .result-header {
+            padding: 16px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .result-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .result-stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .result-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+
+        .result-stat .num {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .result-stat.errors .num { color: #e53935; }
+        .result-stat.warnings .num { color: #ff9800; }
+        .result-stat.suggestions .num { color: #1a73e8; }
+
+        .result-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .result-action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .result-action-btn:hover {
+            background: #f5f6f7;
+            border-color: #ccc;
+        }
+
+        .result-action-btn.primary {
+            background: #e8f0fe;
+            border-color: #1a73e8;
+            color: #1a73e8;
+        }
+
+        .result-action-btn.primary:hover {
+            background: #d2e3fc;
+        }
+
+        /* 问题列表 */
+        .result-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .result-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .result-item:hover {
+            background: #f0f4ff;
+            border-color: #c6d4fc;
+        }
+
+        .result-item.active {
+            background: #e8f0fe;
+            border-color: #1a73e8;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-index {
+            width: 28px;
+            height: 28px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            flex-shrink: 0;
+        }
+
+        .result-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .result-error-text {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+
+        .error-original {
+            color: #e53935;
+            text-decoration: line-through;
+            font-size: 14px;
+        }
+
+        .error-arrow {
+            color: #999;
+        }
+
+        .error-suggestion {
+            color: #1a73e8;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .result-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-badge {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .result-badge.error {
+            background: #ffebee;
+            color: #e53935;
+        }
+
+        .result-badge.warning {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .result-badge.suggestion {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .result-category {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .result-action {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .action-adopt {
+            padding: 4px 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-adopt:hover {
+            background: #4caf50;
+            border-color: #4caf50;
+            color: #fff;
+        }
+
+        .action-ignore {
+            padding: 4px 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #999;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-ignore:hover {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        /* 成功状态 */
+        .result-success {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .success-icon-new {
+            width: 80px;
+            height: 80px;
+            background: #e8f5e9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .success-icon-new svg {
+            color: #4caf50;
+        }
+
+        .success-title-new {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4caf50;
+            margin-bottom: 4px;
+        }
+
+        .success-subtitle-new {
+            font-size: 13px;
+            color: #999;
+        }
+
+        /* Loading */
+        .proofread-loading-new {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .loading-spinner-new {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e8e8e8;
+            border-top-color: #1a73e8;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text-new {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* 文档预览 */
+        .doc-preview {
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #333;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            background: #fff;
+        }
+
+        .doc-name-display {
+            font-size: 13px;
+            color: #666;
+            padding: 6px 12px;
+            background: #f5f6f7;
+            border-radius: 4px;
+        }
+
+        /* 采纳/忽略后的样式 */
+        .result-item.adopted {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
+        .result-item.ignored {
+            opacity: 0.4;
+        }
+
+        .result-item.adopted .error-original {
+            text-decoration: line-through;
+            color: #4caf50;
+        }
+
+        /* 响应式 */
+        @media (max-width: 1024px) {
+            .proofread-new-content {
+                grid-template-columns: 1fr;
+            }
+
+            .input-area {
+                margin: 12px;
+                min-height: 300px;
+            }
+
+            .result-area {
+                margin: 12px;
+                min-height: 300px;
+            }
+        }
+
+        .config-section-title svg {
+            width: 20px;
+            height: 20px;
+            color: var(--accent-green);
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -832,6 +1578,27 @@
             font-size: 12px;
             color: var(--text-tertiary);
             margin-top: 6px;
+        }
+
+        .info-value {
+            padding: 8px 0;
+            color: var(--text-primary);
+        }
+
+        .code-block {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
         .save-button {
@@ -1734,7 +2501,7 @@
         }
 
         .modal {
-            background: #2d2d2d;
+            background: var(--bg-secondary);
             border-radius: var(--radius-lg);
             width: 90%;
             max-width: 700px;
@@ -1742,6 +2509,7 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            box-shadow: var(--shadow-lg);
         }
 
         .modal-header {
@@ -1750,7 +2518,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: #2d2d2d;
+            background: var(--bg-secondary);
         }
 
         .modal-title {
@@ -1780,7 +2548,8 @@
             padding: 24px;
             overflow-y: auto;
             flex: 1;
-            background: #2d2d2d;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
 
         .modal-footer {
@@ -1789,7 +2558,7 @@
             display: flex;
             justify-content: flex-end;
             gap: 12px;
-            background: #2d2d2d;
+            background: var(--bg-secondary);
         }
 
         /* 下载列表模态框样式 */
@@ -2299,6 +3068,18 @@
                     <span>知识库管理</span>
                 </div>
 
+                <!-- 办公助手 - 默认折叠 -->
+                <div class="nav-section-title collapsible" onclick="toggleOfficeAssistant()">
+                    <svg class="collapse-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    办公助手
+                </div>
+                <div class="office-assistant-submenu" id="officeAssistantSubmenu">
+                    <div class="nav-item sub-item" data-page="proofread">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        <span>文本校对</span>
+                    </div>
+                </div>
+
                 <div class="nav-section-title">会话</div>
             <button class="new-chat-btn" onclick="startNewChat()">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -2547,6 +3328,60 @@
                 </div>
             </div>
 
+            <!-- ============ 文本校对页面 ============ -->
+            <div class="page" id="proofreadPage">
+                <div class="proofread-new-layout">
+                    <!-- 顶部操作栏 -->
+                    <div class="proofread-new-toolbar">
+                        <div class="toolbar-left">
+                            <label class="file-upload-btn" for="proofreadFileInput">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                导入文档
+                            </label>
+                            <input type="file" accept=".txt,.doc,.docx" id="proofreadFileInput" style="display:none">
+                            <button class="toolbar-btn" id="clearProofreadBtn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                                清空
+                            </button>
+                        </div>
+                        <div class="toolbar-right">
+                            <button class="check-btn" id="startProofreadBtn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                开始校对
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 主内容区 -->
+                    <div class="proofread-new-content">
+                        <!-- 左侧：输入区 -->
+                        <div class="input-area">
+                            <div class="input-header">
+                                <span class="input-title">输入文本</span>
+                                <span class="char-count"><span id="charCount">0</span>/<span id="maxChars">10000</span></span>
+                            </div>
+                            <div class="textarea-wrapper" id="textareaWrapper">
+                                <textarea class="proofread-textarea-new" id="proofreadInput" placeholder="在此输入或粘贴需要校对的文本..."></textarea>
+                                <!-- 高亮层 -->
+                                <div class="highlight-layer" id="highlightLayer"></div>
+                            </div>
+                        </div>
+
+                        <!-- 右侧：结果区 -->
+                        <div class="result-area" id="proofreadResults">
+                            <div class="result-placeholder" id="resultPlaceholder">
+                                <div class="placeholder-icon-new">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                </div>
+                                <p class="placeholder-title-new">校对结果</p>
+                                <p class="placeholder-subtitle-new">输入文本后点击「开始校对」</p>
+                            </div>
+                            <div class="result-content" id="proofreadResultsContent" style="display:none"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ============ 模型配置页面 ============ -->
             <div class="page" id="configPage">
                 <div class="config-container">
@@ -2617,6 +3452,41 @@
                             </div>
                         </div>
 
+                        <!-- 校对配置 -->
+                        <div class="config-section">
+                            <div class="config-section-title">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                校对配置
+                            </div>
+                            <div class="config-tip">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                校对功能使用 LLM 进行智能文本检查，如未单独配置将复用 LLM 配置
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <input type="checkbox" id="proofreadUseDedicated" style="margin-right: 8px;">
+                                    使用专用模型
+                                </label>
+                            </div>
+                            <div class="proofread-dedicated-config" id="proofreadDedicatedConfig" style="display: none;">
+                                <div class="form-group">
+                                    <label class="form-label">API URL</label>
+                                    <input type="text" class="form-input" id="proofreadApiUrl" placeholder="http://localhost:8080/v1">
+                                    <div class="form-hint">校对专用模型的 API 端点</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">API Key</label>
+                                    <input type="password" class="form-input" id="proofreadApiKey" placeholder="sk-...">
+                                    <div class="form-hint">校对模型的 API 密钥</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">模型名称</label>
+                                    <input type="text" class="form-input" id="proofreadModel" placeholder="qwen3">
+                                    <div class="form-hint">使用的校对模型名称</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <button class="save-button" id="saveConfigBtn">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
                             保存配置
@@ -2676,45 +3546,617 @@
         chat: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         knowledge: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
         skills: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
-        config: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2"/></svg>'
+        config: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2"/></svg>',
+        proofread: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>'
     };
 
     const pageTitles = {
         chat: '智能对话',
         knowledge: '知识库管理',
         skills: 'Skill 管理',
-        config: '模型配置'
+        config: '模型配置',
+        proofread: '文本校对'
     };
 
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const page = item.getAttribute('data-page');
-            
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(page + 'Page').classList.add('active');
-            
-            document.querySelector('.header-title').innerHTML = pageIcons[page] + pageTitles[page];
-            
-            if (page === 'knowledge') {
-                loadKnowledgeBaseStats();
-                loadDocuments();
-            } else if (page === 'config') {
-                populateConfigFields();
-            } else if (page === 'skills') {
-                loadSkills();
-                // 添加 Skill 按钮事件
-                setTimeout(() => {
-                    const addSkillBtn = document.getElementById('addSkillBtn');
-                    if (addSkillBtn) {
-                        addSkillBtn.onclick = () => openSkillModal();
-                    }
-                }, 100);
-            }
-        });
+    // 办公助手折叠状态
+    let officeAssistantExpanded = false;
+
+    function toggleOfficeAssistant() {
+        officeAssistantExpanded = !officeAssistantExpanded;
+        const title = document.querySelector('.nav-section-title.collapsible');
+        const submenu = document.getElementById('officeAssistantSubmenu');
+        if (title) title.classList.toggle('collapsed', !officeAssistantExpanded);
+        if (submenu) submenu.classList.toggle('expanded', officeAssistantExpanded);
+    }
+
+    // 校对配置 - 专用模型切换
+    document.addEventListener('DOMContentLoaded', () => {
+        const proofreadCheckbox = document.getElementById('proofreadUseDedicated');
+        const dedicatedConfig = document.getElementById('proofreadDedicatedConfig');
+
+        if (proofreadCheckbox && dedicatedConfig) {
+            proofreadCheckbox.addEventListener('change', () => {
+                dedicatedConfig.style.display = proofreadCheckbox.checked ? 'block' : 'none';
+            });
+        }
     });
+
+    // ============ 导航 ============
+
+    // 使用事件委托处理导航点击
+    document.addEventListener('click', (e) => {
+        const navItem = e.target.closest('.nav-item');
+        if (!navItem) return;
+
+        const page = navItem.getAttribute('data-page');
+        if (!page) return;
+
+        // 移除所有 active 状态
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        navItem.classList.add('active');
+
+        // 切换页面显示
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+        // 处理带连字符的页面 ID（如 document-proofread）
+        const pageId = page.replace(/([A-Z])/g, '-$1').toLowerCase();
+        const targetPage = document.getElementById(page + 'Page') || document.getElementById(pageId + 'Page');
+        if (targetPage) {
+            targetPage.classList.add('active');
+        }
+
+        // 更新标题
+        if (pageIcons[page] && pageTitles[page]) {
+            document.querySelector('.header-title').innerHTML = pageIcons[page] + pageTitles[page];
+        }
+
+        // 页面特定初始化
+        if (page === 'knowledge') {
+            loadKnowledgeBaseStats();
+            loadDocuments();
+        } else if (page === 'config') {
+            populateConfigFields();
+        } else if (page === 'skills') {
+            loadSkills();
+            setTimeout(() => {
+                const addSkillBtn = document.getElementById('addSkillBtn');
+                if (addSkillBtn) {
+                    addSkillBtn.onclick = () => openSkillModal();
+                }
+            }, 100);
+        }
+    });
+
+    // ============ 校对功能 ============
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const proofreadInput = document.getElementById('proofreadInput');
+        const charCount = document.getElementById('charCount');
+
+        // 文本输入计数
+        if (proofreadInput && charCount) {
+            proofreadInput.addEventListener('input', () => {
+                const text = proofreadInput.value;
+                charCount.textContent = text.length;
+            });
+        }
+
+        // 开始校对按钮
+        const startBtn = document.getElementById('startProofreadBtn');
+        if (startBtn) {
+            startBtn.addEventListener('click', runProofread);
+        }
+
+        // 清空按钮
+        const clearBtn = document.getElementById('clearProofreadBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                if (proofreadInput) proofreadInput.value = '';
+                if (charCount) charCount.textContent = '0';
+                const resultsContent = document.getElementById('proofreadResultsContent');
+                const placeholder = document.getElementById('resultPlaceholder');
+                const highlightLayer = document.getElementById('highlightLayer');
+                const textareaWrapper = document.getElementById('textareaWrapper');
+                if (resultsContent) resultsContent.style.display = 'none';
+                if (placeholder) placeholder.style.display = 'flex';
+                if (highlightLayer) {
+                    highlightLayer.innerHTML = '';
+                    highlightLayer.style.display = 'none';
+                }
+                if (textareaWrapper) textareaWrapper.classList.remove('has-highlight');
+            });
+        }
+
+        // 文本校对文件导入
+        const proofreadFileInput = document.getElementById('proofreadFileInput');
+        if (proofreadFileInput) {
+            proofreadFileInput.addEventListener('change', async () => {
+                if (proofreadFileInput.files[0]) {
+                    const file = proofreadFileInput.files[0];
+                    const content = await parseFileOnServer(file);
+                    if (proofreadInput) {
+                        proofreadInput.value = content;
+                        charCount.textContent = content.length;
+                    }
+                }
+            });
+        }
+
+        // 文档校对文件导入
+        const docFileInput = document.getElementById('documentFileInput');
+        if (docFileInput) {
+            docFileInput.addEventListener('change', async () => {
+                if (docFileInput.files[0]) {
+                    await handleDocumentFile(docFileInput.files[0]);
+                }
+            });
+        }
+
+        // 文档校对按钮
+        const proofreadDocBtn = document.getElementById('proofreadDocBtn');
+        if (proofreadDocBtn) {
+            proofreadDocBtn.addEventListener('click', runDocumentProofread);
+        }
+
+        // 更换文档按钮
+        const changeDocBtn = document.getElementById('changeDocBtn2');
+        if (changeDocBtn) {
+            changeDocBtn.addEventListener('click', () => {
+                const fileInput = document.getElementById('documentFileInput');
+                if (fileInput) fileInput.click();
+            });
+        }
+    });
+
+    async function runProofread() {
+        const input = document.getElementById('proofreadInput').value.trim();
+        if (!input) {
+            alert('请输入需要校对的文本');
+            return;
+        }
+
+        const resultsContent = document.getElementById('proofreadResultsContent');
+        const placeholder = document.getElementById('resultPlaceholder');
+        placeholder.style.display = 'none';
+        resultsContent.style.display = 'flex';
+
+        // 流式进度 UI
+        resultsContent.innerHTML = `
+            <div class="proofread-loading-new">
+                <div class="loading-spinner-new"></div>
+                <div class="loading-text-new" id="proofreadProgressText">正在校对，进度 0%</div>
+                <div style="width:200px;height:4px;background:#e0e0e0;border-radius:2px;margin-top:12px;">
+                    <div id="proofreadProgressBar" style="height:4px;background:#1976d2;border-radius:2px;width:0%;transition:width 0.3s;"></div>
+                </div>
+            </div>
+        `;
+
+        const progressText = document.getElementById('proofreadProgressText');
+        const progressBar = document.getElementById('proofreadProgressBar');
+
+        let allIssues = [];
+
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch('/api/proofread/text/stream', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ text: input })
+            });
+
+            if (!response.ok) throw new Error('校对请求失败');
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // 保留不完整的行
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const jsonStr = line.slice(6);
+                    if (!jsonStr) continue;
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        if (data.type === 'start') {
+                            allIssues = data.rule_issues || [];
+                        } else if (data.type === 'progress') {
+                            const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+                            if (progressText) progressText.textContent = `正在校对，进度 ${pct}% (${data.current}/${data.total} 批)`;
+                            if (progressBar) progressBar.style.width = pct + '%';
+                            if (data.batch_issues) {
+                                allIssues.push(...data.batch_issues);
+                            }
+                        } else if (data.type === 'done') {
+                            const finalData = { issues: allIssues, summary: data.summary };
+                            renderProofreadResults(finalData, false);
+                            return;
+                        }
+                    } catch (e) {
+                        // 忽略解析错误
+                    }
+                }
+            }
+
+            // fallback：如果没有收到 done 事件，用当前累积的数据渲染
+            const finalData = { issues: allIssues, summary: { total: allIssues.length, errors: 0, warnings: 0 } };
+            renderProofreadResults(finalData, false);
+        } catch (error) {
+            resultsContent.innerHTML = `
+                <div class="result-success">
+                    <div class="success-icon-new" style="background: #ffebee;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    </div>
+                    <div class="success-title-new" style="color: #e53935;">校对失败</div>
+                    <div class="success-subtitle-new">${error.message}</div>
+                </div>
+            `;
+        }
+    }
+
+    function renderProofreadResults(data, isDocMode = false) {
+        const resultsContent = document.getElementById(isDocMode ? 'documentProofreadResults' : 'proofreadResultsContent');
+        const placeholder = document.getElementById(isDocMode ? 'docResultPlaceholder' : 'resultPlaceholder');
+        const highlightLayer = document.getElementById(isDocMode ? 'highlightLayer2' : 'highlightLayer');
+        const textareaWrapper = document.getElementById(isDocMode ? 'textareaWrapper2' : 'textareaWrapper');
+        const { issues = [] } = data;
+
+        // 存储当前模式
+        window.proofreadIsDocMode = isDocMode;
+
+        placeholder.style.display = 'none';
+        resultsContent.style.display = 'flex';
+
+        const errorCount = issues.filter(i => i.type === 'error').length;
+        const warningCount = issues.filter(i => i.type === 'warning').length;
+        const suggestionCount = issues.filter(i => i.type === 'suggestion').length;
+
+        // 存储问题列表用于点击定位和采纳
+        window.proofreadIssues = issues;
+        window.adoptedIssues = new Set();
+        window.ignoredIssues = new Set();
+
+        let html = '';
+
+        if (issues.length === 0) {
+            html = `
+                <div class="result-success">
+                    <div class="success-icon-new">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div class="success-title-new">太棒了！</div>
+                    <div class="success-subtitle-new">未检测到任何问题，文本质量优秀</div>
+                </div>
+            `;
+        } else {
+            html = `
+                <div class="result-header">
+                    <div class="result-title">全部采纳 共 ${issues.length} 个</div>
+                    <div class="result-stats">
+                        <div class="result-stat errors">
+                            <span class="num">${errorCount}</span> 错误
+                        </div>
+                        <div class="result-stat warnings">
+                            <span class="num">${warningCount}</span> 警告
+                        </div>
+                        <div class="result-stat suggestions">
+                            <span class="num">${suggestionCount}</span> 建议
+                        </div>
+                    </div>
+                    <div class="result-actions">
+                        <button class="result-action-btn primary" onclick="adoptAllIssues()">全部采纳</button>
+                        <button class="result-action-btn" onclick="ignoreAllIssues()">全部忽略</button>
+                    </div>
+                </div>
+                <div class="result-list">
+            `;
+
+            issues.forEach((issue, idx) => {
+                const typeLabel = issue.type === 'error' ? '错误' : issue.type === 'warning' ? '警告' : '建议';
+                const pos = issue.position || { start: 0, end: 0 };
+                html += `
+                    <div class="result-item" data-index="${idx}" onclick="highlightIssue(${idx})">
+                        <div class="result-index">${String(idx + 1).padStart(2, '0')}</div>
+                        <div class="result-body">
+                            <div class="result-error-text">
+                                ${issue.original ? `<span class="error-original">${escapeHtml(issue.original)}</span>` : ''}
+                                ${issue.suggestion ? `<span class="error-arrow">→</span><span class="error-suggestion">${escapeHtml(issue.suggestion)}</span>` : '<span class="error-arrow">(删除)</span>'}
+                            </div>
+                            <div class="result-meta">
+                                <span class="result-badge ${issue.type}">${typeLabel}</span>
+                                ${issue.category ? `<span class="result-category">${issue.category}</span>` : ''}
+                                <span class="result-category">位置: ${pos.start}-${pos.end}</span>
+                            </div>
+                            <div class="result-action">
+                                <button class="action-adopt" onclick="event.stopPropagation(); adoptIssue(${idx})">采纳</button>
+                                <button class="action-ignore" onclick="event.stopPropagation(); ignoreIssue(${idx})">忽略</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+        }
+
+        resultsContent.innerHTML = html;
+
+        // 显示高亮层并更新显示
+        if (highlightLayer) {
+            highlightLayer.style.display = 'block';
+        }
+        if (textareaWrapper) {
+            textareaWrapper.classList.add('has-highlight');
+        }
+
+        updateHighlight();
+    }
+
+    // 更新高亮显示
+    function updateHighlight() {
+        const isDocMode = window.proofreadIsDocMode || false;
+        const highlightLayer = document.getElementById(isDocMode ? 'highlightLayer2' : 'highlightLayer');
+        const proofreadInput = document.getElementById('proofreadInput');
+        const docPreview = document.getElementById('documentContentPreview');
+
+        let text;
+        if (isDocMode && docPreview) {
+            text = docPreview.textContent || '';
+        } else if (proofreadInput) {
+            text = proofreadInput.value;
+        } else {
+            return;
+        }
+
+        const issues = window.proofreadIssues || [];
+        if (issues.length === 0 || !highlightLayer) return;
+
+        highlightTextWithPositions(text, issues, highlightLayer);
+    }
+
+    // 使用全局位置高亮文本
+    function highlightTextWithPositions(text, issues, highlightLayer) {
+        const adopted = window.adoptedIssues || new Set();
+        const ignored = window.ignoredIssues || new Set();
+
+        // 构建带高亮的 HTML
+        let html = '';
+        let lastEnd = 0;
+
+        // 按起始位置排序
+        const sortedIssues = [...issues]
+            .map((issue, idx) => ({ ...issue, idx }))
+            .sort((a, b) => (a.position?.start || 0) - (b.position?.start || 0));
+
+        // 过滤掉已被忽略的问题
+        const visibleIssues = sortedIssues.filter((_, idx) => !ignored.has(idx));
+
+        for (const issue of visibleIssues) {
+            const start = issue.position?.start || 0;
+            const end = issue.position?.end || start;
+            const idx = issue.idx;
+
+            // 添加正常文本
+            if (start > lastEnd) {
+                html += escapeHtml(text.slice(lastEnd, start));
+            }
+
+            // 添加高亮标记
+            const isActive = window.activeIssueIdx === idx;
+            const isAdopted = adopted.has(idx);
+            const highlightClass = `highlight-mark ${issue.type || 'warning'} ${isActive ? 'active' : ''} ${isAdopted ? 'adopted' : ''}`;
+
+            // 如果已采纳，显示替换后的文本
+            if (isAdopted && issue.suggestion) {
+                html += `<mark class="${highlightClass}" data-idx="${idx}" onclick="highlightIssue(${idx})">${escapeHtml(issue.suggestion)}</mark>`;
+            } else {
+                html += `<mark class="${highlightClass}" data-idx="${idx}" onclick="highlightIssue(${idx})">${escapeHtml(text.slice(start, end))}</mark>`;
+            }
+
+            lastEnd = end;
+        }
+
+        // 添加剩余文本
+        if (lastEnd < text.length) {
+            html += escapeHtml(text.slice(lastEnd));
+        }
+
+        highlightLayer.innerHTML = html;
+    }
+
+    // 高亮指定问题
+    function highlightIssue(idx) {
+        const issues = window.proofreadIssues || [];
+        const isDocMode = window.proofreadIsDocMode || false;
+        const highlightLayer = document.getElementById(isDocMode ? 'highlightLayer2' : 'highlightLayer');
+        const resultItems = document.querySelectorAll('.result-item');
+
+        // 更新活动状态
+        window.activeIssueIdx = idx;
+
+        // 移除其他高亮
+        resultItems.forEach(item => item.classList.remove('active'));
+
+        // 高亮当前项
+        const currentItem = document.querySelector(`.result-item[data-index="${idx}"]`);
+        if (currentItem) {
+            currentItem.classList.add('active');
+            currentItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // 更新高亮层
+        updateHighlight();
+
+        // 滚动高亮层到对应位置
+        if (highlightLayer) {
+            const mark = highlightLayer.querySelector(`mark[data-idx="${idx}"]`);
+            if (mark) {
+                mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }
+
+    // 采纳单个问题
+    function adoptIssue(idx) {
+        const issues = window.proofreadIssues || [];
+        const issue = issues[idx];
+        if (!issue) return;
+
+        // 标记为已采纳
+        window.adoptedIssues = window.adoptedIssues || new Set();
+        window.adoptedIssues.add(idx);
+
+        const currentItem = document.querySelector(`.result-item[data-index="${idx}"]`);
+        if (currentItem) {
+            currentItem.classList.add('adopted');
+            const adoptBtn = currentItem.querySelector('.action-adopt');
+            if (adoptBtn) adoptBtn.textContent = '已采纳';
+        }
+
+        // 更新文本和显示
+        applyAdoptedChanges();
+        updateHighlight();
+    }
+
+    // 忽略单个问题
+    function ignoreIssue(idx) {
+        window.ignoredIssues = window.ignoredIssues || new Set();
+        window.ignoredIssues.add(idx);
+
+        const currentItem = document.querySelector(`.result-item[data-index="${idx}"]`);
+        if (currentItem) {
+            currentItem.classList.add('ignored');
+            const ignoreBtn = currentItem.querySelector('.action-ignore');
+            if (ignoreBtn) ignoreBtn.textContent = '已忽略';
+        }
+
+        // 更新高亮
+        updateHighlight();
+    }
+
+    // 全部采纳
+    function adoptAllIssues() {
+        const issues = window.proofreadIssues || [];
+        window.adoptedIssues = new Set(issues.map((_, idx) => idx));
+
+        document.querySelectorAll('.result-item').forEach(item => {
+            item.classList.add('adopted');
+            const adoptBtn = item.querySelector('.action-adopt');
+            if (adoptBtn) adoptBtn.textContent = '已采纳';
+        });
+
+        // 更新文本
+        applyAdoptedChanges();
+        updateHighlight();
+    }
+
+    // 全部忽略
+    function ignoreAllIssues() {
+        const issues = window.proofreadIssues || [];
+        window.ignoredIssues = new Set(issues.map((_, idx) => idx));
+
+        document.querySelectorAll('.result-item').forEach(item => {
+            item.classList.add('ignored');
+            const ignoreBtn = item.querySelector('.action-ignore');
+            if (ignoreBtn) ignoreBtn.textContent = '已忽略';
+        });
+
+        updateHighlight();
+    }
+
+    // 应用已采纳的修改到文本
+    function applyAdoptedChanges() {
+        const isDocMode = window.proofreadIsDocMode || false;
+        const proofreadInput = document.getElementById('proofreadInput');
+        const docPreview = document.getElementById('documentContentPreview');
+
+        let text;
+        if (isDocMode && docPreview) {
+            text = docPreview.textContent || '';
+        } else if (proofreadInput) {
+            text = proofreadInput.value;
+        } else {
+            return;
+        }
+
+        const issues = window.proofreadIssues || [];
+        const adopted = window.adoptedIssues || new Set();
+
+        if (adopted.size === 0) return;
+
+        // 按结束位置降序排序，从后往前替换
+        const adoptedIssues = issues
+            .map((issue, idx) => ({ ...issue, idx }))
+            .filter(item => adopted.has(item.idx) && item.suggestion)
+            .sort((a, b) => (b.position?.end || 0) - (a.position?.start || 0));
+
+        for (const issue of adoptedIssues) {
+            const start = issue.position?.start || 0;
+            const end = issue.position?.end || start;
+            if (start >= 0 && end <= text.length && start < end) {
+                text = text.slice(0, start) + issue.suggestion + text.slice(end);
+            }
+        }
+
+        // 更新输入框
+        if (!isDocMode && proofreadInput) {
+            proofreadInput.value = text;
+            // 更新字符计数
+            const charCount = document.getElementById('charCount');
+            if (charCount) charCount.textContent = text.length;
+        }
+
+        // 更新文档预览
+        if (isDocMode && docPreview) {
+            docPreview.textContent = text;
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // 文档处理
+    async function parseFileOnServer(file) {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const token = localStorage.getItem('access_token');
+            const headers = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const response = await fetch(`${getApiUrl()}/parse-file`, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+            if (!response.ok) throw new Error('文件解析失败');
+            const result = await response.json();
+            return result.content || '';
+        } catch (e) {
+            console.error('parseFileOnServer error:', e);
+            return '';
+        }
+    }
+
+    async function handleDocumentFile(file) {
+        const docNameDisplay = document.getElementById('docNameDisplay');
+        const contentPreview = document.getElementById('documentContentPreview');
+        if (contentPreview) {
+            contentPreview.innerHTML = '';
+        }
+    }
 
     // ============ WebSocket ============
     function getWsUrl() {

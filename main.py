@@ -9,6 +9,7 @@ from src.services.conversational_agent import ConversationalAgent, get_tenant_se
 from src.services.person_like_service import UserPreferenceMining
 from src.services.rag import MilvusRAGPipeline
 from src.services.skill_manager import SkillManager
+from src.services.proofread_service import ProofreadService
 from src.api.websocket import ConversationHistoryManager, setup_websocket_routes
 from src.api.routes import router as api_router
 from src.api.skills_routes import router as skills_router
@@ -78,6 +79,8 @@ class DeepAgentForce:
             builtin_skills_dir=self.settings.SKILL_DIR,
             user_skills_base_dir=self.settings.USER_SKILL_DIR
         )
+        # 🆕 校对服务
+        self.proofread_service = ProofreadService(self.settings)
         # 🆕 多租户会话管理：key = f"{tenant_id}_{session_id}"
         self.sessions: dict[str, ConversationalAgent] = {}
         # 🆕 多租户 RAG pipeline 映射：tenant_uuid -> MilvusRAGPipeline
@@ -158,9 +161,17 @@ except Exception as e:
 
 if __name__ == "__main__":
     import uvicorn
+    import argparse
+
+    parser = argparse.ArgumentParser(description='DeepAgentForce')
+    parser.add_argument('--host', default=settings.HOST, help='Host to bind to')
+    parser.add_argument('--port', type=int, default=settings.PORT, help='Port to bind to')
+    parser.add_argument('--reload', action='store_true', default=settings.DEBUG, help='Enable auto-reload')
+    args = parser.parse_args()
+
     uvicorn.run(
         app,
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG
+        host=args.host,
+        port=args.port,
+        reload=args.reload
     )

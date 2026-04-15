@@ -8,4 +8,4 @@
 /output/
 .env
 /pdfs/
-
+*.DS_Store

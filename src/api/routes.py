@@ -983,7 +983,176 @@ async def get_server_info(request: Request):
     engine = request.app.state.engine
     # 返回完整的服务器信息
     return engine.settings.server_info
-    
+
+
+# ==================== 校对 API ====================
+
+class ProofreadRequest(BaseModel):
+    text: str = Field(..., description="待校对的文本")
+    filename: Optional[str] = Field(None, description="文件名（可选，用于文档校对）")
+
+
+class ProofreadResponse(BaseModel):
+    issues: List[Dict[str, Any]] = Field(default_factory=list, description="发现的问题列表")
+    summary: Dict[str, Any] = Field(default_factory=dict, description="校对摘要")
+
+
+# ==================== 文件解析 API ====================
+
+@router.post("/parse-file", tags=["文件服务"])
+async def parse_file(request: Request, file: UploadFile = File(...)):
+    """
+    解析上传的文件内容为纯文本
+    支持: .txt, .md, .csv, .pdf, .docx, .doc
+    """
+    try:
+        content = await parse_uploaded_file(file)
+        return {
+            "success": True,
+            "filename": file.filename,
+            "content": content,
+            "content_length": len(content)
+        }
+    except Exception as e:
+        logger.error(f"文件解析失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/proofread/text", tags=["校对服务"])
+async def proofread_text(
+    request: Request,
+    body: ProofreadRequest
+):
+    """
+    校对文本内容
+
+    返回检测到的错别字、标点错误、用词不当等问题
+    """
+    engine = request.app.state.engine
+    tenant_uuid = get_tenant_uuid_from_request(request)
+
+    try:
+        service = engine.proofread_service
+        result = await service.proofread_text(body.text)
+        return result
+    except Exception as e:
+        logger.error(f"文本校对失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/proofread/document", tags=["校对服务"])
+async def proofread_document(
+    request: Request,
+    body: ProofreadRequest
+):
+    """
+    校对文档内容
+
+    支持 .txt, .doc, .docx, .pdf 等格式
+    """
+    engine = request.app.state.engine
+    tenant_uuid = get_tenant_uuid_from_request(request)
+
+    try:
+        service = engine.proofread_service
+        result = await service.proofread_document(body.text, body.filename)
+        return result
+    except Exception as e:
+        logger.error(f"文档校对失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/proofread/text/stream", tags=["校对服务"])
+async def proofread_text_stream(
+    request: Request,
+    body: ProofreadRequest
+):
+    """
+    校对文本内容（流式版本，实时返回进度）
+    """
+    engine = request.app.state.engine
+    tenant_uuid = get_tenant_uuid_from_request(request)
+
+    try:
+        service = engine.proofread_service
+
+        async def event_generator():
+            all_issues = []
+            total_batches = 0
+            completed_batches = 0
+
+            def progress_callback(current, total):
+                nonlocal completed_batches
+                completed_batches = current
+                data = json.dumps({
+                    "type": "progress",
+                    "current": current,
+                    "total": total
+                })
+                return f"data: {data}\n\n"
+
+            # 先分块计算总数
+            from src.services.proofread_service import split_paragraph_lst, BATCH_SIZE
+            paragraphs = body.text.split('\n')
+            chunks, _ = await split_paragraph_lst(paragraphs)
+            rule_issues = service._rule_based_check(body.text)
+            total_batches = max(1, (len(chunks) + BATCH_SIZE - 1) // BATCH_SIZE)
+
+            # 发送初始信息
+            yield f"data: {json.dumps({'type': 'start', 'total': total_batches, 'rule_issues': rule_issues})}\n\n"
+
+            # 逐批处理以便实时推送
+            from src.services.proofread_service import BATCH_SIZE as BS, MAX_CONCURRENCY
+            import asyncio
+
+            batches = []
+            for i in range(0, len(chunks), BS):
+                batches.append(chunks[i:i + BS])
+
+            semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+
+            async def proofread_batch(batch):
+                async with semaphore:
+                    return await service._llm_proofread_batch(batch)
+
+            for i, batch in enumerate(batches):
+                result = await proofread_batch(batch)
+                completed_batches = i + 1
+                if isinstance(result, list):
+                    all_issues.extend(result)
+                batch_data = json.dumps({
+                    "type": "progress",
+                    "current": completed_batches,
+                    "total": total_batches,
+                    "batch_issues": result
+                })
+                yield f"data: {batch_data}\n\n"
+
+            # 去重
+            all_issues = service._dedupe_issues(all_issues)
+            all_issues.extend(rule_issues)
+            summary = service._generate_summary(all_issues)
+
+            final_data = json.dumps({
+                "type": "done",
+                "issues": all_issues,
+                "summary": summary
+            })
+            yield f"data: {final_data}\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    except Exception as e:
+        logger.error(f"流式文本校对失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 
