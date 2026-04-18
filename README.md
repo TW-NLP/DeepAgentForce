@@ -460,7 +460,7 @@ docker exec -it deepagentforce-mysql mysql -uagent -pDeepAgentForce2024! deepage
 
 **微信：** NLP技术交流群
 
-<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/chat.jpg" width="200" />
+<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/chat.png" width="200" />
 
 ---
 
