@@ -120,12 +120,15 @@ class QueryRequest(BaseModel):
     question: str
     top_k_communities: Optional[int] = 10
     top_k: int = 5
+    enable_rerank: bool = False
+    enable_query_rewrite: bool = False
 
 class QueryResponse(BaseModel):
     success: bool
     question: str
     answer: str
     processing_time: float
+    stage_info: Optional[Dict[str, Any]] = None
 
 class DocumentInfo(BaseModel):
     document_id: str
@@ -719,18 +722,21 @@ async def query_knowledge_base(request: Request, query_req: QueryRequest):
     try:
         start_time = datetime.now()
         pipeline = engine.get_rag_engine(tenant_id)
-        answer = await pipeline.query(
+        answer, stage_info = await pipeline.query(
             query_req.question,
             top_k=query_req.top_k,
-            tenant_uuid=tenant_id  # 🆕
+            tenant_uuid=tenant_id,
+            enable_rerank=query_req.enable_rerank,
+            enable_query_rewrite=query_req.enable_query_rewrite
         )
         duration = (datetime.now() - start_time).total_seconds()
-        
+
         return QueryResponse(
             success=True,
             question=query_req.question,
             answer=str(answer),
-            processing_time=duration
+            processing_time=duration,
+            stage_info=stage_info
         )
     except Exception as e:
         logger.error(f"❌ 查询失败: {e}", exc_info=True)

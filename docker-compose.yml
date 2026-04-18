@@ -20,7 +20,7 @@ services:
       retries: 10
 
   app:
-    image: twnlp/deepagentforce:v1.0.0
+    image: twnlp/deepagentforce:latest
     container_name: deepagentforce-app
     restart: unless-stopped
     ports:

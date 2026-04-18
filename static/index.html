@@ -849,6 +849,11 @@
             flex-shrink: 0;
         }
 
+        .config-subsection {
+            margin: 12px 0;
+            padding: 12px 0;
+        }
+
         /* ============ 校对页面 - 参考讯飞风格 ============ */
         .proofread-new-layout {
             flex: 1;
@@ -4640,6 +4645,76 @@
                             </div>
                         </div>
 
+                        <!-- RAG 高级配置 -->
+                        <div class="config-section">
+                            <div class="config-section-title">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                RAG 高级配置
+                            </div>
+                            <div class="config-tip">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                多阶段检索流程：Stage1 双路召回（向量+BM25）→ Stage2 Rerank 重排（可选）→ Stage3 Query Rewrite 多路投票（可选）
+                            </div>
+
+                            <!-- Stage1: 关键词召回 -->
+                            <div class="config-subsection">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <input type="checkbox" id="enableKeywordSearch" style="margin-right: 8px;">
+                                        启用关键词召回（BM25）
+                                    </label>
+                                    <div class="form-hint">在向量检索基础上叠加 BM25 关键词召回，通过 RRF 融合两条链路结果</div>
+                                </div>
+                            </div>
+
+                            <!-- Stage2: Rerank -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <input type="checkbox" id="enableRerank" style="margin-right: 8px;">
+                                    启用 Rerank 重排
+                                </label>
+                                <div class="form-hint">使用专用重排模型（兼容 Cohere / Jina Reranker API）对候选 chunk 精细排序</div>
+                            </div>
+                            <div id="rerankConfigSection" style="display: none;">
+                                <div class="form-group">
+                                    <label class="form-label">API URL</label>
+                                    <input type="text" class="form-input" id="rerankApiUrl" placeholder="https://api.cohere.ai/v1/rerank">
+                                    <div class="form-hint">Rerank 模型 API 端点地址</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">API Key</label>
+                                    <input type="password" class="form-input" id="rerankApiKey" placeholder="sk-...">
+                                    <div class="form-hint">Rerank 模型的 API 密钥</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">模型名称</label>
+                                    <input type="text" class="form-input" id="rerankModel" placeholder="cohere/rerank-multilingual-v3.0">
+                                    <div class="form-hint">Rerank 模型标识（如 cohere/rerank-multilingual-v3.0）</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">重排后返回数量</label>
+                                    <input type="number" class="form-input" id="rerankTopN" placeholder="5" value="5" min="1" max="50">
+                                    <div class="form-hint">Rerank 完成后返回的最终 chunk 数量</div>
+                                </div>
+                            </div>
+
+                            <!-- Stage3: Query Rewrite -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <input type="checkbox" id="enableQueryRewrite" style="margin-right: 8px;">
+                                    启用 Query Rewrite 多路投票
+                                </label>
+                                <div class="form-hint">LLM 生成多个子问题，并行检索后 RRF 投票融合结果</div>
+                            </div>
+                            <div id="queryRewriteConfigSection" style="display: none;">
+                                <div class="form-group">
+                                    <label class="form-label">子问题数量</label>
+                                    <input type="number" class="form-input" id="queryRewriteNum" placeholder="3" value="3" min="2" max="10">
+                                    <div class="form-hint">LLM 生成的子问题数量（建议 3~5 个，过多会增加延迟）</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- 校对配置 -->
                         <div class="config-section">
                             <div class="config-section-title">
@@ -4762,10 +4837,27 @@
     document.addEventListener('DOMContentLoaded', () => {
         const proofreadCheckbox = document.getElementById('proofreadUseDedicated');
         const dedicatedConfig = document.getElementById('proofreadDedicatedConfig');
-
         if (proofreadCheckbox && dedicatedConfig) {
             proofreadCheckbox.addEventListener('change', () => {
                 dedicatedConfig.style.display = proofreadCheckbox.checked ? 'block' : 'none';
+            });
+        }
+
+        // RAG 高级配置 - Rerank 切换
+        const rerankCheckbox = document.getElementById('enableRerank');
+        const rerankConfig = document.getElementById('rerankConfigSection');
+        if (rerankCheckbox && rerankConfig) {
+            rerankCheckbox.addEventListener('change', () => {
+                rerankConfig.style.display = rerankCheckbox.checked ? 'block' : 'none';
+            });
+        }
+
+        // RAG 高级配置 - Query Rewrite 切换
+        const rewriteCheckbox = document.getElementById('enableQueryRewrite');
+        const rewriteConfig = document.getElementById('queryRewriteConfigSection');
+        if (rewriteCheckbox && rewriteConfig) {
+            rewriteCheckbox.addEventListener('change', () => {
+                rewriteConfig.style.display = rewriteCheckbox.checked ? 'block' : 'none';
             });
         }
     });
@@ -6414,7 +6506,15 @@
                 'PROOFREAD_USE_DEDICATED': document.getElementById('proofreadUseDedicated').checked,
                 'PROOFREAD_API_URL': document.getElementById('proofreadApiUrl').value,
                 'PROOFREAD_API_KEY': document.getElementById('proofreadApiKey').value,
-                'PROOFREAD_MODEL': document.getElementById('proofreadModel').value
+                'PROOFREAD_MODEL': document.getElementById('proofreadModel').value,
+                'ENABLE_KEYWORD_SEARCH': document.getElementById('enableKeywordSearch').checked,
+                'ENABLE_RERANK': document.getElementById('enableRerank').checked,
+                'RERANK_API_URL': document.getElementById('rerankApiUrl').value,
+                'RERANK_API_KEY': document.getElementById('rerankApiKey').value,
+                'RERANK_MODEL': document.getElementById('rerankModel').value,
+                'RERANK_TOP_N': parseInt(document.getElementById('rerankTopN').value) || 5,
+                'ENABLE_QUERY_REWRITE': document.getElementById('enableQueryRewrite').checked,
+                'QUERY_REWRITE_NUM': parseInt(document.getElementById('queryRewriteNum').value) || 3
             };
 
             const token = localStorage.getItem('access_token');

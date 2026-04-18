@@ -238,7 +238,15 @@ const FIELD_MAPPING = {
     'proofreadUseDedicated': 'PROOFREAD_USE_DEDICATED',
     'proofreadApiUrl': 'PROOFREAD_API_URL',
     'proofreadApiKey': 'PROOFREAD_API_KEY',
-    'proofreadModel': 'PROOFREAD_MODEL'
+    'proofreadModel': 'PROOFREAD_MODEL',
+    'enableKeywordSearch': 'ENABLE_KEYWORD_SEARCH',
+    'enableRerank': 'ENABLE_RERANK',
+    'rerankApiUrl': 'RERANK_API_URL',
+    'rerankApiKey': 'RERANK_API_KEY',
+    'rerankModel': 'RERANK_MODEL',
+    'rerankTopN': 'RERANK_TOP_N',
+    'enableQueryRewrite': 'ENABLE_QUERY_REWRITE',
+    'queryRewriteNum': 'QUERY_REWRITE_NUM'
 };
 
 async function populateConfigFields() {
@@ -247,13 +255,20 @@ async function populateConfigFields() {
     for (const [elementId, configKey] of Object.entries(FIELD_MAPPING)) {
         const element = document.getElementById(elementId);
         if (element && config[configKey] !== undefined) {
-            // 特殊处理 checkbox
             if (element.type === 'checkbox') {
                 element.checked = config[configKey];
-                // 同时触发显示/隐藏专用配置区域
-                const dedicatedConfig = document.getElementById('proofreadDedicatedConfig');
-                if (dedicatedConfig) {
-                    dedicatedConfig.style.display = element.checked ? 'block' : 'none';
+                // 触发相关配置区的显示/隐藏
+                if (elementId === 'proofreadUseDedicated') {
+                    const dedicatedConfig = document.getElementById('proofreadDedicatedConfig');
+                    if (dedicatedConfig) dedicatedConfig.style.display = element.checked ? 'block' : 'none';
+                }
+                if (elementId === 'enableRerank') {
+                    const rerankConfig = document.getElementById('rerankConfigSection');
+                    if (rerankConfig) rerankConfig.style.display = element.checked ? 'block' : 'none';
+                }
+                if (elementId === 'enableQueryRewrite') {
+                    const rewriteConfig = document.getElementById('queryRewriteConfigSection');
+                    if (rewriteConfig) rewriteConfig.style.display = element.checked ? 'block' : 'none';
                 }
             } else {
                 element.value = config[configKey];
@@ -267,7 +282,7 @@ async function saveConfigFromForm() {
     for (const [elementId, configKey] of Object.entries(FIELD_MAPPING)) {
         const element = document.getElementById(elementId);
         if (element) {
-            formData[configKey] = element.value;
+            formData[configKey] = element.type === 'checkbox' ? element.checked : element.value;
         }
     }
     return await saveConfig(formData);

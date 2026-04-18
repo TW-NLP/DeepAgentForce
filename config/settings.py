@@ -168,6 +168,23 @@ class Settings(ServerConfig):
     RAG_URL: str = ""  # 动态生成
     MILVUS_COLLECTION: str = "rag_chunks"
 
+    # ==================== RAG 高级配置 ====================
+    # Stage1: 关键词召回（BM25）
+    ENABLE_KEYWORD_SEARCH: bool = Field(default=False, description="启用关键词召回（BM25）")
+    KEYWORD_TOP_K: int = Field(default=10, description="关键词召回返回数量")
+
+    # Stage2: Rerank 重排
+    ENABLE_RERANK: bool = Field(default=False, description="启用 Rerank 重排")
+    RERANK_API_URL: str = Field(default="", description="Rerank 模型 API 地址")
+    RERANK_API_KEY: str = Field(default="", description="Rerank 模型 API Key")
+    RERANK_MODEL: str = Field(default="", description="Rerank 模型名称")
+    RERANK_TOP_N: int = Field(default=5, description="Rerank 后返回数量")
+    RERANK_BATCH_SIZE: int = Field(default=20, description="Rerank 每批送入的候选数量")
+
+    # Query Rewrite 多路投票
+    ENABLE_QUERY_REWRITE: bool = Field(default=False, description="启用 Query Rewrite 多路投票")
+    QUERY_REWRITE_NUM: int = Field(default=3, description="Query Rewrite 生成子问题数量")
+
     @property
     def RAG_API_URL(self) -> str:
         """
