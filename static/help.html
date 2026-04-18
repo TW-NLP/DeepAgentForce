@@ -45,7 +45,7 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: 
+      background:
         radial-gradient(ellipse 80% 50% at 50% -20%, rgba(25, 195, 125, 0.12), transparent),
         radial-gradient(ellipse 60% 40% at 80% 100%, rgba(25, 195, 125, 0.06), transparent);
       pointer-events: none;
@@ -92,10 +92,7 @@
       color: var(--text-primary);
     }
 
-    .back-btn svg {
-      width: 18px;
-      height: 18px;
-    }
+    .back-btn svg { width: 18px; height: 18px; }
 
     .brand {
       display: flex;
@@ -114,38 +111,133 @@
       font-size: 18px;
     }
 
-    .brand-text {
-      font-size: 15px;
-      font-weight: 600;
+    .brand-text { font-size: 15px; font-weight: 600; }
+
+    /* Search bar */
+    .search-bar {
+      padding: 12px 12px 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-wrapper {
+      position: relative;
+    }
+
+    .search-wrapper svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 8px 12px 8px 34px;
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .search-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(25, 195, 125, 0.15);
+    }
+
+    .search-hint {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      pointer-events: none;
+    }
+
+    .search-results {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 200;
+      display: none;
+    }
+
+    .search-results.show { display: block; }
+
+    .search-result-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: var(--bg-hover); }
+    .search-result-item .result-title { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px; }
+    .search-result-item .result-section { font-size: 11px; color: var(--accent-primary); }
+    .search-result-item mark { background: rgba(25, 195, 125, 0.25); color: var(--accent-primary); border-radius: 2px; padding: 0 2px; }
+
+    .search-no-results {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
     }
 
     /* Navigation */
     .nav {
-      padding: 16px 12px;
-      border-bottom: 1px solid var(--border-color);
+      padding: 12px;
+      overflow-y: auto;
+      flex: 1;
     }
 
-    .nav-title {
-      font-size: 11px;
-      font-weight: 600;
+    .nav::-webkit-scrollbar { width: 4px; }
+    .nav::-webkit-scrollbar-track { background: transparent; }
+    .nav::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+
+    .nav-group { margin-bottom: 6px; }
+
+    .nav-group-title {
+      font-size: 10px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       color: var(--text-muted);
-      padding: 0 12px;
-      margin-bottom: 8px;
+      padding: 6px 12px 4px;
     }
 
     .nav-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 12px;
+      padding: 9px 12px;
       border-radius: var(--radius-md);
       cursor: pointer;
       color: var(--text-secondary);
-      font-size: 14px;
+      font-size: 13.5px;
       transition: all 0.2s;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
+      text-decoration: none;
     }
 
     .nav-item:hover {
@@ -154,14 +246,19 @@
     }
 
     .nav-item.active {
-      background: var(--bg-tertiary);
+      background: rgba(25, 195, 125, 0.12);
       color: var(--accent-primary);
     }
 
-    .nav-item svg {
-      width: 18px;
-      height: 18px;
-      flex-shrink: 0;
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    .nav-item .nav-badge {
+      margin-left: auto;
+      font-size: 10px;
+      background: var(--bg-tertiary);
+      color: var(--text-muted);
+      padding: 1px 6px;
+      border-radius: 10px;
     }
 
     /* Main content */
@@ -171,14 +268,14 @@
       padding: 40px 60px;
     }
 
-    .content-inner {
-      max-width: 800px;
-      margin: 0 auto;
-    }
+    .content::-webkit-scrollbar { width: 8px; }
+    .content::-webkit-scrollbar-track { background: transparent; }
+    .content::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+    .content::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-    .page-header {
-      margin-bottom: 40px;
-    }
+    .content-inner { max-width: 800px; margin: 0 auto; }
+
+    .page-header { margin-bottom: 40px; }
 
     .page-title {
       font-size: 28px;
@@ -189,11 +286,7 @@
       gap: 12px;
     }
 
-    .page-title svg {
-      width: 32px;
-      height: 32px;
-      color: var(--accent-primary);
-    }
+    .page-title svg { width: 32px; height: 32px; color: var(--accent-primary); }
 
     .page-desc {
       font-size: 16px;
@@ -202,9 +295,7 @@
     }
 
     /* Section */
-    .section {
-      margin-bottom: 40px;
-    }
+    .section { margin-bottom: 48px; }
 
     .section-title {
       font-size: 20px;
@@ -216,14 +307,14 @@
     }
 
     .section-title .icon {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       background: var(--bg-tertiary);
       border-radius: var(--radius-md);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 15px;
     }
 
     /* Card */
@@ -232,17 +323,17 @@
       border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       padding: 24px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       transition: all 0.2s;
     }
 
     .card:hover {
-      border-color: var(--accent-primary);
+      border-color: rgba(25, 195, 125, 0.4);
       box-shadow: var(--shadow-md);
     }
 
     .card-title {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
       margin-bottom: 8px;
       display: flex;
@@ -253,34 +344,21 @@
     .card-title .tag {
       font-size: 11px;
       padding: 2px 8px;
-      border-radius: var(--radius-full);
+      border-radius: 20px;
       background: var(--accent-primary);
       color: #fff;
       font-weight: 500;
     }
 
-    .card-title .tag.blue {
-      background: var(--accent-blue);
-    }
+    .card-title .tag.blue { background: var(--accent-blue); }
+    .card-title .tag.orange { background: var(--accent-orange); }
+    .card-title .tag.purple { background: var(--accent-purple); }
+    .card-title .tag.red { background: var(--accent-red); }
 
-    .card-title .tag.orange {
-      background: var(--accent-orange);
-    }
-
-    .card-title .tag.purple {
-      background: var(--accent-purple);
-    }
-
-    .card-desc {
-      font-size: 14px;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
+    .card-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
 
     /* Step list */
-    .step-list {
-      counter-reset: step;
-    }
+    .step-list { counter-reset: step; }
 
     .step-item {
       display: flex;
@@ -302,38 +380,28 @@
     .step-number {
       width: 36px;
       height: 36px;
-      background: var(--accent-primary);
+      background: linear-gradient(135deg, var(--accent-primary), #10a060);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 14px;
       flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(25, 195, 125, 0.3);
     }
 
-    .step-content {
-      flex: 1;
-      padding-top: 6px;
-    }
+    .step-content { flex: 1; padding-top: 6px; }
 
-    .step-title {
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
+    .step-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 
-    .step-desc {
-      font-size: 14px;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
+    .step-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
 
     /* Feature grid */
     .feature-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
+      gap: 14px;
     }
 
     .feature-item {
@@ -341,12 +409,13 @@
       border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       padding: 20px;
-      transition: all 0.2s;
+      transition: all 0.25s;
     }
 
     .feature-item:hover {
-      border-color: var(--accent-primary);
-      transform: translateY(-2px);
+      border-color: rgba(25, 195, 125, 0.5);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
     }
 
     .feature-icon {
@@ -361,64 +430,112 @@
       font-size: 20px;
     }
 
-    .feature-title {
-      font-size: 15px;
+    .feature-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+
+    .feature-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+    /* Accordion (FAQ) */
+    .accordion { }
+
+    .accordion-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .accordion-item:hover { border-color: rgba(25, 195, 125, 0.3); }
+
+    .accordion-item.open { border-color: rgba(25, 195, 125, 0.4); }
+
+    .accordion-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+      user-select: none;
+    }
+
+    .accordion-header:hover { background: var(--bg-hover); }
+
+    .accordion-q {
+      flex: 1;
+      font-size: 14px;
       font-weight: 600;
-      margin-bottom: 6px;
+      color: var(--text-primary);
     }
 
-    .feature-desc {
-      font-size: 13px;
+    .accordion-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: transform 0.25s;
+      flex-shrink: 0;
+    }
+
+    .accordion-item.open .accordion-icon { transform: rotate(180deg); }
+
+    .accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .accordion-item.open .accordion-body { max-height: 300px; }
+
+    .accordion-answer {
+      padding: 0 20px 18px 56px;
+      font-size: 14px;
       color: var(--text-secondary);
-      line-height: 1.5;
+      line-height: 1.7;
     }
 
-    /* Tip box */
+    /* Tip / Warning boxes */
+    .tip-box, .warning-box, .info-box {
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
     .tip-box {
       background: rgba(25, 195, 125, 0.1);
-      border: 1px solid rgba(25, 195, 125, 0.3);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
+      border: 1px solid rgba(25, 195, 125, 0.25);
     }
 
-    .tip-box svg {
-      width: 20px;
-      height: 20px;
-      color: var(--accent-primary);
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-
-    .tip-box .tip-text {
-      font-size: 14px;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
-
-    /* Warning box */
     .warning-box {
       background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
+      border: 1px solid rgba(245, 158, 11, 0.25);
     }
 
-    .warning-box svg {
-      width: 20px;
-      height: 20px;
-      color: var(--accent-orange);
+    .info-box {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    .tip-box svg, .warning-box svg, .info-box svg {
+      width: 18px;
+      height: 18px;
       flex-shrink: 0;
       margin-top: 2px;
     }
 
-    .warning-box .warning-text {
-      font-size: 14px;
+    .tip-box svg { color: var(--accent-primary); }
+    .warning-box svg { color: var(--accent-orange); }
+    .info-box svg { color: var(--accent-blue); }
+
+    .tip-box .tip-text,
+    .warning-box .warning-text,
+    .info-box .info-text {
+      font-size: 13.5px;
       color: var(--text-secondary);
       line-height: 1.6;
     }
@@ -428,49 +545,91 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 12px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
     }
 
-    .info-table th,
-    .info-table td {
+    .info-table th, .info-table td {
       text-align: left;
       padding: 12px 16px;
       border-bottom: 1px solid var(--border-color);
-      font-size: 14px;
+      font-size: 13.5px;
     }
 
     .info-table th {
       color: var(--text-muted);
-      font-weight: 500;
+      font-weight: 600;
       background: var(--bg-tertiary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
 
-    .info-table th:first-child {
-      border-radius: var(--radius-md) 0 0 0;
+    .info-table tr:last-child td { border-bottom: none; }
+    .info-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .info-table td:first-child { font-weight: 600; color: var(--text-primary); }
+    .info-table td code {
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--accent-primary);
     }
 
-    .info-table th:last-child {
-      border-radius: 0 var(--radius-md) 0 0;
+    /* Keyboard shortcuts */
+    .kbd-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
     }
 
-    .info-table td:first-child {
-      font-weight: 500;
+    .kbd-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
     }
+
+    .kbd-item:hover { border-color: rgba(25, 195, 125, 0.3); }
+
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      min-width: 28px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .kbd-desc { font-size: 12.5px; color: var(--text-secondary); }
 
     /* Quick nav dots */
     .quick-nav {
       position: fixed;
-      right: 30px;
+      right: 24px;
       top: 50%;
       transform: translateY(-50%);
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       z-index: 100;
     }
 
     .quick-nav a {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--border-color);
       transition: all 0.2s;
@@ -480,43 +639,45 @@
     .quick-nav a:hover,
     .quick-nav a.active {
       background: var(--accent-primary);
-      transform: scale(1.3);
+      transform: scale(1.4);
     }
 
-    /* Responsive */
-    @media (max-width: 900px) {
-      .feature-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .content {
-        padding: 30px 30px;
-      }
-      
-      .quick-nav {
-        display: none;
-      }
+    /* Back to top */
+    .back-to-top {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 42px;
+      height: 42px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s;
+      z-index: 100;
+      box-shadow: var(--shadow-md);
     }
 
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-      width: 8px;
+    .back-to-top.show {
+      opacity: 1;
+      transform: translateY(0);
     }
 
-    ::-webkit-scrollbar-track {
-      background: transparent;
+    .back-to-top:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
     }
 
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
-    }
+    .back-to-top svg { width: 18px; height: 18px; color: var(--text-secondary); }
+    .back-to-top:hover svg { color: var(--accent-primary); }
 
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
-    }
-
-    /* Screenshot images */
+    /* Screenshot */
     .screenshot {
       width: 100%;
       max-width: 900px;
@@ -526,9 +687,7 @@
       box-shadow: var(--shadow-lg);
     }
 
-    .screenshot-small {
-      max-width: 700px;
-    }
+    .screenshot-small { max-width: 700px; }
 
     .screenshot-caption {
       text-align: center;
@@ -537,9 +696,61 @@
       margin-bottom: 20px;
     }
 
-    .img-section {
-      margin: 24px 0;
+    .img-section { margin: 24px 0; }
+
+    /* Highlight match */
+    .highlight {
+      background: rgba(25, 195, 125, 0.15);
+      color: var(--accent-primary);
+      border-radius: 3px;
+      padding: 1px 4px;
     }
+
+    /* Divider */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 8px 0 48px;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 0 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+      border-top: 1px solid var(--border-color);
+      margin-top: 20px;
+    }
+
+    footer p + p { margin-top: 6px; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .feature-grid { grid-template-columns: 1fr; }
+      .content { padding: 24px 24px; }
+      .quick-nav, .back-to-top { display: none; }
+      .kbd-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 600px) {
+      .sidebar { display: none; }
+      .kbd-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* Search highlight animation */
+    @keyframes pulse-highlight {
+      0% { background: rgba(25, 195, 125, 0.3); }
+      100% { background: rgba(25, 195, 125, 0.15); }
+    }
+
+    .search-highlight { animation: pulse-highlight 0.6s ease; }
   </style>
 </head>
 <body>
@@ -556,68 +767,90 @@
           <span class="brand-text">DeepAgentForce</span>
         </div>
       </div>
-      
+
+      <!-- Search -->
+      <div class="search-bar">
+        <div class="search-wrapper">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" class="search-input" id="helpSearch" placeholder="搜索手册内容..." autocomplete="off" />
+          <span class="search-hint">Ctrl+K</span>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+      </div>
+
       <nav class="nav">
-        <div class="nav-title">目录</div>
-        <a href="#quickstart" class="nav-item active">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          快速开始
-        </a>
-        <a href="#features" class="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          核心功能
-        </a>
-        <a href="#downloads" class="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          文件下载
-        </a>
-        <a href="#chat" class="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          智能对话
-        </a>
-        <a href="#knowledge" class="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          知识库
-        </a>
-        <a href="#skills" class="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-          Agent Skills
-        </a>
-        <a href="#skills-demo" class="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Skill 演示
-        </a>
-        <a href="#config" class="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          模型配置
-        </a>
-        <a href="#faq" class="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          常见问题
-        </a>
+        <div class="nav-group">
+          <div class="nav-group-title">开始</div>
+          <a href="#quickstart" class="nav-item active">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            快速开始
+          </a>
+          <a href="#features" class="nav-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            核心功能
+            <span class="nav-badge">7</span>
+          </a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-title">使用指南</div>
+          <a href="#chat" class="nav-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            智能对话
+          </a>
+          <a href="#knowledge" class="nav-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            知识库
+          </a>
+          <a href="#skills" class="nav-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            Agent Skills
+          </a>
+          <a href="#downloads" class="nav-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            文件下载
+          </a>
+          <a href="#config" class="nav-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.83 1.01 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            模型配置
+          </a>
+          <a href="#shortcuts" class="nav-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
+            键盘快捷键
+          </a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-title">参考</div>
+          <a href="#faq" class="nav-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            常见问题
+            <span class="nav-badge">6</span>
+          </a>
+        </div>
       </nav>
     </aside>
 
     <!-- Main Content -->
-    <main class="content">
+    <main class="content" id="mainContent">
       <div class="content-inner">
-        
+
         <!-- Page Header -->
         <header class="page-header" id="quickstart">
           <h1 class="page-title">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             DeepAgentForce 使用手册
           </h1>
-          <p class="page-desc">欢迎使用 DeepAgentForce 智能助手平台！本手册将帮助你快速上手并掌握核心功能。</p>
+          <p class="page-desc">欢迎使用 DeepAgentForce 智能助手平台！本手册涵盖从快速入门到高级功能的完整指南。使用左侧目录或 <kbd style="background:var(--bg-tertiary);border:1px solid var(--border-color);border-bottom-width:2px;border-radius:4px;padding:1px 6px;font-size:12px;font-family:monospace;">Ctrl+K</kbd> 搜索快速定位内容。</p>
         </header>
 
-        <!-- Quick Start Section -->
+        <!-- Quick Start -->
         <section class="section" id="quickstart-section">
           <h2 class="section-title">
             <span class="icon">🚀</span>
             快速开始
           </h2>
-          
+
           <div class="step-list">
             <div class="step-item">
               <div class="step-number">1</div>
@@ -650,7 +883,9 @@
           </div>
         </section>
 
-        <!-- Features Section -->
+        <hr class="section-divider" />
+
+        <!-- Features -->
         <section class="section" id="features">
           <h2 class="section-title">
             <span class="icon">⭐</span>
@@ -659,7 +894,7 @@
 
           <div class="img-section">
             <div align="center">
-              <img src="/images/frame.png" alt="系统架构" class="screenshot" />
+              <img src="/images/frame.png" alt="系统架构" class="screenshot" loading="lazy" />
             </div>
             <p class="screenshot-caption">图 1：DeepAgentForce 系统架构</p>
           </div>
@@ -691,63 +926,21 @@
               <p class="feature-desc">AI 生成的文件（作文、报告等）自动保存，点击即可下载。</p>
             </div>
             <div class="feature-item">
-              <div class="feature-icon">👤</div>
-              <h3 class="feature-title">用户画像</h3>
-              <p class="feature-desc">AI 自动学习用户偏好和行为模式，越用越懂你。</p>
-            </div>
-            <div class="feature-item">
               <div class="feature-icon">🏢</div>
               <h3 class="feature-title">多租户支持</h3>
               <p class="feature-desc">支持团队协作，多成员共享工作空间，独立管理配置和知识库。</p>
             </div>
-          </div>
-        </section>
-
-        <!-- Downloads Section -->
-        <section class="section" id="downloads">
-          <h2 class="section-title">
-            <span class="icon">📥</span>
-            文件下载
-          </h2>
-          
-          <div class="card">
-            <h3 class="card-title">下载 AI 生成的文件</h3>
-            <p class="card-desc">当 AI 生成文件（如作文、报告、代码等）时，可以要求 AI 保存到指定位置。文件会自动保存到你的下载目录中。</p>
-          </div>
-
-          <div class="step-list">
-            <div class="step-item">
-              <div class="step-number">1</div>
-              <div class="step-content">
-                <h3 class="step-title">请求 AI 保存文件</h3>
-                <p class="step-desc">例如：「帮我写一篇关于春天的作文，并保存到文件」</p>
-              </div>
-            </div>
-            <div class="step-item">
-              <div class="step-number">2</div>
-              <div class="step-content">
-                <h3 class="step-title">AI 自动保存</h3>
-                <p class="step-desc">AI 会将文件保存到 <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">data/outputs/{租户ID}/</code> 目录</p>
-              </div>
-            </div>
-            <div class="step-item">
-              <div class="step-number">3</div>
-              <div class="step-content">
-                <h3 class="step-title">点击下载</h3>
-                <p class="step-desc">点击页面右上角的「下载」按钮，在弹出的列表中查看和下载文件</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="tip-box">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <div class="tip-text">
-              <strong>提示：</strong>每个租户的文件是隔离存储的，只能查看和下载自己账号生成的文件。
+            <div class="feature-item">
+              <div class="feature-icon">📊</div>
+              <h3 class="feature-title">用户画像</h3>
+              <p class="feature-desc">AI 自动学习用户偏好和行为模式，越用越懂你。</p>
             </div>
           </div>
         </section>
 
-        <!-- Chat Section -->
+        <hr class="section-divider" />
+
+        <!-- Chat -->
         <section class="section" id="chat">
           <h2 class="section-title">
             <span class="icon">💬</span>
@@ -756,7 +949,7 @@
 
           <div class="img-section">
             <div align="center">
-              <img src="/images/chat.jpg" alt="智能对话界面" class="screenshot" />
+              <img src="/images/chat.jpg" alt="智能对话界面" class="screenshot" loading="lazy" />
             </div>
             <p class="screenshot-caption">图 2：智能对话界面</p>
           </div>
@@ -768,7 +961,7 @@
             </h3>
             <p class="card-desc">在底部的输入框中输入你的问题，按 Enter 或点击发送按钮即可。AI 会自动分析问题并生成回答。</p>
           </div>
-          
+
           <div class="card">
             <h3 class="card-title">
               <span class="tag blue">进阶</span>
@@ -776,7 +969,7 @@
             </h3>
             <p class="card-desc">点击输入框左侧的 📎 图标，可上传 PDF、Word、TXT、Markdown 等格式文件。AI 会读取文件内容并结合回答。</p>
           </div>
-          
+
           <div class="card">
             <h3 class="card-title">
               <span class="tag orange">技巧</span>
@@ -786,28 +979,15 @@
           </div>
         </section>
 
-        <!-- Skills Management Demo -->
-        <section class="section" id="skills-demo">
-          <h2 class="section-title">
-            <span class="icon">🛠️</span>
-            Skill 管理界面
-          </h2>
+        <hr class="section-divider" />
 
-          <div class="img-section">
-            <div align="center">
-              <img src="/images/skill.png" alt="Skill 管理界面" class="screenshot" />
-            </div>
-            <p class="screenshot-caption">图 3：可视化 Skill 管理界面</p>
-          </div>
-        </section>
-
-        <!-- Knowledge Section -->
+        <!-- Knowledge -->
         <section class="section" id="knowledge">
           <h2 class="section-title">
             <span class="icon">📚</span>
             知识库管理
           </h2>
-          
+
           <div class="card">
             <h3 class="card-title">构建专属知识库</h3>
             <p class="card-desc">进入「知识库」页面，上传你的私有文档（PDF、Word、TXT、Markdown），系统会自动向量化并建立索引。之后的相关问题会优先检索你的知识库内容。</p>
@@ -816,7 +996,7 @@
           <table class="info-table">
             <thead>
               <tr>
-                <th>支持的格式</th>
+                <th>格式</th>
                 <th>说明</th>
               </tr>
             </thead>
@@ -842,9 +1022,9 @@
 
           <div class="img-section">
             <div align="center">
-              <img src="/images/rag.png" alt="知识库管理界面" class="screenshot" />
+              <img src="/images/rag.png" alt="知识库管理界面" class="screenshot" loading="lazy" />
             </div>
-            <p class="screenshot-caption">图 4：知识库管理界面</p>
+            <p class="screenshot-caption">图 3：知识库管理界面</p>
           </div>
 
           <div class="warning-box">
@@ -855,17 +1035,26 @@
           </div>
         </section>
 
-        <!-- Skills Section -->
+        <hr class="section-divider" />
+
+        <!-- Skills -->
         <section class="section" id="skills">
           <h2 class="section-title">
             <span class="icon">🛠️</span>
             Agent Skills
           </h2>
-          
-          <p style="color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6;">
+
+          <p style="color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; font-size: 14px;">
             Agent Skills 是系统的模块化扩展能力。当 AI 识别到需要特定工具时，会自动调用对应的 Skill。
           </p>
-          
+
+          <div class="img-section">
+            <div align="center">
+              <img src="/images/skill.png" alt="Skill 管理界面" class="screenshot" loading="lazy" />
+            </div>
+            <p class="screenshot-caption">图 4：可视化 Skill 管理界面</p>
+          </div>
+
           <div class="feature-grid">
             <div class="feature-item">
               <div class="feature-icon">📄</div>
@@ -888,20 +1077,75 @@
               <p class="feature-desc">支持开发者自行扩展新的工具技能，满足个性化需求。</p>
             </div>
           </div>
+
+          <div class="info-box" style="margin-top: 16px;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div class="info-text">
+              <strong>内置技能</strong>（PDF处理、RAG查询、联网搜索）支持可视化编辑和管理；自定义技能可导入导出，方便与他人共享。
+            </div>
+          </div>
         </section>
 
-        <!-- Config Section -->
+        <hr class="section-divider" />
+
+        <!-- Downloads -->
+        <section class="section" id="downloads">
+          <h2 class="section-title">
+            <span class="icon">📥</span>
+            文件下载
+          </h2>
+
+          <div class="card">
+            <h3 class="card-title">下载 AI 生成的文件</h3>
+            <p class="card-desc">当 AI 生成文件（如作文、报告、代码等）时，可以要求 AI 保存到指定位置。文件会自动保存到你的下载目录中。</p>
+          </div>
+
+          <div class="step-list">
+            <div class="step-item">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <h3 class="step-title">请求 AI 保存文件</h3>
+                <p class="step-desc">例如：「帮我写一篇关于春天的作文，并保存到文件」</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <h3 class="step-title">AI 自动保存</h3>
+                <p class="step-desc">AI 会将文件保存到 <code>data/outputs/{租户ID}/</code> 目录</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">3</div>
+              <div class="step-content">
+                <h3 class="step-title">点击下载</h3>
+                <p class="step-desc">点击页面右上角的「下载」按钮，在弹出的列表中查看和下载文件</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tip-box">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div class="tip-text">
+              <strong>提示：</strong>每个租户的文件是隔离存储的，只能查看和下载自己账号生成的文件。
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-divider" />
+
+        <!-- Config -->
         <section class="section" id="config">
           <h2 class="section-title">
             <span class="icon">⚙️</span>
             模型配置
           </h2>
-          
+
           <div class="card">
             <h3 class="card-title">配置说明</h3>
             <p class="card-desc">在「配置」页面填写大模型的连接信息。配置会自动保存，下次启动时无需重新填写。</p>
           </div>
-          
+
           <table class="info-table">
             <thead>
               <tr>
@@ -914,17 +1158,17 @@
               <tr>
                 <td>LLM URL</td>
                 <td>模型 API 的 Base 地址</td>
-                <td>https://openrouter.ai/api/v1</td>
+                <td><code>https://openrouter.ai/api/v1</code></td>
               </tr>
               <tr>
                 <td>LLM API Key</td>
                 <td>访问模型的密钥</td>
-                <td>sk-or-xxxxx</td>
+                <td><code>sk-or-xxxxx</code></td>
               </tr>
               <tr>
                 <td>LLM Model</td>
                 <td>使用的模型名称</td>
-                <td>anthropic/claude-3.5-sonnet</td>
+                <td><code>anthropic/claude-3.5-sonnet</code></td>
               </tr>
             </tbody>
           </table>
@@ -932,81 +1176,173 @@
           <div class="tip-box">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             <div class="tip-text">
-              <strong>提示：</strong>URL 只需填写 Base 地址（如 https://openrouter.ai/api/v1），系统会自动拼接正确的接口路径。
+              <strong>提示：</strong>URL 只需填写 Base 地址（如 <code>https://openrouter.ai/api/v1</code>），系统会自动拼接正确的接口路径。
             </div>
           </div>
 
           <div class="img-section">
             <div align="center">
-              <img src="/images/config.png" alt="模型配置" class="screenshot screenshot-small" />
+              <img src="/images/config.png" alt="模型配置" class="screenshot screenshot-small" loading="lazy" />
             </div>
             <p class="screenshot-caption">图 5：模型配置页面</p>
           </div>
         </section>
 
-        <!-- FAQ Section -->
+        <hr class="section-divider" />
+
+        <!-- Shortcuts -->
+        <section class="section" id="shortcuts">
+          <h2 class="section-title">
+            <span class="icon">⌨️</span>
+            键盘快捷键
+          </h2>
+
+          <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; line-height: 1.6;">
+            使用键盘快捷键可以大幅提升操作效率。以下快捷键在主对话页面生效：
+          </p>
+
+          <div class="kbd-grid">
+            <div class="kbd-item">
+              <kbd>Ctrl</kbd><kbd>K</kbd>
+              <span class="kbd-desc">快速搜索</span>
+            </div>
+            <div class="kbd-item">
+              <kbd>Enter</kbd>
+              <span class="kbd-desc">发送消息</span>
+            </div>
+            <div class="kbd-item">
+              <kbd>Shift</kbd><kbd>Enter</kbd>
+              <span class="kbd-desc">换行</span>
+            </div>
+            <div class="kbd-item">
+              <kbd>Ctrl</kbd><kbd>N</kbd>
+              <span class="kbd-desc">新建对话</span>
+            </div>
+            <div class="kbd-item">
+              <kbd>Esc</kbd>
+              <span class="kbd-desc">停止生成</span>
+            </div>
+            <div class="kbd-item">
+              <kbd>Ctrl</kbd><kbd>L</kbd>
+              <span class="kbd-desc">清空对话</span>
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-divider" />
+
+        <!-- FAQ -->
         <section class="section" id="faq">
           <h2 class="section-title">
             <span class="icon">❓</span>
             常见问题
           </h2>
-          
-          <div class="card">
-            <h3 class="card-title">Q: 提示"未连接到服务器"怎么办？</h3>
-            <p class="card-desc">确保后端服务正在运行（执行 python main.py）。检查网络连接是否正常。</p>
-          </div>
-          
-          <div class="card">
-            <h3 class="card-title">Q: AI 回复很慢或无响应？</h3>
-            <p class="card-desc">可能是模型 API 响应较慢，或网络连接不稳定。可以检查「配置」页面的模型设置是否正确。</p>
-          </div>
 
-          <div class="card">
-            <h3 class="card-title">Q: 如何下载 AI 生成的文件？</h3>
-            <p class="card-desc">点击页面右上角的「下载」按钮。确保在对话中让 AI 保存了文件（如「帮我保存这篇作文」）。</p>
-          </div>
-          
-          <div class="card">
-            <h3 class="card-title">Q: 多租户是什么意思？</h3>
-            <p class="card-desc">每个账号（租户）有独立的数据空间，包括上传的文档、生成的配置文件等。不同租户之间数据完全隔离，确保隐私安全。</p>
-          </div>
-          
-          <div class="card">
-            <h3 class="card-title">Q: 如何让 AI 使用我的文档回答？</h3>
-            <p class="card-desc">在「知识库」页面先上传文档，之后的对话会自动检索相关内容。</p>
-          </div>
-          
-          <div class="card">
-            <h3 class="card-title">Q: 知识库搜索不准确？</h3>
-            <p class="card-desc">确保文档内容清晰、格式规范。复杂 PDF 建议先转换为纯文本格式上传。</p>
+          <div class="accordion" id="faqAccordion">
+            <div class="accordion-item">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <span class="accordion-q">提示"未连接到服务器"怎么办？</span>
+                <div class="accordion-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-answer">确保后端服务正在运行（执行 <code style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-size:12px;">python main.py</code>）。检查网络连接是否正常。</div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <span class="accordion-q">AI 回复很慢或无响应？</span>
+                <div class="accordion-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-answer">可能是模型 API 响应较慢，或网络连接不稳定。可以检查「配置」页面的模型设置是否正确。</div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <span class="accordion-q">如何下载 AI 生成的文件？</span>
+                <div class="accordion-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-answer">点击页面右上角的「下载」按钮。确保在对话中让 AI 保存了文件（如「帮我保存这篇作文」）。</div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <span class="accordion-q">多租户是什么意思？</span>
+                <div class="accordion-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-answer">每个账号（租户）有独立的数据空间，包括上传的文档、生成的配置文件等。不同租户之间数据完全隔离，确保隐私安全。</div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <span class="accordion-q">如何让 AI 使用我的文档回答？</span>
+                <div class="accordion-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-answer">在「知识库」页面先上传文档，之后的对话会自动检索相关内容。</div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <span class="accordion-q">知识库搜索不准确？</span>
+                <div class="accordion-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-answer">确保文档内容清晰、格式规范。复杂 PDF 建议先转换为纯文本格式上传。</div>
+              </div>
+            </div>
           </div>
         </section>
 
         <!-- Footer -->
-        <footer style="text-align: center; padding: 40px 0; color: var(--text-muted); font-size: 13px; border-top: 1px solid var(--border-color); margin-top: 40px;">
+        <footer>
           <p>DeepAgentForce 智能助手平台 · 让 AI 真正成为你的智能助手</p>
-          <p style="margin-top: 8px;">有问题？联系开发者或查阅项目文档</p>
+          <p>有问题？联系开发者或查阅项目文档</p>
         </footer>
 
       </div>
     </main>
 
     <!-- Quick Navigation -->
-    <div class="quick-nav">
+    <div class="quick-nav" id="quickNav">
       <a href="#quickstart" class="active" title="快速开始"></a>
       <a href="#features" title="核心功能"></a>
-      <a href="#downloads" title="文件下载"></a>
       <a href="#chat" title="智能对话"></a>
       <a href="#knowledge" title="知识库"></a>
       <a href="#skills" title="Agent Skills"></a>
-      <a href="#skills-demo" title="Skill 演示"></a>
+      <a href="#downloads" title="文件下载"></a>
       <a href="#config" title="模型配置"></a>
+      <a href="#shortcuts" title="键盘快捷键"></a>
       <a href="#faq" title="常见问题"></a>
+    </div>
+
+    <!-- Back to Top -->
+    <div class="back-to-top" id="backToTop" onclick="scrollToTop()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
     </div>
   </div>
 
   <script>
-    // Smooth scroll for nav links
+    // ==================== Navigation ====================
     document.querySelectorAll('.nav-item').forEach(link => {
       link.addEventListener('click', function(e) {
         e.preventDefault();
@@ -1015,8 +1351,6 @@
         if (target) {
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-        
-        // Update active state
         document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
         this.classList.add('active');
       });
@@ -1028,9 +1362,7 @@
         e.preventDefault();
         const targetId = this.getAttribute('href').substring(1);
         const target = document.getElementById(targetId);
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     });
 
@@ -1038,30 +1370,121 @@
     const sections = document.querySelectorAll('.section[id]');
     const navItems = document.querySelectorAll('.nav-item');
     const quickNavItems = document.querySelectorAll('.quick-nav a');
-    
+
     window.addEventListener('scroll', () => {
       let current = '';
       sections.forEach(section => {
         const sectionTop = section.offsetTop;
-        const sectionHeight = section.clientHeight;
-        if (scrollY >= sectionTop - 200) {
+        if (window.scrollY >= sectionTop - 220) {
           current = section.getAttribute('id');
         }
       });
 
       navItems.forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('href') === '#' + current) {
-          item.classList.add('active');
-        }
+        if (item.getAttribute('href') === '#' + current) item.classList.add('active');
       });
 
       quickNavItems.forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('href') === '#' + current) {
-          item.classList.add('active');
-        }
+        if (item.getAttribute('href') === '#' + current) item.classList.add('active');
       });
+
+      // Back to top button
+      const btn = document.getElementById('backToTop');
+      if (window.scrollY > 400) {
+        btn.classList.add('show');
+      } else {
+        btn.classList.remove('show');
+      }
+    });
+
+    function scrollToTop() {
+      document.getElementById('mainContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ==================== FAQ Accordion ====================
+    function toggleAccordion(header) {
+      const item = header.parentElement;
+      const wasOpen = item.classList.contains('open');
+
+      // Close all
+      document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('open'));
+
+      // Toggle clicked
+      if (!wasOpen) item.classList.add('open');
+    }
+
+    // ==================== Search ====================
+    const searchData = [
+      { id: 'quickstart', title: '快速开始', section: '开始', keywords: '注册 登录 配置模型 开始使用 新手' },
+      { id: 'features', title: '核心功能', section: '开始', keywords: '功能 特性 智能对话 知识库 Agent Skills 多租户' },
+      { id: 'chat', title: '智能对话', section: '使用指南', keywords: '提问 发送 上传文件 多会话 历史记录 对话' },
+      { id: 'knowledge', title: '知识库', section: '使用指南', keywords: '文档 PDF Word TXT Markdown 上传 检索 RAG' },
+      { id: 'skills', title: 'Agent Skills', section: '使用指南', keywords: '技能 工具 PDF处理 联网搜索 RAG 自定义' },
+      { id: 'downloads', title: '文件下载', section: '使用指南', keywords: '下载 保存 文件 输出' },
+      { id: 'config', title: '模型配置', section: '使用指南', keywords: '配置 API Key 模型 LLM URL OpenRouter' },
+      { id: 'shortcuts', title: '键盘快捷键', section: '参考', keywords: '快捷键 Ctrl Enter Shift Esc' },
+      { id: 'faq', title: '常见问题', section: '参考', keywords: 'FAQ 问题 故障 排查 未连接 响应慢' },
+    ];
+
+    const searchInput = document.getElementById('helpSearch');
+    const searchResults = document.getElementById('searchResults');
+
+    function highlight(text, query) {
+      if (!query) return text;
+      const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+      return text.replace(regex, '<mark>$1</mark>');
+    }
+
+    function doSearch(query) {
+      if (!query.trim()) {
+        searchResults.classList.remove('show');
+        return;
+      }
+      const q = query.toLowerCase();
+      const matches = searchData.filter(item =>
+        item.title.toLowerCase().includes(q) ||
+        item.keywords.toLowerCase().includes(q)
+      );
+
+      if (matches.length === 0) {
+        searchResults.innerHTML = '<div class="search-no-results">未找到匹配内容</div>';
+      } else {
+        searchResults.innerHTML = matches.map(item =>
+          '<div class="search-result-item" onclick="goToSection(\'' + item.id + '\')">' +
+            '<div class="result-title">' + highlight(item.title, query) + '</div>' +
+            '<div class="result-section">' + item.section + '</div>' +
+          '</div>'
+        ).join('');
+      }
+      searchResults.classList.add('show');
+    }
+
+    function goToSection(id) {
+      searchResults.classList.remove('show');
+      searchInput.value = '';
+      const target = document.getElementById(id) || document.getElementById(id + '-section');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      const navLink = document.querySelector('.nav-item[href="#' + id + '"]');
+      if (navLink) navLink.classList.add('active');
+    }
+
+    searchInput.addEventListener('input', function() { doSearch(this.value); });
+    searchInput.addEventListener('focus', function() { if (this.value) doSearch(this.value); });
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.search-bar')) searchResults.classList.remove('show');
+    });
+
+    // Keyboard shortcut: Ctrl+K
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+      }
     });
   </script>
 </body>

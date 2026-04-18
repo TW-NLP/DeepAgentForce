@@ -1,6 +1,6 @@
 # =============================================================================
 # DeepAgentForce .dockerignore
-# 排除不需要复制到镜像的文件
+# 构建时不复制到镜像的文件
 # =============================================================================
 
 # Git
@@ -48,12 +48,7 @@ venv.bak/
 # Docker 相关（防止循环构建）
 Dockerfile
 docker-compose.yml
-*.sh
 .dockerignore
-
-# 数据文件（运行时挂载）
-data/
-mysql-init/
 
 # 文档
 *.md
@@ -69,12 +64,12 @@ tests/
 .AppleDouble
 .LSOverride
 
-# Node.js（如果有用到）
+# Node.js
 node_modules/
 npm-debug.log
 yarn-error.log
 
-# Electron（桌面应用相关）
+# Electron
 electron/node_modules/
 electron/dist/
 electron/build/
@@ -87,12 +82,27 @@ logs/
 *.bak
 *.tmp
 /.vscode/
-*.pyc
-/config/saved_config.json
-/config/saved_history.json
-/uploads/
-/data/
-/tests/
-/output/
-.env
-/pdfs/
+
+# =============================================================================
+# 运行时数据目录（通过 docker-compose volume 挂载，不打入镜像）
+# =============================================================================
+# macOS 隐藏文件
+data/.DS_Store
+data/.milvus.db.lock
+# 用户上传的文档
+data/uploads/
+# 会话历史记录
+data/history/
+# AI 生成的文件
+data/outputs/
+# RAG 向量索引数据库
+data/rag_storage/
+data/milvus.db
+# 用户配置（每个租户独立）
+data/saved_config.json
+data/saved_config_*.json
+# 用户画像
+data/person_like.json
+data/person_like_*.json
+# 工具脚本（不属于主应用）
+data/claw.py
