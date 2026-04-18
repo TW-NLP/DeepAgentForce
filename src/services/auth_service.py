@@ -12,6 +12,7 @@ from config.settings import get_settings
 import logging
 import uuid
 import bcrypt
+from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -102,37 +103,38 @@ class AuthService:
         email: str,
         password: str,
         full_name: str = None,
-        tenant_name: str = None,
-        tenant_code: str = None,
     ) -> dict:
-        """注册新用户 - 自动生成 tenant_uuid"""
+        """注册新用户 - 每个用户自动拥有独立的私有租户"""
         db = SyncSessionLocal()
         try:
+            # 验证用户名格式（基本校验）
+            if len(username) < 3:
+                return {"success": False, "error": "用户名至少需要3个字符"}
+            if not username.replace('_', '').isalnum():
+                return {"success": False, "error": "用户名只能包含字母、数字和下划线"}
+
+            # 验证密码格式
+            if len(password) < 6:
+                return {"success": False, "error": "密码至少需要6个字符"}
+
             # 检查用户名是否已存在
             existing_user = db.query(User).filter(User.username == username).first()
             if existing_user:
-                return {"success": False, "error": "用户名已存在"}
+                return {"success": False, "error": "用户名已存在，请使用其他用户名"}
 
             # 检查邮箱是否已存在
             existing_email = db.query(User).filter(User.email == email).first()
             if existing_email:
-                return {"success": False, "error": "邮箱已被注册"}
+                return {"success": False, "error": "该邮箱已被注册，请使用其他邮箱或尝试登录"}
 
-            # 创建或获取租户（自动生成 uuid）
-            tenant = None
-            if tenant_name and tenant_code:
-                # 创建新租户时会自动生成 uuid
-                tenant = Tenant(
-                    name=tenant_name,
-                    code=tenant_code,
-                    description=f"{tenant_name} 的工作空间",
-                )
-                db.add(tenant)
-                db.flush()
-            elif tenant_code:
-                tenant = db.query(Tenant).filter(Tenant.code == tenant_code).first()
-                if not tenant:
-                    return {"success": False, "error": "租户代码不存在"}
+            # 自动为用户创建私有租户（使用用户名作为租户标识）
+            tenant = Tenant(
+                name=f"{username}_space",
+                code=f"user_{username}",
+                description=f"{username} 的个人工作空间",
+            )
+            db.add(tenant)
+            db.flush()
 
             # 创建用户
             hashed_password = self.get_password_hash(password)
@@ -141,26 +143,23 @@ class AuthService:
                 email=email,
                 hashed_password=hashed_password,
                 full_name=full_name,
-                tenant_id=tenant.id if tenant else None,
-                tenant_uuid=tenant.uuid if tenant else None,  # 🆕 设置 tenant_uuid
+                tenant_id=tenant.id,
+                tenant_uuid=tenant.uuid,
                 role=UserRole.ADMIN,
             )
             db.add(user)
             db.commit()
             db.refresh(user)
 
-            # 获取租户 uuid 用于 token
-            tenant_uuid = tenant.uuid if tenant else None
-
-            # 生成 Token（使用 tenant_uuid）
+            # 生成 Token
             access_token = self.create_access_token(
                 user_id=user.id,
                 username=user.username,
-                tenant_uuid=tenant_uuid
+                tenant_uuid=tenant.uuid
             )
             refresh_token = self.create_refresh_token(
                 user_id=user.id,
-                tenant_uuid=tenant_uuid
+                tenant_uuid=tenant.uuid
             )
 
             return {
@@ -173,18 +172,30 @@ class AuthService:
                     "full_name": user.full_name,
                     "role": user.role.value,
                     "tenant_id": user.tenant_id,
-                    "tenant_uuid": tenant_uuid,  # 🆕 返回 tenant_uuid
-                    "tenant_name": tenant.name if tenant else None,
+                    "tenant_uuid": tenant.uuid,
+                    "tenant_name": tenant.name,
                 },
                 "access_token": access_token,
                 "refresh_token": refresh_token,
                 "token_type": "bearer",
             }
 
+        except IntegrityError as e:
+            db.rollback()
+            error_msg = str(e)
+            logger.warning(f"注册时发生数据完整性错误: {error_msg}")
+
+            if "users.username" in error_msg:
+                return {"success": False, "error": "用户名已存在，请使用其他用户名"}
+            elif "users.email" in error_msg:
+                return {"success": False, "error": "该邮箱已被注册，请使用其他邮箱或尝试登录"}
+            else:
+                return {"success": False, "error": "注册失败，可能是数据冲突，请稍后重试"}
+
         except Exception as e:
             db.rollback()
             logger.error(f"注册失败: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"注册失败: {str(e)}"}
         finally:
             db.close()
 

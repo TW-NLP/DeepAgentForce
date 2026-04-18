@@ -111,87 +111,97 @@ function updateStats() {
 // ==================== 渲染 Skills ====================
 
 function renderSkills() {
-    const grid = document.getElementById('skillsGrid');
+    var grid = document.getElementById('skillsGrid');
+    if (!grid) return;
     grid.innerHTML = '';
 
-    // 添加"添加 Skill"卡片
-    const addCard = document.createElement('div');
-    addCard.className = 'add-skill-card';
-    addCard.onclick = () => openSkillModal();
-    addCard.innerHTML = `
-        <div class="add-skill-icon">➕</div>
-        <div class="add-skill-title">添加新 Skill</div>
-        <div class="add-skill-hint">上传自定义技能插件</div>
-    `;
+    // 添加"添加技能"卡片
+    var addCard = document.createElement('div');
+    addCard.className = 'sp-add-card';
+    addCard.onclick = function() { openSkillModal(); };
+    addCard.innerHTML = '<div class="sp-add-icon">+</div><div class="sp-add-title">添加新技能</div><div class="sp-add-hint">上传自定义技能插件</div>';
     grid.appendChild(addCard);
 
+    // 更新计数
+    var count = document.getElementById('skillCount');
+    var countBadge = document.getElementById('skillCountBadge');
+    var scriptCount = document.getElementById('skillScriptCount');
+    if (count) count.textContent = skills.length;
+    if (countBadge) countBadge.textContent = skills.length;
+    if (scriptCount) {
+        var custom = skills.filter(function(s) {
+            return ['pdf-processing', 'rag-query', 'web-search'].indexOf(s.id) === -1;
+        }).length;
+        scriptCount.textContent = custom;
+    }
+
     // 渲染每个 Skill 卡片
-    skills.forEach(skill => {
-        const card = createSkillCard(skill);
+    skills.forEach(function(skill) {
+        var card = createSkillCard(skill);
         grid.appendChild(card);
     });
 }
 
 function createSkillCard(skill) {
-    const card = document.createElement('div');
-    card.className = 'skill-card';
+    var card = document.createElement('div');
+    card.className = 'sp-card';
 
-    const isBuiltIn = ['pdf-processing', 'rag-query', 'web-search'].includes(skill.id);
-    const icon = getSkillIcon(skill.id);
+    var isBuiltIn = ['pdf-processing', 'rag-query', 'web-search'].indexOf(skill.id) !== -1;
+    var iconClass = getIconClass(skill.id);
+    var iconText = getIconText(skill.id);
 
-    card.innerHTML = `
-        <div class="skill-card-header">
-            <div class="skill-icon">${icon}</div>
-            <div class="skill-info">
-                <div class="skill-name">${skill.name}</div>
-                <div class="skill-version">
-                    <span>v${skill.version}</span>
-                    ${isBuiltIn ? '<span class="badge">内置</span>' : ''}
-                </div>
-            </div>
-        </div>
-        <div class="skill-description">${skill.description || '暂无描述'}</div>
-        <div class="skill-meta">
-            <div class="skill-meta-item">
-                <span>📜</span>
-                <span>${skill.script_count} 个脚本</span>
-            </div>
-            <div class="skill-meta-item">
-                <span>👤</span>
-                <span>${skill.author || '未知'}</span>
-            </div>
-        </div>
-        ${skill.tags && skill.tags.length > 0 ? `
-            <div class="skill-tags">
-                ${skill.tags.map(tag => `<span class="skill-tag">${tag}</span>`).join('')}
-            </div>
-        ` : ''}
-        <div class="skill-card-actions">
-            <button class="skill-action-btn" onclick="viewSkill('${skill.id}')">
-                👁️ 查看
-            </button>
-            <button class="skill-action-btn primary" onclick="viewSkill('${skill.id}')">
-                ✏️ 编辑
-            </button>
-            ${!isBuiltIn ? `
-                <button class="skill-action-btn danger" onclick="confirmDelete('${skill.id}')">
-                    🗑️
-                </button>
-            ` : ''}
-        </div>
-    `;
+    var badge = isBuiltIn
+        ? '<span class="sp-badge sp-badge-builtin">内置</span>'
+        : '<span class="sp-badge sp-badge-custom">自定义</span>';
+
+    var deleteBtn = !isBuiltIn
+        ? '<button class="sp-action-btn danger" onclick="confirmDelete(\'' + skill.id + '\')" title="删除"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>'
+        : '';
+
+    card.innerHTML =
+        '<div class="sp-card-top">' +
+            '<div class="sp-card-icon ' + iconClass + '">' + iconText + '</div>' +
+            '<div>' +
+                '<div class="sp-card-name">' + skill.name + ' ' + badge + '</div>' +
+                '<div class="sp-card-ver">v' + skill.version + ' · ' + (skill.author || '未知作者') + '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="sp-card-desc">' + (skill.description || '暂无描述') + '</div>' +
+        (skill.tags && skill.tags.length > 0
+            ? '<div class="sp-card-tags">' + skill.tags.map(function(t) { return '<span class="sp-card-tag">' + t + '</span>'; }).join('') + '</div>'
+            : '') +
+        '<div class="sp-card-bottom">' +
+            '<div class="sp-card-meta">' + (skill.script_count || 0) + ' 个脚本</div>' +
+            '<div class="sp-card-actions">' +
+                '<button class="sp-action-btn view" onclick="viewSkill(\'' + skill.id + '\')" title="查看"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
+                (!isBuiltIn ? '<button class="sp-action-btn edit" onclick="editSkill(\'' + skill.id + '\')" title="编辑"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' : '') +
+                deleteBtn +
+            '</div>' +
+        '</div>';
 
     return card;
 }
 
-function getSkillIcon(skillId) {
-    const iconMap = {
-        'pdf-processing': '📄',
-        'rag-query': '🔍',
-        'web-search': '🌐',
-        'default': '🛠️'
+function getIconClass(skillId) {
+    var map = {
+        'pdf-processing': 'blue',
+        'rag-query': 'green',
+        'web-search': 'orange'
     };
-    return iconMap[skillId] || iconMap['default'];
+    return map[skillId] || 'default';
+}
+
+function getIconText(skillId) {
+    var map = {
+        'pdf-processing': 'PDF',
+        'rag-query': 'RAG',
+        'web-search': 'WEB'
+    };
+    return map[skillId] || 'SK';
+}
+
+function getSkillIcon(skillId) {
+    return getIconText(skillId);
 }
 
 // ==================== Modal 操作 ====================
@@ -472,77 +482,57 @@ async function viewSkill(skillId) {
 }
 
 function openViewModal(skillId, data) {
-    const modal = document.getElementById('viewModal');
-    const title = document.getElementById('viewModalTitle');
-    const body = document.getElementById('viewModalBody');
+    var modal = document.getElementById('viewModal');
+    var title = document.getElementById('viewModalTitle');
+    var body = document.getElementById('viewModalBody');
 
     if (!modal || !title || !body) {
         console.error('ViewModal elements not found');
         return;
     }
 
-    const skill = skills.find(s => s.id === skillId);
+    var skill = skills.find(function(s) { return s.id === skillId; });
     if (!skill) return;
 
-    title.textContent = skill.name;
+    var isBuiltIn = ['pdf-processing', 'rag-query', 'web-search'].indexOf(skill.id) !== -1;
+    var iconClass = getIconClass(skill.id);
+    var iconText = getIconText(skill.id);
+    var badgeText = isBuiltIn ? '内置' : '自定义';
 
-    // 渲染内容
-    let scriptsHtml = '';
-    if (data.scripts && Object.keys(data.scripts).length > 0) {
-        scriptsHtml = `
-            <div class="form-section">
-                <div class="form-section-title">📜 脚本列表</div>
-                <div class="script-list">
-                    ${Object.entries(data.scripts).map(([name, content]) => `
-                        <div class="script-item" style="flex-direction: column; align-items: stretch;">
-                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                                <div class="script-icon">🐍</div>
-                                <div class="script-name">${name}</div>
-                            </div>
-                            <pre class="code-block">${escapeHtml(content)}</pre>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
+    title.textContent = '查看技能';
+
+    body.innerHTML =
+        '<div class="detail-header">' +
+            '<div class="detail-icon ' + iconClass + '">' + iconText + '</div>' +
+            '<div class="detail-title">' +
+                '<h3>' + skill.name + '</h3>' +
+                '<span class="detail-type">' + badgeText + '</span>' +
+            '</div>' +
+        '</div>' +
+        '<div class="detail-desc">' + (skill.description || '暂无描述') + '</div>' +
+        '<div class="detail-meta">' +
+            '<div class="detail-meta-item">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+                'v' + skill.version +
+            '</div>' +
+            '<div class="detail-meta-item">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+                (skill.author || '未知作者') +
+            '</div>' +
+            '<div class="detail-meta-item">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+                (skill.script_count || 0) + ' 个脚本' +
+            '</div>' +
+        '</div>';
+
+    // 控制脚注按钮显示
+    var footer = modal.querySelector('.modal-footer');
+    if (footer) {
+        var editBtn = footer.querySelector('[onclick="editCurrentSkill()"]');
+        var deleteBtn = footer.querySelector('[onclick="deleteCurrentSkill()"]');
+        if (editBtn) editBtn.style.display = isBuiltIn ? 'none' : '';
+        if (deleteBtn) deleteBtn.style.display = isBuiltIn ? 'none' : '';
     }
-
-    body.innerHTML = `
-        <div class="form-section">
-            <div class="form-section-title">📝 基本信息</div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">名称</label>
-                    <div class="info-value">${skill.name}</div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">版本</label>
-                    <div class="info-value">v${skill.version}</div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">描述</label>
-                <div class="info-value">${skill.description || '暂无描述'}</div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">作者</label>
-                    <div class="info-value">${skill.author || '未知'}</div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">脚本数量</label>
-                    <div class="info-value">${skill.script_count}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-section">
-            <div class="form-section-title">📄 SKILL.md 内容</div>
-            <pre class="code-block">${escapeHtml(data.skill_md || '')}</pre>
-        </div>
-
-        ${scriptsHtml}
-    `;
 
     modal.classList.add('active');
 }
@@ -661,7 +651,13 @@ function escapeHtml(text) {
 
 // 暴露给全局
 window.viewSkill = viewSkill;
+// 直接打开编辑弹窗
+function editSkill(skillId) {
+    openSkillModal(skillId);
+}
+
 window.openSkillModal = openSkillModal;
+window.editSkill = editSkill;
 window.closeSkillModal = closeSkillModal;
 window.addScriptField = addScriptField;
 window.removeScriptField = removeScriptField;

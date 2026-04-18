@@ -28,8 +28,6 @@ class RegisterRequest(BaseModel):
     email: EmailStr = Field(..., description="邮箱")
     password: str = Field(..., min_length=6, max_length=100, description="密码")
     full_name: Optional[str] = Field(None, max_length=100, description="真实姓名")
-    tenant_name: Optional[str] = Field(None, max_length=100, description="租户名称（创建新租户时填写）")
-    tenant_code: Optional[str] = Field(None, max_length=50, description="租户代码（加入已有租户时填写）")
 
 
 class LoginRequest(BaseModel):
@@ -80,7 +78,7 @@ async def register(request: RegisterRequest):
     """
     注册新用户
 
-    - 支持创建新租户或加入已有租户
+    - 每个用户自动拥有独立的私有工作空间
     - 注册成功后自动登录并返回 Token
     """
     logger.info(f"收到注册请求: {request.username}, {request.email}")
@@ -90,8 +88,6 @@ async def register(request: RegisterRequest):
         email=request.email,
         password=request.password,
         full_name=request.full_name,
-        tenant_name=request.tenant_name,
-        tenant_code=request.tenant_code,
     )
 
     if not result.get("success"):

@@ -803,10 +803,13 @@ async def update_config(request: Request, config: Dict[str, Any]):
     engine = request.app.state.engine
     tenant_id = get_tenant_uuid_from_request(request)  # 🆕
     try:
+        logger.info(f"[Config] 收到配置更新请求，tenant={tenant_id}, config={config}")
         updated_nested_config = save_config_to_file(config, tenant_uuid=tenant_id)  # 🆕
+        logger.info(f"[Config] 配置已保存: {updated_nested_config}")
         engine.init_service(tenant_uuid=tenant_id)  # 🆕
         return ConfigResponse(success=True, message="配置已保存，在新的对话中生效。", config=updated_nested_config)
     except Exception as e:
+        logger.error(f"[Config] 保存配置失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/person_like", tags=["个人偏好挖掘"])
@@ -1032,6 +1035,9 @@ async def proofread_text(
     tenant_uuid = get_tenant_uuid_from_request(request)
 
     try:
+        # 打印校对配置
+        settings = engine.proofread_service.settings
+        logger.info(f"[Proofread API] tenant={tenant_uuid}, PROOFREAD_USE_DEDICATED={getattr(settings, 'PROOFREAD_USE_DEDICATED', False)}, PROOFREAD_MODEL={getattr(settings, 'PROOFREAD_MODEL', '')}")
         service = engine.proofread_service
         result = await service.proofread_text(body.text)
         return result
@@ -1074,6 +1080,9 @@ async def proofread_text_stream(
     tenant_uuid = get_tenant_uuid_from_request(request)
 
     try:
+        # 打印校对配置
+        settings = engine.proofread_service.settings
+        logger.info(f"[Proofread Stream API] tenant={tenant_uuid}, PROOFREAD_USE_DEDICATED={getattr(settings, 'PROOFREAD_USE_DEDICATED', False)}, PROOFREAD_MODEL={getattr(settings, 'PROOFREAD_MODEL', '')}")
         service = engine.proofread_service
 
         async def event_generator():
@@ -1095,7 +1104,8 @@ async def proofread_text_stream(
             from src.services.proofread_service import split_paragraph_lst, BATCH_SIZE
             paragraphs = body.text.split('\n')
             chunks, _ = await split_paragraph_lst(paragraphs)
-            rule_issues = service._rule_based_check(body.text)
+            # 规则引擎已禁用，避免与 LLM 重复
+            rule_issues = []
             total_batches = max(1, (len(chunks) + BATCH_SIZE - 1) // BATCH_SIZE)
 
             # 发送初始信息
@@ -1111,9 +1121,16 @@ async def proofread_text_stream(
 
             semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
 
+            # 检查是否使用中文纠错适配器
+            use_corrector = service._init_corrector_adapter() and service._use_chinese_corrector
+            logger.info(f"[Proofread Stream] use_corrector={use_corrector}")
+
             async def proofread_batch(batch):
                 async with semaphore:
-                    return await service._llm_proofread_batch(batch)
+                    if use_corrector:
+                        return await service._llm_proofread_batch_with_chinese_corrector(batch)
+                    else:
+                        return await service._llm_proofread_batch(batch)
 
             for i, batch in enumerate(batches):
                 result = await proofread_batch(batch)
@@ -1128,15 +1145,21 @@ async def proofread_text_stream(
                 })
                 yield f"data: {batch_data}\n\n"
 
-            # 去重
-            all_issues = service._dedupe_issues(all_issues)
+            # 合并规则引擎结果（已禁用）和去重
             all_issues.extend(rule_issues)
+            all_issues = service._dedupe_issues(all_issues)
             summary = service._generate_summary(all_issues)
+
+            # 打印返回给前端的完整数据（用于调试）
+            logger.info(f"[Proofread Stream] 返回前端数据: issues_count={len(all_issues)}, summary={summary}")
+            for idx, issue in enumerate(all_issues):
+                logger.info(f"[Proofread Stream]   issue[{idx}]: {issue}")
 
             final_data = json.dumps({
                 "type": "done",
                 "issues": all_issues,
-                "summary": summary
+                "summary": summary,
+                "reasoning": getattr(service, '_last_reasoning', '') or ''
             })
             yield f"data: {final_data}\n\n"
 

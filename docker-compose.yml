@@ -1,7 +1,4 @@
 # docker-compose.yml
-# DeepAgentForce 一键启动
-# 使用方式: docker compose up -d
-
 services:
   mysql:
     image: mysql:8.4
@@ -12,6 +9,8 @@ services:
       MYSQL_DATABASE: deepagentforce
       MYSQL_USER: agent
       MYSQL_PASSWORD: DeepAgentForce2024!
+    ports:
+      - "3306:3306"   # ✅ 新增：暴露给本机
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -25,7 +24,7 @@ services:
     container_name: deepagentforce-app
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8000:8000"   # ✅ 原本就有，生产部署时用
     environment:
       DB_HOST: mysql
       DB_PORT: 3306

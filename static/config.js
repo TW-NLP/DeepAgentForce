@@ -234,7 +234,11 @@ const FIELD_MAPPING = {
     'firecrawlUrl': 'FIRECRAWL_URL',
     'embeddingApiKey': 'EMBEDDING_API_KEY',
     'embeddingUrl': 'EMBEDDING_URL',
-    'embeddingModel': 'EMBEDDING_MODEL'
+    'embeddingModel': 'EMBEDDING_MODEL',
+    'proofreadUseDedicated': 'PROOFREAD_USE_DEDICATED',
+    'proofreadApiUrl': 'PROOFREAD_API_URL',
+    'proofreadApiKey': 'PROOFREAD_API_KEY',
+    'proofreadModel': 'PROOFREAD_MODEL'
 };
 
 async function populateConfigFields() {
@@ -242,8 +246,18 @@ async function populateConfigFields() {
     if (!config) return;
     for (const [elementId, configKey] of Object.entries(FIELD_MAPPING)) {
         const element = document.getElementById(elementId);
-        if (element && config[configKey]) {
-            element.value = config[configKey];
+        if (element && config[configKey] !== undefined) {
+            // 特殊处理 checkbox
+            if (element.type === 'checkbox') {
+                element.checked = config[configKey];
+                // 同时触发显示/隐藏专用配置区域
+                const dedicatedConfig = document.getElementById('proofreadDedicatedConfig');
+                if (dedicatedConfig) {
+                    dedicatedConfig.style.display = element.checked ? 'block' : 'none';
+                }
+            } else {
+                element.value = config[configKey];
+            }
         }
     }
 }

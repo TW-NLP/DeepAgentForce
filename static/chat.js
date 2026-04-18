@@ -8,6 +8,7 @@ let isConnected = false;
 let isProcessing = false;
 let currentThinkingContainer = null;
 let currentStreamingAnswer = null;
+let currentThinkingSteps = [];  // 当前流式消息的思考步骤数组
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 let currentSessionId = null;
@@ -346,106 +347,51 @@ function hideWelcomeScreen() {
 
 // ============ 工具函数 ============
 
-// 过滤 AI 响应的原始内部内容，只保留友好的最终结果
+// 过滤 AI 流式回答中的残留噪音（最小化处理）
 function filterAIResponse(content, removeHtmlImages = false) {
     if (!content || typeof content !== 'string') return content;
 
-    // 移除 Skill 定义块 (--- ... --- 格式)
-    content = content.replace(/^---[\s\S]*?---\s*/gm, '');
+    // 1. 移除代码块
+    content = content.replace(/```[\w]*\n?[\s\S]*?```/g, '');
+    content = content.replace(/```[\s\S]*/g, '');
 
-    // 移除命令行格式的内容
-    content = content.replace(/^(\$\s*|```bash\n|```sh\n|```shell\n)/gm, '');
-    content = content.replace(/(\$\s*python.*$)/gm, '');
-    content = content.replace(/^(python.*$)/gm, '');
-
-    // 移除 JSON 格式的工具调用定义
-    content = content.replace(/^(\{[\s\S]*?"name":\s*"[^"]+")/gm, '');
-    content = content.replace(/(```json\n[\s\S]*?```)/g, '');
-
-    // 移除代码块中的命令
-    content = content.replace(/(python \/.*?\.py)/g, '');
-
-    // 移除 Markdown 图片语法
-    content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
-
-    // 移除搜索日志信息（多种格式）
-    content = content.replace(/成功从\s*[\/].*?加载配置\s*/g, '');
-    content = content.replace(/🔍\s*Searching for:.*$/gm, '');
-    content = content.replace(/Searching for:.*$/gm, '');
-
-    // 移除 JSON 代码块（多行）
-    content = content.replace(/```json\s*[\s\S]*?```/g, '');
-
-    // 移除 "根据搜索结果" 之后的所有内容
-    content = content.replace(/根据搜索结果[\s\S]*$/gm, '');
-    content = content.replace(/根据查询结果[\s\S]*$/gm, '');
-
-    // 使用更强大的 JSON 移除逻辑：检测包含 query/total_results/results 的行，然后移除连续的多行 JSON
-    const lines = content.split('\n');
-    const filteredLines = [];
-    let inJsonBlock = false;
-    let braceCount = 0;
-    let skipUntilMeaningfulContent = false;
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        // 检测是否是 JSON 开始的行
-        if (!inJsonBlock && (line.includes('"query"') || line.includes('"total_results"') || line.includes('"results"'))) {
-            inJsonBlock = true;
-            braceCount = 0;
-            skipUntilMeaningfulContent = false;
-        }
-
-        if (inJsonBlock) {
-            // 统计大括号
-            braceCount += (line.match(/\{/g) || []).length;
-            braceCount -= (line.match(/\}/g) || []).length;
-
-            // 如果 JSON 结束
-            if (braceCount <= 0 && line.includes('}')) {
-                inJsonBlock = false;
-            }
-            continue; // 跳过这行
-        }
-
-        // 检测 "根据搜索结果" 之后的内容
-        if (line.includes('根据搜索结果') || line.includes('根据查询结果')) {
-            skipUntilMeaningfulContent = true;
-            continue;
-        }
-
-        // 如果正在跳过，检查是否有有意义的内容（新段落）
-        if (skipUntilMeaningfulContent) {
-            // 如果是空行或只有空白，继续跳过
-            if (line.trim() === '' || line.match(/^\s+$/)) {
-                continue;
-            }
-            // 如果是正常内容段落（不以 { 或 [ 开头）
-            if (!line.trim().startsWith('{') && !line.trim().startsWith('[')) {
-                skipUntilMeaningfulContent = false;
-            } else {
-                continue;
-            }
-        }
-
-        filteredLines.push(line);
-    }
-
-    content = filteredLines.join('\n');
-
-    // 如果需要，移除 HTML img 标签
+    // 2. 移除 HTML img
     if (removeHtmlImages) {
         content = content.replace(/<img[^>]*>/gi, '');
     }
 
-    // 清理多余的空行
-    content = content.replace(/\n{3,}/g, '\n\n');
+    // 3. 移除工具/脚本原始输出的噪音内容
+    const noisePatterns = [
+        // 分隔线（各种样式）
+        /^={3,}.*$|\|={3,}/gm,
+        // 配置加载信息
+        /✅?\s*成功从\s+[\/\w\-\.]+\.json\s+加载配置/gi,
+        // RAG 查询结果头部
+        /📘\s*RAG Query Result[\s🏢]*.*$/gim,
+        // RAG 结果尾部信息
+        /⏱\s*Processing Time:[\s\d\.s]+/gi,
+        // 问句标记
+        /❓\s*Question:.*$/gim,
+        // 答案标记
+        /✅?\s*Answer:?\s*$/gim,
+        // 错误/警告信息
+        /❌\s*(Error|Query failed|HTTP request failed|Unexpected error):?\s*/gi,
+        /⚠️\s*Warning:.*$/gi,
+        // Skill 执行结果标记
+        /📁\s*Skill Execution Result/gi,
+        // 租户信息
+        /🏢\s*Tenant:[\s\w\-]+/gi,
+        // 工具调用输出（行首的 emoji + 描述模式）
+        /^[🔧⚙️🔨📋📊📄📝]+.*$/gm,
+        // 各种常见脚本输出前缀
+        /^(使用|当前|加载|读取|保存|写入|执行|查询|搜索|更新|删除|创建|初始化)[\s\S]{0,50}$/gm,
+    ];
 
-    // 去除首尾空白
-    content = content.trim();
+    for (const pattern of noisePatterns) {
+        content = content.replace(pattern, '');
+    }
 
-    return content;
+    return content.trim();
 }
 
 function addMessage(role, content) {
@@ -495,114 +441,177 @@ function addMessage(role, content) {
 }
 
 function handleTokenUpdate(token) {
-    const statusEl = document.getElementById('processingStatus');
-    if (statusEl) statusEl.remove();
-
     if (!currentStreamingAnswer) {
         currentStreamingAnswer = document.createElement('div');
-        currentStreamingAnswer.className = 'message message-assistant';
-        const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        currentStreamingAnswer.className = 'message message-streaming';
         currentStreamingAnswer.innerHTML = `
             <div class="message-avatar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
             </div>
             <div class="message-content">
-                <div class="message-text streaming" data-raw=""><span class="cursor-blink">▎</span></div>
+                <div class="streaming-body">
+                    <div class="streaming-thinking"></div>
+                    <div class="streaming-final"><span class="streaming-cursor">▎</span></div>
+                </div>
             </div>
         `;
         messagesWrapper.appendChild(currentStreamingAnswer);
+        currentThinkingSteps = [];
     }
 
-    const contentDiv = currentStreamingAnswer.querySelector('.message-content .message-text');
-    const cursor = contentDiv.querySelector('.cursor-blink');
-    const currentRaw = contentDiv.dataset.raw || '';
+    const finalEl = currentStreamingAnswer.querySelector('.streaming-final');
+    const currentRaw = finalEl.dataset.raw || '';
     const newRaw = currentRaw + token;
-    contentDiv.dataset.raw = newRaw;
+    finalEl.dataset.raw = newRaw;
 
-    if (cursor) cursor.remove();
-
-    // 流式输出时先过滤不需要的内容，只做 HTML 转义
-    let filteredRaw = filterAIResponse(newRaw, false);
-    filteredRaw = escapeHtml(filteredRaw).replace(/\n/g, '<br>');
-    contentDiv.innerHTML = filteredRaw + '<span class="cursor-blink">▎</span>';
-
+    const filtered = filterAIResponse(newRaw, false);
+    const escaped = filtered
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+    finalEl.innerHTML = escaped + '<span class="streaming-cursor">▎</span>';
     scrollToBottom();
 }
 
 function handleDone(finalMessage) {
-    const statusEl = document.getElementById('processingStatus');
-    if (statusEl) statusEl.remove();
-
-    // 过滤原始内容
-    finalMessage = filterAIResponse(finalMessage);
-
     if (currentStreamingAnswer) {
-        const contentDiv = currentStreamingAnswer.querySelector('.message-content .message-text');
-        contentDiv.classList.remove('streaming');
-        if (finalMessage) {
-            // 完成后过滤并解析 markdown
-            let filtered = filterAIResponse(finalMessage, false);
-            if (typeof marked !== 'undefined') {
-                let parsed = marked.parse(filtered);
-                parsed = filterAIResponse(parsed, true); // 移除 HTML img
-                contentDiv.innerHTML = parsed;
-            } else {
-                contentDiv.innerHTML = escapeHtml(filtered);
+        currentStreamingAnswer.className = 'message message-final';
+        const finalEl = currentStreamingAnswer.querySelector('.streaming-final');
+        const thinkingEl = currentStreamingAnswer.querySelector('.streaming-thinking');
+        const cleaned = filterAIResponse(finalMessage || '', false);
+
+        if (cleaned.trim()) {
+            finalEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(cleaned) : escapeHtml(cleaned);
+        } else {
+            finalEl.style.display = 'none';
+        }
+
+        if (!thinkingEl.querySelector('.thinking-process') || currentThinkingSteps.length === 0) {
+            thinkingEl.style.display = 'none';
+        } else {
+            // 平滑过渡：先折叠，再淡出，最后隐藏
+            const header = thinkingEl.querySelector('.thinking-header');
+            const content = thinkingEl.querySelector('.thinking-content');
+            if (header && content) {
+                header.classList.add('collapsed');
+                content.classList.add('collapsed');
+
+                // 延迟添加淡出动画，让折叠动画先完成
+                setTimeout(() => {
+                    thinkingEl.style.transition = 'opacity 0.4s ease, max-height 0.4s ease';
+                    thinkingEl.style.opacity = '0';
+                    thinkingEl.style.maxHeight = '0';
+                    thinkingEl.style.overflow = 'hidden';
+
+                    setTimeout(() => {
+                        thinkingEl.style.display = 'none';
+                        thinkingEl.style.opacity = '1';
+                        thinkingEl.style.maxHeight = '';
+                        thinkingEl.style.transition = '';
+                    }, 400);
+                }, 300);
             }
         }
-    } else if (finalMessage) {
-        addMessage('assistant', finalMessage);
+
+        currentStreamingAnswer = null;
+        currentThinkingSteps = [];
     }
 
-    currentStreamingAnswer = null;
     isProcessing = false;
-
     if (sendButton) sendButton.disabled = false;
-    if (messageInput) {
-        messageInput.disabled = false;
-        messageInput.focus();
-    }
-
+    if (messageInput) { messageInput.disabled = false; messageInput.focus(); }
     loadSavedHistory();
 }
 
 function handleError(msg) {
+    if (currentStreamingAnswer) {
+        currentStreamingAnswer.remove();
+        currentStreamingAnswer = null;
+        currentThinkingSteps = [];
+    }
     addMessage('assistant', `❌ 错误: ${escapeHtml(msg)}`);
     isProcessing = false;
     if (sendButton) sendButton.disabled = false;
     if (messageInput) messageInput.disabled = false;
 }
 
-// ============ 5. 步骤处理 ============
+// ============ 5. 步骤处理（Claude/Gemini 风格） ============
 function handleStepUpdate(payload) {
     hideWelcomeScreen();
     const { step, title, description } = payload.data || payload;
+    const timestamp = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    if (currentStreamingAnswer) {
-        const textEl = currentStreamingAnswer.querySelector('.processing-text');
-        if (textEl) textEl.textContent = title || '处理中';
-    } else {
-        const statusDiv = document.createElement('div');
-        statusDiv.className = 'message message-assistant';
-        statusDiv.id = 'processingStatus';
-        statusDiv.innerHTML = `
+    if (!currentStreamingAnswer) {
+        currentStreamingAnswer = document.createElement('div');
+        currentStreamingAnswer.className = 'message message-streaming';
+        currentStreamingAnswer.innerHTML = `
             <div class="message-avatar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
             </div>
             <div class="message-content">
-                <div class="processing-indicator">
-                    <div class="processing-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-                    <span class="processing-text">${escapeHtml(title || '处理中')}</span>
+                <div class="streaming-body">
+                    <div class="streaming-thinking"></div>
+                    <div class="streaming-final"><span class="streaming-cursor">▎</span></div>
                 </div>
-                ${description ? `<div class="processing-description">${escapeHtml(description)}</div>` : ''}
             </div>
         `;
-        messagesWrapper.appendChild(statusDiv);
-        scrollToBottom();
+        messagesWrapper.appendChild(currentStreamingAnswer);
+        currentThinkingSteps = [];
     }
+
+    const thinkingEl = currentStreamingAnswer.querySelector('.streaming-thinking');
+    if (!thinkingEl.querySelector('.thinking-process')) {
+        thinkingEl.innerHTML = `
+            <div class="thinking-process">
+                <div class="thinking-header collapsed" onclick="toggleThinking(this)">
+                    <span class="thinking-toggle">▼</span>
+                    <span class="thinking-title">思考过程</span>
+                    <span class="thinking-badge">0 步</span>
+                </div>
+                <div class="thinking-content collapsed"></div>
+            </div>
+        `;
+    }
+
+    const header = thinkingEl.querySelector('.thinking-header');
+    const content = thinkingEl.querySelector('.thinking-content');
+    const badge = thinkingEl.querySelector('.thinking-badge');
+
+    const cleanDesc = description ? cleanToolDescription(description) : '';
+
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'thinking-step is-new';
+    stepDiv.innerHTML = `
+        <span class="step-icon">${getStepIcon(step)}</span>
+        <div class="step-body">
+            <div class="step-title">${escapeHtml(title || '处理中')}</div>
+            ${cleanDesc ? `<div class="step-desc">${cleanDesc}</div>` : ''}
+            <div class="step-time">${timestamp}</div>
+        </div>
+    `;
+    content.appendChild(stepDiv);
+
+    currentThinkingSteps.push({ step, title, description: cleanDesc, timestamp });
+    badge.textContent = `${currentThinkingSteps.length} 步`;
+
+    setTimeout(() => stepDiv.classList.remove('is-new'), 1500);
+
+    if (header.classList.contains('collapsed')) {
+        header.classList.remove('collapsed');
+        content.classList.remove('collapsed');
+    }
+
+    scrollToBottom();
 }
 
-// ============ 6. 思考过程 ============
+// 清理工具返回的原始 description（后端已不输出原始内容，此函数保留以兼容接口）
+function cleanToolDescription(raw) {
+    if (!raw) return '';
+    return raw.trim().substring(0, 300);
+}
+
+// ============ 6. 思考过程（历史记录用） ============
 function renderThinkingSteps(steps) {
     if (!steps?.length) return;
 
@@ -612,6 +621,7 @@ function renderThinkingSteps(steps) {
         <div class="thinking-header" onclick="toggleThinking(this)">
             <span class="thinking-toggle">▼</span>
             <span class="thinking-title">思考过程</span>
+            <span class="thinking-badge">${steps.length} 步</span>
         </div>
         <div class="thinking-content"></div>
     `;
@@ -622,9 +632,10 @@ function renderThinkingSteps(steps) {
         stepDiv.className = 'thinking-step';
         stepDiv.innerHTML = `
             <span class="step-icon">${getStepIcon(step.step_type)}</span>
-            <div class="step-content">
+            <div class="step-body">
                 <div class="step-title">${escapeHtml(step.title || '处理中')}</div>
-                ${step.description ? `<div class="step-description">${escapeHtml(step.description)}</div>` : ''}
+                ${step.description ? `<div class="step-desc">${escapeHtml(step.description)}</div>` : ''}
+                ${step.timestamp ? `<div class="step-time">${step.timestamp}</div>` : ''}
             </div>
         `;
         content.appendChild(stepDiv);
@@ -636,16 +647,15 @@ function renderThinkingSteps(steps) {
 
 function toggleThinking(header) {
     const content = header.nextElementSibling;
-    const toggle = header.querySelector('.thinking-toggle');
     const isCollapsed = content.classList.toggle('collapsed');
-    toggle.classList.toggle('collapsed', isCollapsed);
-    toggle.textContent = isCollapsed ? '▶' : '▼';
+    header.classList.toggle('collapsed', isCollapsed);
 }
 
 function getStepIcon(step) {
     if (!step) return '⚙️';
     const s = step.toLowerCase();
     if (s.includes('init') || s.includes('开始')) return '🚀';
+    if (s.includes('summarize') || s.includes('生成答案')) return '✍️';
     if (s.includes('tool') && s.includes('start')) return '🔧';
     if (s.includes('tool') && s.includes('end')) return '✅';
     if (s.includes('finish') || s.includes('结束')) return '🎯';
@@ -782,6 +792,7 @@ function autoResizeTextarea() {
 function resetChatUI() {
     messagesWrapper.innerHTML = '';
     currentStreamingAnswer = null;
+    currentThinkingSteps = [];
     isProcessing = false;
     attachedFiles = [];
     renderFileAttachments();
@@ -789,6 +800,7 @@ function resetChatUI() {
 
 function startNewChat() {
     currentSessionId = null;
+    currentThinkingSteps = [];
     if (chatTitle) chatTitle.textContent = '新对话';
     messagesWrapper.innerHTML = '';
     messagesWrapper.appendChild(welcomeScreen);

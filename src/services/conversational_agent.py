@@ -35,6 +35,7 @@ def get_tenant_settings(tenant_uuid: Optional[str] = None) -> Any:
         "LLM_API_KEY", "LLM_URL", "LLM_MODEL",
         "EMBEDDING_API_KEY", "EMBEDDING_URL", "EMBEDDING_MODEL",
         "TAVILY_API_KEY", "FIRECRAWL_API_KEY", "FIRECRAWL_URL",
+        "PROOFREAD_USE_DEDICATED", "PROOFREAD_API_URL", "PROOFREAD_API_KEY", "PROOFREAD_MODEL",
     ]
     for key in field_map:
         if key in flat_config:
@@ -214,10 +215,13 @@ class ConversationalAgent:
         exec_tool = self._build_shell_tool()
 
         # ✅ 项目根路径直接注入 system prompt，Agent 无需自己 find
-        rag_cmd_example = (
-            f"python {self.project_root}/src/services/skills/rag-query/scripts/query.py "
-            f'"<问题>" --tenant-uuid {self.tenant_uuid}'
-        ) if self.project_root else "（项目根路径未找到，请设置 DEEPAGENTFORCE_ROOT）"
+        # rag_cmd_example 会插入到 f"" 的 system_prompt 中，JSON 的 { } 必须转义
+        if self.project_root:
+            _query_cmd = f"python {self.project_root}/src/services/skills/rag-query/scripts/query.py"
+            _query_args = f'"{self.tenant_uuid}"'
+            rag_cmd_example = f"{_query_cmd} {_query_args}"
+        else:
+            rag_cmd_example = "（项目根路径未找到，请设置 DEEPAGENTFORCE_ROOT）"
 
         system_prompt = f"""你是一个精确执行的智能体。闲聊直接回答，需要技能时找到对应技能并执行。
 
@@ -225,6 +229,38 @@ class ConversationalAgent:
 1. 读取技能的 SKILL.md，严格按照其中 Execution 部分的命令格式执行
 2. 区分位置参数和 --flag 参数，不得自行修改
 3. 命令必须是纯文本字符串，绝对禁止 JSON 数组格式
+
+## 输出格式规则（最最重要）
+
+### 绝对禁止在回答中出现以下内容：
+- **任何 SKILL.md 的原文或片段**（包括 name、description、version、Execution 等所有字段）
+- **任何工具的原始输出内容**（包括 JSON、API 返回结果、命令行输出）
+- **任何文件路径**（如 `/Users/...`、`<DEEPAGENTFORCE_ROOT>`、`.py` 脚本路径）
+- **任何 YAML frontmatter**（`---` 开头的内容）
+- **任何代码块内容**（\`\`\` 包围的内容）
+- **"正在使用 XX 工具"、"调用 XX 接口"、"执行 XX 命令"** 等描述
+- **"根据搜索结果"、"查询到以下内容"、"返回了 N 个结果"** 等前缀
+- **表格格式的参数说明**（如 `| Parameter | Required |` 这样的表格）
+
+### 正确做法：
+- **只输出对用户有价值的自然语言回答**
+- 工具执行后，用自己的话总结结果，不要复制工具输出
+- 如果工具没有返回有用结果，直接告诉用户"未找到相关信息"或给出建议
+- 回答应该像 ChatGPT 一样：干净、自然、直接
+
+### 回答示例（对比）：
+
+❌ 错误示例：
+```
+成功从 /path/加载配置
+SKILL.md 内容...
+根据搜索结果 [{{"title": "天气", "snippet": "..."}}]
+```
+
+✅ 正确示例：
+```
+今天北京天气晴朗，气温 15-23°C，适合户外活动。
+```
 
 ## 环境信息（已解析，直接使用，禁止再次 find）
 - 项目根路径: `{self.project_root}`
@@ -284,7 +320,15 @@ class ConversationalAgent:
             ):
                 chunk, metadata = event[0], event[1]
 
-                if hasattr(chunk, "content") and chunk.content:
+                node = metadata.get("langgraph_node") if hasattr(metadata, "get") else None
+
+                # 🆕 检测是否即将开始流式输出答案（Agent 节点 + 有内容 + token_buffer 刚开始）
+                has_content = hasattr(chunk, "content") and chunk.content
+                if node == "agent" and has_content and token_buffer == "":
+                    if self.status_callback:
+                        await self.status_callback.on_agent_summarize({})
+
+                if has_content:
                     token = chunk.content
                     if isinstance(token, str):
                         token_buffer += token
@@ -298,7 +342,7 @@ class ConversationalAgent:
                                 if self.status_callback:
                                     await self.status_callback.on_token(text)
 
-                node = metadata.get("langgraph_node") if hasattr(metadata, "get") else None
+                # 🆕 工具调用状态
                 if node == "agent" and hasattr(chunk, "tool_calls") and chunk.tool_calls:
                     for tc in chunk.tool_calls:
                         if self.status_callback:
@@ -307,7 +351,7 @@ class ConversationalAgent:
                             )
                 elif node == "tools" and self.status_callback and hasattr(chunk, "content"):
                     await self.status_callback.on_tool_end(
-                        {"output": str(chunk.content)[:200]}
+                        {"output": str(chunk.content)}
                     )
 
             if self.status_callback:

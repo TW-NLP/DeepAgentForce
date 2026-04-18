@@ -132,6 +132,21 @@ class Settings(ServerConfig):
             return ""
         return self.LLM_URL.rstrip("/").replace("/chat/completions", "")
 
+    # ==================== 校对专用模型配置 ====================
+    PROOFREAD_USE_DEDICATED: bool = False
+    PROOFREAD_API_URL: str = ""
+    PROOFREAD_API_KEY: str = ""
+    PROOFREAD_MODEL: str = ""
+
+    @property
+    def PROOFREAD_BASE_URL(self) -> str:
+        """校对专用模型 API 的 base URL（自动去掉 /chat/completions 后缀，保留 /v1）"""
+        if not self.PROOFREAD_API_URL:
+            return ""
+        url = self.PROOFREAD_API_URL.rstrip("/")
+        url = url.replace("/chat/completions", "")
+        return url
+
     # ==================== 搜索配置 ====================
     TAVILY_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""

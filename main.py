@@ -137,6 +137,8 @@ class DeepAgentForce:
             builtin_skills_dir=self.settings.SKILL_DIR,
             user_skills_base_dir=self.settings.USER_SKILL_DIR
         )
+        # 🆕 重新初始化校对服务（使用新配置）
+        self.proofread_service = ProofreadService(self.settings)
         # 🆕 重置多租户会话和 RAG engines
         self.sessions = {}
         self._rag_engines = {}
