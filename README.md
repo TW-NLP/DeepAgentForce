@@ -5,45 +5,131 @@
 </p>
 
 <p align="center">
-  <strong>新一代智能体协同系统 — 让 AI 真正成为你的智能助手</strong>
+  <strong>一个面向真实场景的 Agent Harness</strong>
   <br>
-  <em>Self-Evolving AI Agent with Modular Skills & Knowledge Intelligence</em>
+  <em>An extensible harness for multi-tenant agents, skills, memory and RAG</em>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.12%2B-blue?style=for-the-badge&logo=python" alt="Python 3.12+"/>
   <img src="https://img.shields.io/badge/FastAPI-0.128%2B-009688?style=for-the-badge&logo=fastapi" alt="FastAPI"/>
   <img src="https://img.shields.io/badge/LangGraph-Latest-blueviolet?style=for-the-badge" alt="LangGraph"/>
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License"/>
   <img src="https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker" alt="Docker"/>
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License"/>
 </p>
 
 ---
 
 ## 项目简介
 
-:crab: [注册体验地址](http://47.90.136.218:8000/login.html) &nbsp;|&nbsp; :point_right: [在线文档](http://47.90.136.218:8000/help.html)
+DeepAgentForce 最适合被理解成一个 **Agent Harness**。
 
-**DeepAgentForce** 是一款基于大语言模型的**智能体协同系统**，它不仅仅是传统的 RAG 问答系统，更是一个具有**自我进化能力**的 AI 助手平台。
+也就是说，它的重点不是单次问答效果，而是为智能体提供一套可持续运行、扩展、隔离和观测的底座。  
+相比“聊天页面 + 一个模型接口”的常见项目，这个项目更关注下面这些运行层问题：
 
-- 通过模块化的 **Agent Skills** 架构，系统支持无限扩展工具能力
-- 通过**用户画像挖掘**技术，AI 会越用越懂你
-- 通过**思考过程可视化**，你可以清晰看到 AI 是如何分析和解决问题的
-- 通过**多租户架构**，支持团队协作和企业级部署
+- Agent 如何按规则选择并调用技能
+- 多用户环境下如何做会话、知识、配置和技能隔离
+- 如何把 RAG、工具、用户记忆接进同一个运行时
+- 如何让前端看到过程、状态和输出，而不是只拿到最终答案
+- 如何在不重写主流程的情况下继续扩展能力
+
+围绕这些问题，DeepAgentForce 做成了一个前后端一体化的智能体运行框架与工作台。
+
+在线体验与帮助页面：
+
+- 注册入口：http://47.90.136.218:8000/login.html
+- 使用文档：http://47.90.136.218:8000/help.html
 
 ---
 
-## 核心特性
+## 为什么说它是 Harness
 
-| 特性 | 传统 AI | DeepAgentForce |
-|:-----|:-------:|:--------------:|
-| 知识库问答 | :white_check_mark: | :white_check_mark: |
-| 工具自动调用 | :x: | :white_check_mark: |
-| 模块化技能扩展 | :x: | :white_check_mark: |
-| 用户偏好学习 | :x: | :white_check_mark: |
-| 思考过程可视化 | :x: | :white_check_mark: |
-| 多会话管理 | :x: | :white_check_mark: |
-| 多租户支持 | :x: | :white_check_mark: |
+### 1. 它提供的是智能体运行底座，不只是对话入口
+
+项目已经把一个 Agent 在真实系统里常见的几类能力接到了同一个运行时中：
+
+- 对话入口
+- WebSocket 流式交互
+- Skills 调度
+- RAG 检索
+- 用户画像与偏好沉淀
+- 文件输入输出
+- 用户认证与租户隔离
+
+这就是 Harness 的价值所在：它不是替你定义单个 Agent 的能力，而是给 Agent 提供一个可运行、可接入、可扩展的宿主环境。
+
+### 2. Skill-first 设计让它像 Harness，而不是写死逻辑的应用
+
+项目内置了 `web-search`、`rag-query`、`pdf-processing` 等技能，Agent 会先读取技能目录中的 `SKILL.md`，再按规范执行脚本。  
+这意味着主流程和技能实现是解耦的，你可以把业务能力作为 Skill 挂上来，而不必不断侵入核心对话逻辑。
+
+如果把项目当成 Harness 来看，这一层就是它的“能力接插件接口”。
+
+### 3. 多租户隔离让 Harness 可以真正服务多人场景
+
+系统的会话、配置、RAG 索引、用户技能、用户画像都带有租户隔离能力：
+
+- 会话按 `tenant_uuid + session_id` 区分
+- RAG 按租户维护独立 collection / 元数据
+- 用户上传的 Skill 存放在租户专属目录
+- 用户画像持久化到租户独立文件
+- API / WebSocket 会从 JWT 或 Header 中解析租户信息
+
+这很关键，因为很多 Agent Demo 能跑，但一进入多用户环境就开始混数据、混配置、混知识。  
+DeepAgentForce 把这些问题前置处理掉了，所以更像平台底座，而不是个人脚本。
+
+### 4. Harness 不只接知识，还接“长期用户记忆”
+
+`person_like_service.py` 中实现了基于对话的用户偏好挖掘：
+
+- 用 LLM 从对话中抽取实体和关系
+- 用 NetworkX 构建用户知识图谱
+- 用 PageRank、连接权重、提及频次综合估计用户偏好
+
+相比只保留最近几轮上下文，这种方式更适合长期使用场景。
+
+从 Harness 视角看，这代表系统不只是执行一次任务，而是在持续积累用户状态。
+
+### 5. RAG 在这里不是外挂，而是运行时内的标准能力
+
+RAG 模块支持分阶段增强：
+
+- 向量召回
+- 可选 BM25 关键词召回
+- 可选 Rerank 重排
+- 可选 Query Rewrite 多路检索投票
+
+也就是说，这里的 RAG 不是外挂脚本，而是 Harness 内的一等能力，可以自然接入 Agent 的任务流程。
+
+### 6. 对开发者和用户来说，它都是一个可观测的工作台
+
+项目直接由 FastAPI 托管静态页面，开箱即有：
+
+- 登录 / 注册
+- 聊天页面
+- 配置页面
+- 知识库页面
+- Skills 管理页面
+- 输出文件浏览
+- WebSocket 流式交互与状态展示
+- 工具调用与中间状态传递
+
+这意味着 Harness 不只是“在后端偷偷跑”，而是可以被直接演示、调试和交付。
+
+---
+
+## Harness 能力一览
+
+| Harness 维度 | DeepAgentForce 提供什么 |
+|:-------------|:------------------------|
+| Agent 接入 | 对话 Agent、流式会话、状态回调 |
+| Skill 编排 | 基于 `SKILL.md` 的技能发现与执行 |
+| Knowledge 接入 | 多租户 RAG、文档上传、检索增强 |
+| Memory | 用户偏好图谱与长期画像 |
+| Isolation | 会话、配置、技能、知识的租户隔离 |
+| Observability | WebSocket 事件、思考步骤、输出展示 |
+| Extensibility | 内置 Skill + 用户上传 Skill |
+| Delivery | FastAPI + 静态前端一体化部署 |
 
 ---
 
@@ -53,424 +139,328 @@
   <img src="images/frame.png" alt="系统架构" width="90%"/>
 </div>
 
-**前后端一体化部署**：后端 FastAPI 直接托管所有静态资源（HTML / JS / CSS），无需独立前端服务器，一条命令即可启动完整服务。
+整体架构可以概括为 5 层：
+
+1. 展示层：`static/` 下的聊天、配置、知识库、技能管理等页面
+2. 接口层：FastAPI 路由、认证、WebSocket、文件上传下载
+3. 智能体层：`ConversationalAgent` 负责模型接入、技能工作空间和对话流程
+4. 能力层：Skill Manager、RAG Pipeline、用户画像、校对服务
+5. 存储层：MySQL、Milvus Lite、本地 data 目录
+
+如果从 Harness 的角度看，这 5 层分别对应：
+
+1. 用户与开发者交互界面
+2. 统一接入层
+3. 智能体运行时
+4. 可插拔能力模块
+5. 状态与数据持久化
 
 ---
 
 ## 快速开始
 
-### 方式一：Docker 一键启动（推荐）
-
-一行命令，快速启动完整系统（含 MySQL 数据库）：
+### 方式一：Docker 启动
 
 ```bash
-# 克隆项目
 git clone https://github.com/TW-NLP/DeepAgentForce
 cd DeepAgentForce
-
-# 一键启动（后台运行，自动创建数据库）
 docker compose up -d
-
-# 查看运行状态
-docker compose ps
-
-# 查看日志
-docker compose logs -f
 ```
 
-启动后访问 [http://localhost:8000](http://localhost:8000) 即可使用！
+启动后访问：
 
-> **包含服务**：
-> - `mysql` — MySQL 8.4 数据库（自动初始化）
-> - `app` — DeepAgentForce 应用（端口 8000）
-> - 数据持久化存储，重启不丢失
+- 首页：http://localhost:8000
+- Swagger：http://localhost:8000/docs
 
-> **停止服务**：
-> ```bash
-> docker compose down        # 停止服务
-> docker compose down -v     # 停止并删除数据（慎用）
-> ```
+`docker-compose.yml` 会启动：
 
-### 方式二：手动安装
+- `mysql`：MySQL 8.4
+- `app`：DeepAgentForce 应用
 
-#### 环境要求
+注意：容器启动成功后，你仍需要在前端配置页补充模型与 embedding 参数，系统才能正常调用大模型。
 
-| 依赖 | 版本要求 |
-|------|---------|
-| Python | 3.12+ |
-| MySQL | 8.0+ |
-| pip | 最新版 |
+### 方式二：本地运行
 
-#### 安装步骤
+环境要求：
+
+- Python 3.12+
+- MySQL 8.0+
+
+安装步骤：
 
 ```bash
-# 1. 克隆项目
 git clone https://github.com/TW-NLP/DeepAgentForce
 cd DeepAgentForce
 
-# 2. 创建虚拟环境
 conda create -n agent python=3.12 -y
 conda activate agent
 
-# 3. 安装依赖
 pip install -r requirements.txt
-
-# 中国用户可使用镜像加速
-pip install -r requirements.txt \
-  -i https://mirrors.aliyun.com/pypi/simple/ \
-  --trusted-host=mirrors.aliyun.com
 ```
 
-#### 数据库配置
+国内网络可使用镜像：
 
 ```bash
-# 1. 安装并启动 MySQL 8.0+
+pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+```
 
-# 2. 创建数据库
-mysql -u root -p
+创建数据库：
+
+```sql
 CREATE DATABASE deepagentforce CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'agent'@'%' IDENTIFIED BY 'your_password';
 GRANT ALL PRIVILEGES ON deepagentforce.* TO 'agent'@'%';
 FLUSH PRIVILEGES;
-EXIT;
+```
 
-# 3. 配置环境变量（可选，创建 .env 文件）
-cat > .env << EOF
+然后准备 `.env`：
+
+```bash
 DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=deepagentforce
 DB_USERNAME=agent
 DB_PASSWORD=your_password
 JWT_SECRET_KEY=your-secret-key-change-in-production
-EOF
 ```
 
-#### 启动服务
+启动：
 
 ```bash
-# 仅需一条命令，前后端同时启动（默认端口 8000）
 python main.py
 ```
 
-访问 [http://localhost:8000](http://localhost:8000) 开始使用！
+---
+
+## 上手路径
+
+### 1. 注册并登录
+
+访问 `http://localhost:8000/login.html`，注册后系统会为当前用户分配独立工作空间。
+
+### 2. 配置模型
+
+进入“配置”页面，至少填写以下字段：
+
+| 配置项 | 说明 |
+|--------|------|
+| `LLM_URL` | 对话模型 API 地址 |
+| `LLM_API_KEY` | 对话模型 Key |
+| `LLM_MODEL` | 对话模型名称 |
+| `EMBEDDING_URL` | 向量模型 API 地址 |
+| `EMBEDDING_API_KEY` | 向量模型 Key |
+| `EMBEDDING_MODEL` | 向量模型名称 |
+
+说明：
+
+- `LLM_URL` 和 `EMBEDDING_URL` 填 base URL 即可
+- 系统会自动处理 `/chat/completions`、`/embeddings` 等后缀
+- 也支持给校对服务单独配置模型
+
+<div align="center">
+  <img src="images/config.png" alt="模型配置" width="82%"/>
+</div>
+
+### 3. 上传知识文档
+
+知识库模块支持常见格式：
+
+- PDF
+- DOC / DOCX
+- TXT
+- CSV
+- Markdown
+
+文档会被解析、切分、向量化，并写入租户专属索引。
+
+<div align="center">
+  <img src="images/rag.png" alt="知识库管理" width="88%"/>
+</div>
+
+### 4. 开始对话
+
+在聊天页中，系统会根据问题自动决定是否：
+
+- 直接回答
+- 调用 Skill
+- 查询知识库
+- 结合历史与用户偏好生成回复
+
+<div align="center">
+  <img src="images/chat.png" alt="智能对话界面" width="88%"/>
+</div>
 
 ---
 
-## 多租户认证系统
+## 内置模块
 
-DeepAgentForce 支持完整的多租户用户认证系统，满足团队协作和企业级部署需求。
+### Agent Skills
 
-### 主要功能
+内置 Skill：
 
-- **用户注册与登录** — 支持用户名/邮箱注册和登录
-- **多租户架构** — 每个团队/公司拥有独立的工作空间
-- **JWT Token 认证** — 安全的无状态认证机制
-- **团队协作** — 支持邀请成员加入团队
-- **Token 刷新** — 安全的 Token 自动续期机制
+| Skill | 作用 |
+|-------|------|
+| `web-search` | 联网搜索与网页信息获取 |
+| `rag-query` | 面向私有知识库的问答 |
+| `pdf-processing` | PDF 文本、表格与处理任务 |
 
-### 技术实现
+你也可以通过前端安装自定义 Skill。对每个租户来说：
 
-| 组件 | 技术 |
-|------|------|
-| 数据库 | MySQL |
-| ORM | SQLAlchemy |
-| 密码加密 | Bcrypt |
-| 认证协议 | JWT (HS256) |
-| 后端框架 | FastAPI |
+- 内置 Skill 全员可见
+- 用户 Skill 仅当前租户可见
+- Skill 内容由 `SKILL.md + scripts/*.py` 组成
+
+示例结构：
+
+```text
+src/services/skills/
+└── my-skill/
+    ├── SKILL.md
+    └── scripts/
+        └── main.py
+```
+
+### 用户画像
+
+用户画像不是简单的标签存储，而是一个逐步演化的图结构。系统会从长期对话中抽取：
+
+- 关注主题
+- 技术偏好
+- 常见任务类型
+- 潜在表达习惯
+
+这部分能力尤其适合做“越用越像你的助手”。
+
+<div align="center">
+  <img src="images/person_like.png" alt="用户画像" width="88%"/>
+</div>
+
+### 校对服务
+
+项目还内置了中文校对能力，支持：
+
+- 通用 LLM 校对
+- 独立校对模型接入
+- 分句 / 分块并发处理
+
+如果你的场景不仅要“回答”，还要“润色、改错、校验”，这一块可以直接复用。
 
 ---
 
 ## 功能展示
 
-### 智能对话
+### Skills 管理
 
 <div align="center">
-  <img src="images/chat.jpg" alt="智能对话界面" width="90%"/>
+  <img src="images/skill.png" alt="Skill 管理界面" width="88%"/>
 </div>
 
-### 可视化 Skill 管理
+### 配置面板
 
 <div align="center">
-  <img src="images/skill.png" alt="Skill 管理界面" width="90%"/>
+  <img src="images/config.png" alt="配置面板" width="88%"/>
 </div>
 
-### 知识库管理
-
-<div align="center">
-  <img src="images/rag.png" alt="知识库管理界面" width="90%"/>
-</div>
-
-### 思考过程可视化
-
-```
-初始化          →  接收用户任务，开始分析
-   ↓
-调用工具        →  识别需要调用的 Skill / 工具
-   ↓
-工具执行完成     →  获取执行结果
-   ↓
-生成回答        →  综合分析，生成最终回复
-```
-
 ---
 
-## Agent Skills 系统
+## API 概览
 
-### 什么是 Agent Skills？
+启动后可访问 Swagger：
 
-Agent Skills 是 DeepAgentForce 的**模块化扩展系统**，每个 Skill 都是一个独立的功能模块，可以被 AI Agent 自动发现和调用。
+- http://localhost:8000/docs
 
-### 预置 Skills
-
-| Skill | 功能 | 使用场景 |
-|-------|------|----------|
-| **pdf-processing** | PDF 文档处理 | 提取文本、表格、合并/拆分、OCR |
-| **rag-query** | 企业知识库问答 | 私有文档智能问答 |
-| **web-search** | 联网搜索 | 实时获取网络信息 |
-
-### 自定义 Skills
-
-只需创建符合规范的目录结构：
-
-```
-src/services/skills/
-└── my-skill/
-    ├── SKILL.md          # 技能描述文件
-    └── scripts/
-        └── main.py       # 执行脚本
-```
-
-**SKILL.md 规范示例：**
-
-```yaml
----
-name: my-awesome-skill
-description: 技能描述，说明何时使用
-version: 1.0.0
----
-
-# Skill 使用说明
-
-## 何时使用
-描述该技能适用的场景
-
-## 执行命令
-
-python scripts/main.py "<参数>"
-```
-
----
-
-## 动态用户画像
-
-系统会自动从对话中学习用户的：
-
-- **职业背景** — 了解用户的专业领域
-- **技术偏好** — 掌握用户常用的技术栈
-- **交互风格** — 适配用户的回答偏好
-- **上下文记忆** — 持续学习，越用越聪明
-
----
-
-## 使用指南
-
-### 1. 注册 / 登录
-
-首次使用访问 [http://localhost:8000](http://localhost:8000)，完成注册并创建工作空间（或直接加入已有团队）。
-
-### 2. 模型配置
-
-进入左侧 **"配置"** 页面，填写以下信息：
-
-| 配置项 | 说明 | 示例 |
-|--------|------|------|
-| `LLM_URL` | 模型 API 地址（支持 OpenAI / OpenRouter 等兼容接口） | `https://openrouter.ai/api/v1` |
-| `LLM_API_KEY` | 模型 API Key | `sk-or-...` |
-| `LLM_MODEL` | 模型名称 | `anthropic/claude-3.5-sonnet` |
-
-> **注意**：`LLM_URL` 填入 API 的 base 地址即可（不含 `/chat/completions` 后缀），系统会自动处理。
-
-<div align="center">
-  <img src="images/config.png" alt="模型配置" width="80%"/>
-</div>
-
-### 3. 构建知识库（可选）
-
-让 AI 学习你的私有知识：
-
-1. 进入 **"知识库"** 页面
-2. 拖拽或选择文档（PDF / Word / TXT / Markdown）
-3. 系统自动向量化并建立索引
-
-### 4. 开始对话
-
-直接在对话框中提问，AI 会自动：
-
-- 分析用户意图
-- 判断是否需要调用工具
-- 检索相关知识
-- 生成最优回答
-
----
-
-## API 文档
-
-后端提供完整的 RESTful API，启动后访问 [http://localhost:8000/docs](http://localhost:8000/docs) 查看 Swagger 交互文档。
-
-### 认证 API
+常用接口：
 
 | Endpoint | 方法 | 说明 |
 |----------|:----:|------|
-| `/api/auth/register` | POST | 用户注册 |
-| `/api/auth/login` | POST | 用户登录 |
-| `/api/auth/refresh` | POST | 刷新 Token |
-| `/api/auth/me` | GET | 获取当前用户信息 |
-| `/api/auth/logout` | POST | 用户登出 |
-
-### 对话与知识库 API
-
-| Endpoint | 方法 | 说明 |
-|----------|:----:|------|
-| `/api/chat` | POST | 发送对话消息 |
-| `/api/ws/stream` | WebSocket | 流式对话 |
-| `/api/rag/documents/upload` | POST | 上传文档 |
-| `/api/rag/query` | POST | 知识库问答 |
-| `/api/history/saved` | GET | 获取历史会话 |
-
-### 文件管理 API
-
-| Endpoint | 方法 | 说明 |
-|----------|:----:|------|
-| `/api/output/files` | GET | 获取输出文件列表 |
-| `/api/output/files/preview` | GET | 预览文件内容 |
-| `/api/output/files/download` | GET | 下载文件 |
-
----
-
-## 配置说明
-
-配置文件位于 `data/saved_config.json`，也可通过前端界面进行配置：
-
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `LLM_URL` | 模型 API 地址（base URL） | — |
-| `LLM_API_KEY` | 大模型 API Key | — |
-| `LLM_MODEL` | 模型名称 | — |
-| `EMBEDDING_URL` | Embedding API 地址 | — |
-| `EMBEDDING_API_KEY` | Embedding API Key | — |
-| `EMBEDDING_MODEL` | Embedding 模型 | — |
-
-> **URL 填写说明**：在模型配置页面填入 API 的 base 地址（如 `https://openrouter.ai/api/v1`），系统内部会自动拼接正确的接口路径，无需手动添加 `/chat/completions` 或 `/embeddings` 后缀。
+| `/api/chat` | POST | 同步对话 |
+| `/api/chat/upload` | POST | 携带附件对话 |
+| `/ws/stream` | WebSocket | 流式对话 |
+| `/api/auth/register` | POST | 注册 |
+| `/api/auth/login` | POST | 登录 |
+| `/api/skills` | GET | 获取 Skill 列表 |
+| `/api/skills/install` | POST | 安装 Skill |
+| `/api/rag/documents/upload` | POST | 上传知识文档 |
+| `/api/rag/query` | POST | RAG 查询 |
 
 ---
 
 ## 项目结构
 
-```
+```text
 DeepAgentForce/
-├── main.py                          # 后端入口（同时托管前端静态资源）
-├── requirements.txt                  # 依赖列表
-├── README.md                         # 项目文档
-├── Dockerfile                        # Docker 镜像构建
-├── docker-compose.yml                # Docker 一键启动配置
-├── .env                              # 环境变量配置
+├── main.py
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
 ├── config/
-│   └── settings.py                   # 配置管理
+│   ├── settings.py
+│   └── prompts.py
 ├── src/
 │   ├── api/
-│   │   ├── routes.py                # 主路由
-│   │   ├── websocket.py             # WebSocket 处理
-│   │   ├── skills_routes.py         # Skills 路由
-│   │   └── auth_routes.py            # 认证路由
+│   │   ├── routes.py
+│   │   ├── auth_routes.py
+│   │   ├── skills_routes.py
+│   │   └── websocket.py
 │   ├── database/
-│   │   ├── __init__.py
-│   │   └── connection.py             # 数据库连接
 │   ├── models/
-│   │   ├── __init__.py
-│   │   └── user.py                   # 用户和租户模型
 │   ├── services/
-│   │   ├── conversational_agent.py  # 对话 Agent
-│   │   ├── rag.py                    # 知识库 / RAG
-│   │   ├── person_like_service.py    # 用户画像
-│   │   ├── auth_service.py           # 认证服务
-│   │   └── skills/                   # Agent Skills
-│   │       ├── rag-query/
-│   │       ├── web-search/
-│   │       └── pdf-processing/
-│   └── utils/                        # 工具函数
+│   │   ├── conversational_agent.py
+│   │   ├── skill_manager.py
+│   │   ├── rag.py
+│   │   ├── person_like_service.py
+│   │   ├── proofread_service.py
+│   │   └── skills/
+│   └── workflow/
 ├── static/
-│   ├── index.html                    # 主页面
-│   ├── login.html                    # 登录页面
-│   ├── register.html                 # 注册页面
-│   ├── skills.html                   # Skills 管理页面
-│   ├── chat.js                       # 对话逻辑
-│   ├── auth.js                       # 认证管理
-│   ├── config.js                     # 配置管理
-│   ├── knowledge.js                  # 知识库管理
-│   ├── output.js                     # 输出文件管理
-│   └── skills.js                     # Skills 管理
-├── images/                           # README 图片资源
+├── images/
 └── data/
-    ├── sessions/                     # 会话历史
-    └── saved_config.json             # 用户配置
 ```
+
+---
+
+## 适合什么场景
+
+如果你正在做下面这些方向，这个项目会比较有参考价值：
+
+- 智能体平台课程 / 毕设 / 实验项目
+- Agent Harness / Agent Platform 原型
+- 企业内部知识助手
+- 多用户共享的 AI 工作台
+- 可扩展工具型 Agent 原型
+- 面向中文场景的对话 + 校对 + 知识库系统
 
 ---
 
 ## 常见问题
 
-### Q: Docker 启动失败怎么办？
+### Docker 启动后为什么还不能直接聊天？
 
-```bash
-# 1. 检查 Docker 是否运行
-docker --version
+因为数据库和应用虽然已经启动，但模型配置默认是空的。  
+需要先到配置页补充 `LLM_*` 与 `EMBEDDING_*` 参数。
 
-# 2. 查看详细日志
-docker compose up
+### 为什么这个项目适合做二次开发？
 
-# 3. 清理重建
-docker compose down -v
-docker compose up -d
-```
+因为它的能力边界比较清楚：
 
-### Q: 如何修改数据库密码？
+- 对话由 `ConversationalAgent` 统一编排
+- 知识库能力集中在 `rag.py`
+- Skill 扩展集中在 `skill_manager.py + skills/`
+- 多租户逻辑主要在 API 和服务层传递 `tenant_uuid`
 
-编辑 `docker-compose.yml` 中的 `MYSQL_PASSWORD` 和 `DB_PASSWORD` 字段，然后重新启动：
+### 如何清空 Docker 数据？
 
 ```bash
 docker compose down -v
-docker compose up -d
 ```
 
-### Q: 如何访问数据库？
-
-```bash
-docker exec -it deepagentforce-mysql mysql -uagent -pDeepAgentForce2024! deepagentforce
-```
+这会删除数据库卷，请谨慎使用。
 
 ---
 
 ## License
 
-本项目采用 **MIT License**，可自由使用、修改和分发，商用无忧。
-
----
-
-## Contact
-
-**微信：** NLP技术交流群
-
-<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/chat.png" width="200" />
-
----
-
-## 致谢
-
-本项目基于以下优秀的开源项目构建：
-
-- [LangChain / LangGraph](https://github.com/langchain-ai/langchain) — Agent 开发框架
-- [FastAPI](https://github.com/tiangolo/fastapi) — 高性能 Web 框架
-- [Milvus](https://github.com/milvus-io/milvus) — 向量数据库
+本项目采用 MIT License。
 
 ---
 
