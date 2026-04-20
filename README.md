@@ -37,6 +37,14 @@
 - 注册入口：http://47.90.136.218:8000/login.html
 - 使用文档：http://47.90.136.218:8000/help.html
 
+---
+
+## News
+
+- 2026-04-20 发布 `V1.0.0`
+- 本次版本集成了文本校对能力
+- 优化了知识库管理 UI
+- 优化了 Skill 管理 UI
 
 ---
 
@@ -244,6 +252,8 @@ python main.py
 <div align="center">
   <img src="images/login.png" alt="模型配置" width="82%"/>
 </div>
+
+
 ### 2. 配置模型
 
 进入“配置”页面，至少填写以下字段：
