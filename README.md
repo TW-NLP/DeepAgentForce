@@ -40,6 +40,7 @@ DeepAgentForce 最适合被理解成一个 **Agent Harness**。
 - 注册入口：http://47.90.136.218:8000/login.html
 - 使用文档：http://47.90.136.218:8000/help.html
 
+如果这个项目对您有帮助，欢迎 Star ✨ 
 ---
 
 ## 为什么说它是 Harness
@@ -483,7 +484,6 @@ docker compose down -v
 ---
 
 <p align="center">
-  如果这个项目对你有帮助，欢迎 Star
   <br><br>
   <a href="https://github.com/TW-NLP/DeepAgentForce">
     <img src="https://img.shields.io/github/stars/TW-NLP/DeepAgentForce?style=social" alt="GitHub Stars"/>
