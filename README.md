@@ -241,6 +241,9 @@ python main.py
 
 访问 `http://localhost:8000/login.html`，注册后系统会为当前用户分配独立工作空间。
 
+<div align="center">
+  <img src="images/login.png" alt="模型配置" width="82%"/>
+</div>
 ### 2. 配置模型
 
 进入“配置”页面，至少填写以下字段：
