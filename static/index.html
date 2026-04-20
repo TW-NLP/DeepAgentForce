@@ -2136,7 +2136,7 @@
         }
 
         .stat-label {
-            font-size: 13px;
+            font-size: 12px;
             color: #64748b;
             margin-bottom: 6px;
             font-weight: 500;
@@ -2144,7 +2144,7 @@
         }
 
         .stat-value {
-            font-size: 32px;
+            font-size: 24px;
             font-weight: 700;
             color: #1a1a2e;
             line-height: 1;
@@ -5334,13 +5334,12 @@
 
         .kb-insight-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 16px;
             margin-bottom: 18px;
         }
 
-        .kb-insight-card,
-        .kb-recent-panel {
+        .kb-insight-card {
             background: rgba(15, 23, 42, 0.72);
             border: 1px solid rgba(148, 163, 184, 0.14);
             border-radius: 24px;
@@ -5355,12 +5354,12 @@
         .kb-insight-label,
         .kb-panel-subtitle {
             color: #94a3b8;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .kb-insight-value {
             margin-top: 10px;
-            font-size: 26px;
+            font-size: 20px;
             font-weight: 700;
             color: #f8fafc;
             letter-spacing: -0.02em;
@@ -5369,7 +5368,7 @@
         .kb-insight-text {
             margin-top: 6px;
             color: #cbd5e1;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .kb-type-breakdown {
@@ -5392,86 +5391,6 @@
 
         .kb-type-pill.muted {
             color: #94a3b8;
-        }
-
-        .kb-recent-panel {
-            padding: 18px 20px;
-            margin-bottom: 18px;
-        }
-
-        .kb-panel-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        .kb-panel-title {
-            color: #f8fafc;
-            font-size: 16px;
-            font-weight: 650;
-        }
-
-        .kb-panel-badge {
-            padding: 6px 10px;
-            border-radius: 999px;
-            background: rgba(25, 195, 125, 0.12);
-            color: #86efac;
-            font-size: 12px;
-            border: 1px solid rgba(25, 195, 125, 0.24);
-        }
-
-        .recent-docs-list {
-            display: grid;
-            gap: 10px;
-        }
-
-        .recent-doc-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 14px;
-            border-radius: 16px;
-            background: rgba(2, 6, 23, 0.35);
-            border: 1px solid rgba(148, 163, 184, 0.10);
-        }
-
-        .recent-doc-icon {
-            width: 38px;
-            height: 38px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            background: rgba(25, 195, 125, 0.12);
-            font-size: 18px;
-            flex-shrink: 0;
-        }
-
-        .recent-doc-body {
-            min-width: 0;
-            flex: 1;
-        }
-
-        .recent-doc-name {
-            color: #f8fafc;
-            font-weight: 600;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .recent-doc-meta {
-            color: #94a3b8;
-            font-size: 12px;
-            margin-top: 3px;
-        }
-
-        .recent-doc-empty {
-            padding: 18px 8px;
-            color: #94a3b8;
-            font-size: 13px;
         }
 
         .kb-main-card {
@@ -5759,7 +5678,6 @@
                 flex-wrap: wrap;
             }
 
-            .kb-recent-panel,
             .kb-insight-card {
                 border-radius: 20px;
             }
@@ -6106,7 +6024,6 @@
 
         .kb-main-card,
         .kb-insight-card,
-        .kb-recent-panel,
         .stat-card {
             background: #ffffff;
             border-color: #e2e8f0;
@@ -6123,10 +6040,8 @@
 
         .kb-header-text p,
         .stat-label,
-        .kb-panel-subtitle,
         .kb-insight-label,
         .kb-insight-text,
-        .recent-doc-meta,
         .doc-summary,
         .doc-chip,
         .empty-text {
@@ -6139,7 +6054,6 @@
         .kb-filter-chip,
         .upload-area,
         .document-item,
-        .recent-doc-item,
         .kb-selection-bar {
             background: #fff;
             border-color: #e2e8f0;
@@ -6199,7 +6113,6 @@
             border-color: #dbe4f0;
         }
 
-        .recent-doc-name,
         .doc-name,
         .kb-list-meta strong {
             color: #0f172a;
@@ -6479,22 +6392,6 @@
                                     <span class="kb-type-pill muted">暂无分类</span>
                                 </div>
                             </div>
-                            <div class="kb-insight-card">
-                                <div class="kb-insight-label">最近更新</div>
-                                <div class="kb-insight-value" id="recentDocsCount">0</div>
-                                <div class="kb-insight-text">条最新文档</div>
-                            </div>
-                        </div>
-
-                        <div class="kb-recent-panel">
-                            <div class="kb-panel-head">
-                                <div>
-                                    <div class="kb-panel-title">最近上传</div>
-                                    <div class="kb-panel-subtitle">最新同步到索引的文档</div>
-                                </div>
-                                <div class="kb-panel-badge">实时</div>
-                            </div>
-                            <div class="recent-docs-list" id="recentDocsList"></div>
                         </div>
 
                         <!-- 主卡片 -->

@@ -322,8 +322,6 @@ async function loadKnowledgeBaseStats() {
             const kbHealthText = document.getElementById('kbHealthText');
             const kbHealthValue = document.getElementById('kbHealthValue');
             const kbTypeBreakdown = document.getElementById('kbTypeBreakdown');
-            const recentDocsCount = document.getElementById('recentDocsCount');
-            const recentDocsList = document.getElementById('recentDocsList');
 
             if (statDocs) statDocs.textContent = data.document_count;
             if (statChunks) statChunks.textContent = data.chunks_count || 0;
@@ -343,23 +341,6 @@ async function loadKnowledgeBaseStats() {
                     .map(([key, value]) => `<span class="kb-type-pill">${key} · ${value}</span>`)
                     .join('');
                 kbTypeBreakdown.innerHTML = entries || '<span class="kb-type-pill muted">暂无分类</span>';
-            }
-            if (recentDocsCount) {
-                recentDocsCount.textContent = Array.isArray(data.recent_documents) ? data.recent_documents.length : 0;
-            }
-            if (recentDocsList) {
-                const recent = Array.isArray(data.recent_documents) ? data.recent_documents : [];
-                recentDocsList.innerHTML = recent.length
-                    ? recent.map(doc => `
-                        <div class="recent-doc-item">
-                            <div class="recent-doc-icon">${getFileIcon(doc.name || '')}</div>
-                            <div class="recent-doc-body">
-                                <div class="recent-doc-name">${escapeHtml(doc.name || '未命名文档')}</div>
-                                <div class="recent-doc-meta">${formatRelativeTime(doc.uploaded_at)} · ${doc.chunks || 0} 块</div>
-                            </div>
-                        </div>
-                    `).join('')
-                    : '<div class="recent-doc-empty">暂无最近更新</div>';
             }
         }
     } catch (error) {
