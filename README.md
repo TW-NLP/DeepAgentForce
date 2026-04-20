@@ -45,6 +45,9 @@ DeepAgentForce 最适合被理解成一个 **Agent Harness**。
 
 ## 为什么说它是 Harness
 
+<details>
+<summary>展开查看 DeepAgentForce 作为 Agent Harness 的设计逻辑</summary>
+
 ### 1. 它提供的是智能体运行底座，不只是对话入口
 
 项目已经把一个 Agent 在真实系统里常见的几类能力接到了同一个运行时中：
@@ -116,6 +119,8 @@ RAG 模块支持分阶段增强：
 - 工具调用与中间状态传递
 
 这意味着 Harness 不只是“在后端偷偷跑”，而是可以被直接演示、调试和交付。
+
+</details>
 
 ---
 
@@ -469,7 +474,7 @@ docker compose down -v
 
 **微信：** NLP技术交流群
 
-<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/chat.png" width="200" />
+<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/chat_.jpg" width="200" />
 
 ---
 
