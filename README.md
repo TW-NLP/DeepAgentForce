@@ -22,15 +22,12 @@
 
 ## 项目简介
 
-DeepAgentForce 最适合被理解成一个 **Agent Harness**。
-
-也就是说，它的重点不是单次问答效果，而是为智能体提供一套可持续运行、扩展、隔离和观测的底座。  
+ **DeepAgentForce**，它的重点不是单次问答效果，而是为智能体提供一套可持续运行、扩展、隔离和观测的底座。  
 相比“聊天页面 + 一个模型接口”的常见项目，这个项目更关注下面这些运行层问题：
 
-- Agent 如何按规则选择并调用技能
+- Agent 如何按规则选择并调用技能,支持无限扩展的skills
 - 多用户环境下如何做会话、知识、配置和技能隔离
 - 如何把 RAG、工具、用户记忆接进同一个运行时
-- 如何让前端看到过程、状态和输出，而不是只拿到最终答案
 - 如何在不重写主流程的情况下继续扩展能力
 
 围绕这些问题，DeepAgentForce 做成了一个前后端一体化的智能体运行框架与工作台。
@@ -318,13 +315,9 @@ python main.py
 
 示例结构：
 
-```text
-src/services/skills/
-└── my-skill/
-    ├── SKILL.md
-    └── scripts/
-        └── main.py
-```
+<div align="center">
+  <img src="images/skill.png" alt="Skill 管理界面" width="88%"/>
+</div>
 
 ### 用户画像
 
@@ -337,9 +330,6 @@ src/services/skills/
 
 这部分能力尤其适合做“越用越像你的助手”。
 
-<div align="center">
-  <img src="images/person_like.png" alt="用户画像" width="88%"/>
-</div>
 
 ### 校对服务
 
@@ -351,20 +341,8 @@ src/services/skills/
 
 如果你的场景不仅要“回答”，还要“润色、改错、校验”，这一块可以直接复用。
 
----
-
-## 功能展示
-
-### Skills 管理
-
 <div align="center">
-  <img src="images/skill.png" alt="Skill 管理界面" width="88%"/>
-</div>
-
-### 配置面板
-
-<div align="center">
-  <img src="images/config.png" alt="配置面板" width="88%"/>
+  <img src="images/ChineseErrorCorrect4.png" alt="ChineseErrorCorrect4 校对" width="88%"/>
 </div>
 
 ---
