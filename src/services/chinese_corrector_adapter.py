@@ -16,10 +16,17 @@ import json
 import re
 import logging
 import difflib
+import asyncio
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_SYSTEM_PROMPT = (
+    "假如你是一名专业的纠错专家，请分析输入句子的语法错误类型和修改原因，并只输出纠正后的语句，"
+    "错误类型如下：错别字、词语搭配错误、词性错误、语序错误、成分残缺、成分赘余、关联词使用错误、指代不明、语义逻辑不通、无误。"
+)
+DEFAULT_MAX_TOKENS = 512
 
 def _debug(msg: str):
     logger.debug(f"[ChineseCorrector] {msg}")
@@ -167,12 +174,17 @@ class CorrectionResult:
             "suggestion": self.corrected,
             "explanation": self.explanation,
             "reasoning": self.reasoning,
+            "context_before": "",
+            "context_after": "",
         }
 
     def to_issue_dicts(self, chunk_offset: int = 0) -> List[Dict[str, Any]]:
         return [self._make_issue(sp, chunk_offset) for sp in self.diff_spans]
 
     def _make_issue(self, span: DiffSpan, chunk_offset: int) -> Dict[str, Any]:
+        context_window = 8
+        before_start = max(0, span.start - context_window)
+        after_end = min(len(self.original), span.end + context_window)
         return {
             "type": "error",
             "category": self.error_type,
@@ -185,6 +197,8 @@ class CorrectionResult:
             "suggestion": span.corrected_text,
             "explanation": self.explanation,
             "reasoning": self.reasoning,
+            "context_before": self.original[before_start:span.start],
+            "context_after": self.original[span.end:after_end],
         }
 
 
@@ -200,22 +214,33 @@ class ChineseCorrectorAdapter:
     async def correct(self, texts: List[str], system_prompt: Optional[str] = None) -> List[CorrectionResult]:
         if not texts:
             return []
-        system_content = system_prompt or "假如你是一名专业的纠错专家，请分析输入句子的语法错误类型和修改原因，并只输出纠正后的语句，错误类型如下：错别字、词语搭配错误、词性错误、语序错误、成分残缺、成分赘余、关联词使用错误、指代不明、语义逻辑不通、无误。"
-        user_content = "\n".join([text.strip() for text in texts if text.strip()])
-        messages = [{"role": "user", "content": user_content}]
-        response_data = await self._call_api(messages, system_content)
-        return self._parse_response(response_data, texts)
+        system_content = system_prompt or DEFAULT_SYSTEM_PROMPT
+
+        async def run_single(text: str) -> CorrectionResult:
+            if not text or not text.strip():
+                return self._create_no_error_result(text)
+            response_data = await self._call_api(text, system_content)
+            parsed = self._parse_response(response_data, [text])
+            return parsed[0] if parsed else self._create_no_error_result(text)
+
+        tasks = [run_single(text) for text in texts]
+        return await asyncio.gather(*tasks)
 
     async def correct_single(self, text: str, system_prompt: Optional[str] = None) -> CorrectionResult:
         results = await self.correct([text], system_prompt)
         return results[0] if results else None
 
-    async def _call_api(self, messages: List[Dict[str, str]], system: Optional[str] = None) -> Dict[str, Any]:
+    async def _call_api(self, text: str, system: Optional[str] = None) -> Dict[str, Any]:
         import aiohttp
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"}
-        payload = {"model": self.model_name, "messages": messages}
-        if system:
-            payload["system"] = system
+        payload = {
+            "model": self.model_name,
+            "max_tokens": DEFAULT_MAX_TOKENS,
+            "messages": [
+                {"role": "system", "content": system or DEFAULT_SYSTEM_PROMPT},
+                {"role": "user", "content": text},
+            ],
+        }
         _debug(f"调用 API: {self.api_url}")
         try:
             async with aiohttp.ClientSession() as session:
@@ -244,9 +269,8 @@ class ChineseCorrectorAdapter:
             return [self._create_no_error_result(t) for t in original_texts]
 
     def _parse_content(self, content: str, original_texts: List[str], reasoning_content: Optional[str]) -> List[CorrectionResult]:
-        think_match = re.search(r'<think>(.*?)</think>', content, flags=re.DOTALL)
-        think_content = think_match.group(1).strip() if think_match else ""
-        content_clean = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+        think_content = self._extract_think_content(content)
+        content_clean = self._extract_corrected_body(content)
 
         has_block_marker = bool(re.search(r'【块 \d+】\([^)]+\)', content_clean))
 
@@ -254,7 +278,7 @@ class ChineseCorrectorAdapter:
             parts = re.split(r'【块 \d+】\([^)]+\)', content_clean)
             if len(parts) >= 2:
                 reasoning_part = parts[0].strip()
-                corrected_lines = [c.strip() for c in parts[1].strip().split('\n') if c.strip()]
+                corrected_lines = [c.rstrip() for c in parts[1].split('\n') if c.strip()]
                 error_type, explanation, full_reasoning = self._extract_meta(reasoning_part, reasoning_content, think_content)
                 results = [
                     self._build_result(
@@ -272,7 +296,7 @@ class ChineseCorrectorAdapter:
         elif '\n\n' in content_clean:
             sections = content_clean.split('\n\n', 1)
             reasoning_part = sections[0].strip()
-            corrected_lines = [c.strip() for c in sections[1].strip().split('\n') if c.strip()] if len(sections) > 1 else []
+            corrected_lines = [c.rstrip() for c in sections[1].split('\n') if c.strip()] if len(sections) > 1 else []
             error_type, explanation, full_reasoning = self._extract_meta(reasoning_part, reasoning_content, think_content)
             results = [
                 self._build_result(
@@ -290,11 +314,10 @@ class ChineseCorrectorAdapter:
             lines = content_clean.split('\n')
             reasoning_lines, corrected_lines, in_correction = [], [], False
             for line in lines:
-                line = line.strip()
-                if not line:
+                if not line.strip():
                     in_correction = True
                     continue
-                (corrected_lines if in_correction else reasoning_lines).append(line)
+                (corrected_lines if in_correction else reasoning_lines).append(line.rstrip())
             reasoning_part = '\n'.join(reasoning_lines)
             error_type, explanation, full_reasoning = self._extract_meta(reasoning_part, reasoning_content, think_content)
             results = [
@@ -315,7 +338,7 @@ class ChineseCorrectorAdapter:
             if think_content:
                 error_type, explanation, _ = self._extract_meta(think_content, reasoning_content, "")
 
-            lines = [l.strip() for l in content_clean.split('\n') if l.strip()]
+            lines = [l.rstrip() for l in content_clean.split('\n') if l.strip()]
 
             if len(lines) == len(original_texts):
                 results = [
@@ -407,7 +430,7 @@ class ChineseCorrectorAdapter:
             error_type = self._map_error_type(m.group(1).strip())
 
         explanation = reasoning_part
-        match = re.search(r'修改[说明原因解释][:：]\s*(.+?)(?=错误类型[:：]|$)', reasoning_part, re.DOTALL)
+        match = re.search(r'修改(?:说明|原因|解释)[:：]\s*(.+?)(?=错误类型[:：]|$)', reasoning_part, re.DOTALL)
         if match:
             explanation = match.group(1).strip()
         else:
@@ -428,9 +451,12 @@ class ChineseCorrectorAdapter:
 
     def _build_result(self, original: str, corrected: str, error_type: str, explanation: str, reasoning: str) -> CorrectionResult:
         if explanation:
-            match = re.search(r'修改[说明原因解释][:：]\s*(.+?)(?=错误类型[:：]|$)', explanation, re.DOTALL)
+            match = re.search(r'修改(?:说明|原因|解释)[:：]\s*(.+?)(?=错误类型[:：]|$)', explanation, re.DOTALL)
             if match:
                 explanation = match.group(1).strip().replace('\\n', '\n')
+
+        if error_type == "无误":
+            return self._create_no_error_result(original)
 
         # 验证原文和纠正是否匹配（长度差异不能太大，否则可能是对齐错误）
         # 如果 corrected 比 original 长很多（超过2倍），说明可能是对齐错误，跳过
@@ -478,12 +504,23 @@ class ChineseCorrectorAdapter:
             "成分赘余": "成分赘余",
             "关联词使用错误": "关联词使用错误",
             "指代不明": "指代不明",
-            "语义逻辑不通": "语义逻辑不通"
+            "语义逻辑不通": "语义逻辑不通",
+            "无误": "无误",
         }
         for key, value in mapping.items():
             if key in type_text:
                 return value
         return "错别字"
+
+    def _extract_think_content(self, content: str) -> str:
+        think_match = re.search(r'<think>\s*(.*?)\s*</think>', content or "", flags=re.DOTALL)
+        return think_match.group(1).strip() if think_match else ""
+
+    def _extract_corrected_body(self, content: str) -> str:
+        raw = content or ""
+        if "</think>" in raw:
+            return raw.split("</think>", 1)[1].strip()
+        return re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
 
     def _create_no_error_result(self, text: str) -> CorrectionResult:
         return CorrectionResult(original=text, corrected=text, error_type="", explanation="", reasoning="", diff_spans=[])
@@ -578,37 +615,40 @@ class ChineseCorrectorSyncAdapter:
         _debug(f"原文: {texts}")
 
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"}
-        system_content = system_prompt or "假如你是一名专业的纠错专家，请分析输入句子的语法错误类型和修改原因，并只输出纠正后的语句，错误类型如下：错别字、词语搭配错误、词性错误、语序错误、成分残缺、成分赘余、关联词使用错误、指代不明、语义逻辑不通、无误。"
-        user_content = "\n".join([text.strip() for text in texts if text.strip()])
-        messages = [{"role": "user", "content": user_content}]
-        payload = {"model": self.model_name, "system": system_content, "messages": messages}
-        logger.info(f"[ChineseCorrectorSync] 发送请求")
+        system_content = system_prompt or DEFAULT_SYSTEM_PROMPT
+        adapter = self._get_async_adapter()
+        results: List[CorrectionResult] = []
 
-        try:
-            response = self.requests.post(self.api_url, json=payload, headers=headers, timeout=self.timeout)
-            response.raise_for_status()
-            data = response.json()
-            choices = data.get("choices", [])
-            if not choices:
-                return [self._create_result(t, t, "", "", "") for t in texts]
-            message = choices[0].get("message", {})
-            content = message.get("content", "") if isinstance(message, dict) else str(message)
-            reasoning_content = message.get("reasoning_content") if isinstance(message, dict) else None
+        for text in texts:
+            if not text or not text.strip():
+                results.append(adapter._create_no_error_result(text))
+                continue
 
-            adapter = self._get_async_adapter()
-            results = adapter._parse_content(content, texts, reasoning_content)
-            results = adapter.match_result_with_original(results, texts)
+            clean_text = text
+            payload = {
+                "model": self.model_name,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "messages": [
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": clean_text},
+                ],
+            }
+            logger.info(f"[ChineseCorrectorSync] 发送单句请求")
 
-            while len(results) < len(texts):
-                results.append(adapter._create_no_error_result(texts[len(results)]))
+            try:
+                response = self.requests.post(self.api_url, json=payload, headers=headers, timeout=self.timeout)
+                response.raise_for_status()
+                data = response.json()
+                parsed = adapter._parse_response(data, [text])
+                results.append(parsed[0] if parsed else adapter._create_no_error_result(text))
+            except Exception as e:
+                logger.error(f"[ChineseCorrectorSync] 纠错失败: {e}")
+                if hasattr(e, 'response') and e.response is not None:
+                    logger.error(f"[ChineseCorrectorSync] 响应内容: {e.response.text[:500]}")
+                results.append(self._create_result(text, text, "", str(e), ""))
 
-            _debug(f"纠正后: {[r.corrected for r in results]}")
-            return results[:len(texts)]
-        except Exception as e:
-            logger.error(f"[ChineseCorrectorSync] 纠错失败: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"[ChineseCorrectorSync] 响应内容: {e.response.text[:500]}")
-            return [self._create_result(t, t, "", str(e), "") for t in texts]
+        _debug(f"纠正后: {[r.corrected for r in results]}")
+        return results
 
     def correct_single(self, text: str, system_prompt: Optional[str] = None) -> CorrectionResult:
         results = self.correct([text], system_prompt)

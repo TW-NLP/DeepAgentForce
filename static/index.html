@@ -948,6 +948,9 @@
             flex-direction: column;
             overflow: hidden;
             height: 100%;
+            background:
+                radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 24%),
+                linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
         }
 
         /* 顶部工具栏 */
@@ -955,10 +958,11 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 24px;
-            background: #fff;
-            border-bottom: 1px solid #e8e8e8;
+            padding: 14px 24px;
+            background: rgba(255, 255, 255, 0.92);
+            border-bottom: 1px solid #dbe4f0;
             flex-shrink: 0;
+            backdrop-filter: blur(14px);
         }
 
         .toolbar-left, .toolbar-right {
@@ -971,59 +975,63 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 8px 16px;
-            background: #f5f6f7;
-            border: 1px solid #e8e8e8;
-            border-radius: 6px;
+            padding: 10px 16px;
+            background: #ffffff;
+            border: 1px solid #dbe4f0;
+            border-radius: 12px;
             font-size: 14px;
-            color: #333;
+            color: #0f172a;
             cursor: pointer;
             transition: all 0.2s;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
         }
 
         .file-upload-btn:hover {
-            background: #e8e8e8;
+            background: #f8fbff;
+            border-color: #bfdbfe;
+            transform: translateY(-1px);
         }
 
         .toolbar-btn {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 8px 16px;
+            padding: 10px 16px;
             background: #fff;
-            border: 1px solid #e8e8e8;
-            border-radius: 6px;
+            border: 1px solid #dbe4f0;
+            border-radius: 12px;
             font-size: 14px;
-            color: #666;
+            color: #475569;
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .toolbar-btn:hover {
-            background: #f5f6f7;
-            color: #333;
+            background: #f8fbff;
+            color: #0f172a;
+            border-color: #bfdbfe;
         }
 
         .check-btn {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 10px 24px;
-            background: #1a73e8;
+            padding: 11px 22px;
+            background: linear-gradient(135deg, #0f172a, #1d4ed8);
             border: none;
-            border-radius: 6px;
+            border-radius: 14px;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             color: #fff;
             cursor: pointer;
             transition: all 0.2s;
-            box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+            box-shadow: 0 12px 30px rgba(29, 78, 216, 0.24);
         }
 
         .check-btn:hover {
-            background: #1557b0;
+            background: linear-gradient(135deg, #1d4ed8, #2563eb);
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
+            box-shadow: 0 16px 32px rgba(29, 78, 216, 0.28);
         }
 
         .check-btn:active {
@@ -1034,10 +1042,10 @@
         .proofread-new-content {
             flex: 1;
             display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 0;
+            grid-template-columns: minmax(0, 1.2fr) minmax(380px, 0.8fr);
+            gap: 18px;
             overflow: hidden;
-            background: #f5f6f7;
+            padding: 18px 20px 20px;
         }
 
         /* 输入区 */
@@ -1045,32 +1053,79 @@
             display: flex;
             flex-direction: column;
             background: #fff;
-            margin: 16px;
-            margin-right: 8px;
-            border-radius: 8px;
-            border: 1px solid #e8e8e8;
+            margin: 0;
+            border-radius: 24px;
+            border: 1px solid #dbe4f0;
             overflow: hidden;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.06);
         }
 
         .input-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 16px;
-            background: #fafafa;
-            border-bottom: 1px solid #eee;
+            padding: 16px 18px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            border-bottom: 1px solid #e2e8f0;
             flex-shrink: 0;
         }
 
+        .input-header-main {
+            min-width: 0;
+        }
+
         .input-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: #333;
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .input-subtitle {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .input-header-side {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .proofread-source-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .proofread-source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 600;
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .proofread-source-hint {
+            font-size: 12px;
+            color: #64748b;
         }
 
         .char-count {
             font-size: 12px;
-            color: #999;
+            color: #64748b;
         }
 
         .char-count span {
@@ -1085,21 +1140,22 @@
         .proofread-textarea-new {
             width: 100%;
             height: 100%;
-            padding: 16px;
+            padding: 22px 24px;
             background: #fff;
-            border: 1px solid #e0e0e0;
-            color: var(--text-primary);
-            font-size: 14px;
-            line-height: 1.8;
+            border: 1px solid transparent;
+            color: #0f172a;
+            font-size: 15px;
+            line-height: 2;
             resize: none;
             outline: none;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Serif SC", serif;
             position: relative;
             z-index: 2;
+            tab-size: 4;
         }
 
         .proofread-textarea-new:focus {
-            border-color: #1a73e8;
+            border-color: #bfdbfe;
         }
 
         .proofread-textarea-new::placeholder {
@@ -1113,11 +1169,11 @@
             left: 0;
             right: 0;
             bottom: 0;
-            padding: 16px;
-            font-size: 14px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.8;
-            color: var(--text-primary);
+            padding: 22px 24px;
+            font-size: 15px;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Serif SC", serif;
+            line-height: 2;
+            color: #0f172a;
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow: hidden;
@@ -1131,7 +1187,23 @@
             /* 背景透明，让高亮层显示文本，避免重影 */
             background: transparent;
             color: transparent;
-            caret-color: var(--text-primary);
+            caret-color: #0f172a;
+        }
+
+        .textarea-wrapper.has-highlight.is-editing .proofread-textarea-new {
+            background: #fff;
+            color: #0f172a;
+            caret-color: #0f172a;
+            text-shadow: none;
+        }
+
+        .textarea-wrapper.has-highlight.is-editing .highlight-layer {
+            opacity: 0;
+        }
+
+        .textarea-wrapper.has-highlight.is-editing .proofread-textarea-new:focus {
+            background: #fff;
+            border-color: #1a73e8;
         }
 
         .textarea-wrapper.has-highlight .proofread-textarea-new:focus {
@@ -1249,12 +1321,13 @@
         .result-area {
             display: flex;
             flex-direction: column;
-            background: transparent;
-            margin: 16px;
-            margin-left: 8px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color, #e8e8e8);
+            background: rgba(255, 255, 255, 0.9);
+            margin: 0;
+            border-radius: 24px;
+            border: 1px solid #dbe4f0;
             overflow: hidden;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.06);
+            backdrop-filter: blur(16px);
         }
 
         .result-placeholder {
@@ -1303,30 +1376,42 @@
 
         /* 结果头部 */
         .result-header {
-            padding: 16px;
-            background: #fafafa;
-            border-bottom: 1px solid #eee;
+            padding: 18px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            border-bottom: 1px solid #e2e8f0;
             flex-shrink: 0;
         }
 
         .result-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: #333;
-            margin-bottom: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .result-summary-text {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 14px;
         }
 
         .result-stats {
             display: flex;
             gap: 16px;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
         }
 
         .result-stat {
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 13px;
+            font-size: 12px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
         }
 
         .result-stat .num {
@@ -1340,47 +1425,148 @@
 
         .result-elapsed {
             font-size: 12px;
-            color: #999;
+            color: #64748b;
             margin-left: auto;
         }
 
         .result-actions {
             display: flex;
             gap: 8px;
+            margin-top: 12px;
+            margin-bottom: 10px;
+        }
+
+        .result-note {
+            margin-top: 6px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%);
+            border: 1px solid #dbeafe;
+            color: #1e3a8a;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .result-note strong {
+            font-weight: 700;
+        }
+
+        .result-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .result-summary-card {
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: #ffffff;
+            border: 1px solid #dbe4f0;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        .result-summary-card .label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+
+        .result-summary-card .value {
+            font-size: 18px;
+            font-weight: 800;
+            color: #0f172a;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .result-summary-card .meta {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .result-overview-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .result-overview-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .result-overview-subtitle {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 3px;
+        }
+
+        .result-copy-btn {
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid #dbe4f0;
+            background: #f8fafc;
+            color: #334155;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .result-copy-btn:hover {
+            background: #eef4ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+
+        .result-corrected-text {
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.8;
+            font-size: 14px;
         }
 
         .result-action-btn {
             flex: 1;
-            padding: 8px 12px;
+            padding: 10px 12px;
             background: #fff;
-            border: 1px solid #e8e8e8;
-            border-radius: 4px;
+            border: 1px solid #dbe4f0;
+            border-radius: 12px;
             font-size: 12px;
-            color: #666;
+            color: #475569;
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .result-action-btn:hover {
-            background: #f5f6f7;
-            border-color: #ccc;
+            background: #f8fbff;
+            border-color: #bfdbfe;
         }
 
         .result-action-btn.primary {
-            background: #e8f0fe;
-            border-color: #1a73e8;
-            color: #1a73e8;
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
         }
 
         .result-action-btn.primary:hover {
-            background: #d2e3fc;
+            background: #dbeafe;
         }
 
         /* 问题列表 */
         .result-list {
             flex: 1;
             overflow-y: auto;
-            padding: 12px;
+            padding: 14px;
+            background: #f8fafc;
         }
 
         .result-items-list {
@@ -1394,10 +1580,10 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 6px 10px;
+            padding: 8px 10px;
             background: #fff;
-            border: 1px solid #e8e8e8;
-            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -1435,13 +1621,14 @@
         .result-item {
             display: flex;
             gap: 12px;
-            padding: 12px;
-            background: #fafafa;
-            border: 1px solid #eee;
-            border-radius: 6px;
-            margin-bottom: 8px;
+            padding: 14px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            margin-bottom: 10px;
             cursor: pointer;
             transition: all 0.2s;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
         }
 
         .result-item:hover {
@@ -1461,15 +1648,15 @@
         .result-index {
             width: 28px;
             height: 28px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 12px;
             font-weight: 600;
-            color: #666;
+            color: #1d4ed8;
             flex-shrink: 0;
         }
 
@@ -1537,13 +1724,13 @@
 
         .result-reason {
             font-size: 13px;
-            color: #666;
-            background: #f5f5f5;
-            padding: 6px 10px;
-            border-radius: 4px;
-            margin-top: 6px;
-            line-height: 1.5;
-            border-left: 3px solid #4caf50;
+            color: #475569;
+            background: #f8fafc;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-top: 8px;
+            line-height: 1.7;
+            border-left: 3px solid #1d4ed8;
         }
 
         .result-action {
@@ -1553,12 +1740,12 @@
         }
 
         .action-adopt {
-            padding: 4px 10px;
+            padding: 6px 10px;
             background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border: 1px solid #dbe4f0;
+            border-radius: 10px;
             font-size: 11px;
-            color: #666;
+            color: #334155;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -1570,10 +1757,10 @@
         }
 
         .action-ignore {
-            padding: 4px 10px;
+            padding: 6px 10px;
             background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border: 1px solid #dbe4f0;
+            border-radius: 10px;
             font-size: 11px;
             color: #999;
             cursor: pointer;
@@ -1656,13 +1843,14 @@
         .doc-preview {
             width: 100%;
             height: 100%;
-            padding: 16px;
-            font-size: 14px;
-            line-height: 1.8;
-            color: #333;
+            padding: 22px 24px;
+            font-size: 15px;
+            line-height: 2;
+            color: #0f172a;
             white-space: pre-wrap;
             overflow-y: auto;
             background: #fff;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Serif SC", serif;
         }
 
         .doc-name-display {
@@ -1695,13 +1883,26 @@
             }
 
             .input-area {
-                margin: 12px;
                 min-height: 300px;
             }
 
             .result-area {
-                margin: 12px;
                 min-height: 300px;
+            }
+
+            .result-summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .input-header {
+                gap: 12px;
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .input-header-side {
+                width: 100%;
+                justify-content: space-between;
             }
         }
 
@@ -2135,6 +2336,12 @@
         .kb-toolbar-btn svg {
             width: 16px;
             height: 16px;
+        }
+
+        .kb-toolbar-btn:disabled {
+            opacity: 0.42;
+            cursor: not-allowed;
+            transform: none !important;
         }
 
         /* 文档列表 - 网格视图 */
@@ -4186,6 +4393,764 @@
             padding: 8px;
         }
 
+        /* ============ Skill 白底抽屉布局 ============ */
+        .skills-page {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px 32px 32px;
+            background: linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
+            color: #0f172a;
+        }
+
+        .skills-page-content {
+            max-width: 1480px;
+            margin: 0 auto;
+        }
+
+        .sp-header {
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        .sp-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .sp-ghost-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 14px;
+            border-radius: 14px;
+            border: 1px solid #dbe4f0;
+            background: #fff;
+            color: #334155;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .sp-ghost-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .sp-ghost-btn:hover,
+        .sp-sort-select:hover,
+        .sp-filter-btn:hover {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #0f172a;
+        }
+
+        .sp-stats {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .sp-stat {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+        }
+
+        .sp-stat.purple .sp-stat-icon {
+            background: linear-gradient(135deg, #ede9fe, #e0f2fe);
+        }
+
+        .sp-stat.purple .sp-stat-icon svg {
+            stroke: #7c3aed;
+        }
+
+        .skills-workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 410px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .skills-main-column {
+            min-width: 0;
+            display: grid;
+            gap: 18px;
+        }
+
+        .sp-panel,
+        .sp-section {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 28px;
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
+        }
+
+        .sp-panel {
+            padding: 18px;
+        }
+
+        .sp-panel-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .sp-search {
+            flex: 1;
+            min-width: 280px;
+            position: relative;
+        }
+
+        .sp-search svg {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            color: #94a3b8;
+        }
+
+        .sp-search input {
+            width: 100%;
+            border: 1px solid #dbe4f0;
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 12px 16px 12px 42px;
+            font-size: 14px;
+            color: #0f172a;
+            outline: none;
+        }
+
+        .sp-sort-select {
+            min-width: 168px;
+            border: 1px solid #dbe4f0;
+            background: #fff;
+            border-radius: 14px;
+            padding: 12px 14px;
+            color: #334155;
+            outline: none;
+        }
+
+        .sp-filter-btns {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .sp-filter-btn {
+            border: 1px solid #dbe4f0;
+            background: #fff;
+            color: #475569;
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sp-filter-btn.active {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+
+        .sp-section {
+            padding: 18px;
+        }
+
+        .sp-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .sp-section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .sp-section-title svg {
+            width: 18px;
+            height: 18px;
+            stroke: #0ea5e9;
+        }
+
+        .sp-section-hint {
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .skills-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .skill-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 14px;
+            align-items: start;
+            padding: 16px;
+            border-radius: 22px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .skill-row:hover,
+        .skill-row.active {
+            border-color: #bfdbfe;
+            box-shadow: 0 12px 30px rgba(37, 99, 235, 0.07);
+            transform: translateY(-1px);
+        }
+
+        .skill-row.active {
+            background: #f8fbff;
+        }
+
+        .skill-row-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .skill-row-icon.blue { background: linear-gradient(135deg, #0ea5e9, #2563eb); }
+        .skill-row-icon.green { background: linear-gradient(135deg, #10b981, #059669); }
+        .skill-row-icon.orange { background: linear-gradient(135deg, #f59e0b, #f97316); }
+        .skill-row-icon.default { background: linear-gradient(135deg, #94a3b8, #64748b); }
+
+        .skill-row-main {
+            min-width: 0;
+        }
+
+        .skill-row-topline {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .skill-row-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex-wrap: wrap;
+        }
+
+        .skill-row-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .skill-row-subtitle {
+            margin-top: 4px;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .skill-row-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .skill-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 12px;
+            border: 1px solid #dbeafe;
+        }
+
+        .skill-chip.muted {
+            background: #f8fafc;
+            color: #475569;
+            border-color: #e2e8f0;
+        }
+
+        .skill-row-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .skill-row-tag {
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 11px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .skill-row-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .sp-action-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            border: 1px solid #dbe4f0;
+            background: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #475569;
+            transition: all 0.2s ease;
+        }
+
+        .sp-action-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .sp-action-btn:hover {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+
+        .sp-action-btn.edit:hover {
+            background: #ecfeff;
+            border-color: #a5f3fc;
+            color: #0891b2;
+        }
+
+        .sp-action-btn.danger:hover {
+            background: #fff1f2;
+            border-color: #fecdd3;
+            color: #e11d48;
+        }
+
+        .sp-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .sp-badge-builtin {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .sp-badge-custom {
+            background: #f0fdf4;
+            color: #15803d;
+        }
+
+        .skill-detail-drawer {
+            position: sticky;
+            top: 20px;
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 28px;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+
+        .skill-drawer-empty,
+        .skill-drawer-shell {
+            padding: 22px;
+            height: 100%;
+        }
+
+        .skill-drawer-empty {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 14px;
+            color: #64748b;
+        }
+
+        .skill-drawer-empty-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #eff6ff;
+            color: #2563eb;
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .skill-drawer-empty-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .skill-drawer-empty-text {
+            max-width: 260px;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .skill-drawer-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .skill-drawer-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .skill-drawer-header-main {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .skill-drawer-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0ea5e9, #2563eb);
+            color: #fff;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            flex-shrink: 0;
+        }
+
+        .skill-drawer-title-group {
+            min-width: 0;
+        }
+
+        .skill-drawer-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        .skill-drawer-subtitle {
+            margin-top: 5px;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .skill-drawer-close {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #334155;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .skill-drawer-close svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .skill-drawer-status {
+            display: inline-flex;
+            align-self: flex-start;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .skill-drawer-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .skill-drawer-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 6px;
+            padding-bottom: 6px;
+            display: grid;
+            gap: 14px;
+            align-content: start;
+        }
+
+        .skill-drawer-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid #dbe4f0;
+            border-radius: 14px;
+            padding: 11px 14px;
+            background: #0f172a;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .skill-drawer-btn.secondary {
+            background: #fff;
+            color: #0f172a;
+        }
+
+        .skill-drawer-btn.danger {
+            background: #fff5f5;
+            color: #dc2626;
+            border-color: #fecaca;
+        }
+
+        .skill-drawer-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .skill-drawer-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .skill-meta-item {
+            padding: 12px;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .skill-meta-label {
+            display: block;
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .skill-meta-value {
+            color: #0f172a;
+            font-size: 13px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .skill-drawer-section {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            flex: 0 0 auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .skill-drawer-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            padding: 12px 14px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            line-height: 1.4;
+            flex: 0 0 auto;
+        }
+
+        .skill-drawer-description {
+            color: #334155;
+            font-size: 13px;
+            line-height: 1.8;
+            padding: 14px;
+            background: #ffffff;
+            white-space: pre-wrap;
+        }
+
+        .skill-drawer-code {
+            margin: 0;
+            padding: 14px;
+            background: #ffffff;
+            color: #334155;
+            font-size: 12px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 36vh;
+            overflow: auto;
+        }
+
+        .skill-drawer-scripts {
+            display: grid;
+            gap: 10px;
+            max-height: 36vh;
+            overflow: auto;
+            padding: 14px;
+            background: #ffffff;
+        }
+
+        .skill-drawer-script {
+            padding: 12px;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .skill-drawer-script-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .skill-drawer-script-path {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #64748b;
+            word-break: break-word;
+        }
+
+        .sp-empty-state {
+            padding: 48px 20px;
+            text-align: center;
+            color: #64748b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sp-empty-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #eff6ff;
+            color: #2563eb;
+            font-size: 30px;
+        }
+
+        .sp-empty-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .sp-empty-text {
+            max-width: 320px;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .skill-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 1200px) {
+            .skills-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .skill-detail-drawer {
+                position: relative;
+                top: auto;
+                height: auto;
+                min-height: 420px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .skills-page {
+                padding: 20px;
+            }
+
+            .sp-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .skill-row {
+                grid-template-columns: 1fr;
+            }
+
+            .skill-row-actions {
+                justify-content: flex-start;
+            }
+
+            .skill-drawer-meta-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .skill-drawer-header {
+                flex-direction: column;
+            }
+        }
+
         /* Loading 覆盖层 */
         .loading-overlay {
             position: fixed;
@@ -4319,6 +5284,961 @@
             from { opacity: 0; transform: translateX(20px); }
             to { opacity: 1; transform: translateX(0); }
         }
+
+        /* ============ 知识库现代化重写 ============ */
+        .knowledge-container {
+            background:
+                radial-gradient(circle at top left, rgba(25, 195, 125, 0.12), transparent 28%),
+                radial-gradient(circle at top right, rgba(14, 165, 233, 0.10), transparent 24%),
+                linear-gradient(180deg, #111827 0%, #0b1220 100%);
+            color: var(--text-primary);
+        }
+
+        .knowledge-content {
+            max-width: 1320px;
+        }
+
+        .kb-header {
+            padding: 8px 4px 0;
+            align-items: center;
+        }
+
+        .kb-header-text h1 {
+            color: #f8fafc;
+        }
+
+        .kb-header-text p {
+            color: #94a3b8;
+            max-width: 720px;
+        }
+
+        .kb-ghost-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            color: #e2e8f0;
+            border-radius: 14px;
+            padding: 11px 16px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(12px);
+        }
+
+        .kb-ghost-btn:hover {
+            border-color: rgba(25, 195, 125, 0.45);
+            transform: translateY(-1px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+        }
+
+        .kb-insight-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .kb-insight-card,
+        .kb-recent-panel {
+            background: rgba(15, 23, 42, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 24px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+            backdrop-filter: blur(16px);
+        }
+
+        .kb-insight-card {
+            padding: 18px 20px;
+        }
+
+        .kb-insight-label,
+        .kb-panel-subtitle {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .kb-insight-value {
+            margin-top: 10px;
+            font-size: 26px;
+            font-weight: 700;
+            color: #f8fafc;
+            letter-spacing: -0.02em;
+        }
+
+        .kb-insight-text {
+            margin-top: 6px;
+            color: #cbd5e1;
+            font-size: 13px;
+        }
+
+        .kb-type-breakdown {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .kb-type-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            color: #e2e8f0;
+            font-size: 12px;
+        }
+
+        .kb-type-pill.muted {
+            color: #94a3b8;
+        }
+
+        .kb-recent-panel {
+            padding: 18px 20px;
+            margin-bottom: 18px;
+        }
+
+        .kb-panel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .kb-panel-title {
+            color: #f8fafc;
+            font-size: 16px;
+            font-weight: 650;
+        }
+
+        .kb-panel-badge {
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(25, 195, 125, 0.12);
+            color: #86efac;
+            font-size: 12px;
+            border: 1px solid rgba(25, 195, 125, 0.24);
+        }
+
+        .recent-docs-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .recent-doc-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: rgba(2, 6, 23, 0.35);
+            border: 1px solid rgba(148, 163, 184, 0.10);
+        }
+
+        .recent-doc-icon {
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            background: rgba(25, 195, 125, 0.12);
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .recent-doc-body {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .recent-doc-name {
+            color: #f8fafc;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .recent-doc-meta {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .recent-doc-empty {
+            padding: 18px 8px;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .kb-main-card {
+            background: rgba(15, 23, 42, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(16px);
+        }
+
+        .kb-upload-section,
+        .kb-toolbar {
+            border-color: rgba(148, 163, 184, 0.12);
+        }
+
+        .upload-area {
+            background: rgba(2, 6, 23, 0.38);
+            border-color: rgba(148, 163, 184, 0.22);
+        }
+
+        .upload-area:hover,
+        .upload-area.dragging {
+            background: rgba(3, 105, 83, 0.18);
+            border-color: rgba(25, 195, 125, 0.70);
+        }
+
+        .upload-text,
+        .doc-name,
+        .detail-title h3,
+        .preview-body,
+        .detail-label,
+        .chunk-header,
+        .kb-toolbar-btn {
+            color: #e2e8f0;
+        }
+
+        .kb-toolbar {
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .kb-toolbar-actions {
+            flex-wrap: wrap;
+        }
+
+        .kb-filter-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: center;
+            padding: 0 28px 18px;
+            flex-wrap: wrap;
+        }
+
+        .kb-filter-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .kb-filter-chip {
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            background: rgba(2, 6, 23, 0.26);
+            color: #cbd5e1;
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .kb-filter-chip:hover,
+        .kb-filter-chip.active {
+            background: rgba(25, 195, 125, 0.15);
+            border-color: rgba(25, 195, 125, 0.38);
+            color: #f8fafc;
+        }
+
+        .kb-sort-select {
+            min-width: 148px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(2, 6, 23, 0.36);
+            color: #e2e8f0;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            outline: none;
+        }
+
+        .kb-selection-bar {
+            margin: 0 28px 14px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(2, 6, 23, 0.34);
+            color: #94a3b8;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .kb-selection-bar.visible {
+            display: flex;
+        }
+
+        .kb-list-meta {
+            padding: 0 28px 6px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .documents-list {
+            padding: 22px 24px 26px;
+            gap: 18px;
+        }
+
+        .document-item {
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.44), rgba(15, 23, 42, 0.64));
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 22px;
+            padding: 18px;
+        }
+
+        .document-item:hover {
+            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.2);
+            border-color: rgba(25, 195, 125, 0.38);
+        }
+
+        .doc-summary {
+            margin-top: 4px;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .doc-type-badge.muted {
+            background: rgba(148, 163, 184, 0.1);
+            color: #cbd5e1;
+        }
+
+        .doc-chip,
+        .doc-action-btn {
+            color: #cbd5e1;
+        }
+
+        .doc-chip {
+            color: #94a3b8;
+        }
+
+        .doc-action-btn {
+            background: rgba(15, 23, 42, 0.66);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+        }
+
+        .doc-action-btn:hover {
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .doc-action-btn.delete:hover {
+            background: rgba(127, 29, 29, 0.28);
+        }
+
+        .detail-json,
+        .chunk-content {
+            margin-top: 8px;
+            padding: 14px;
+            border-radius: 14px;
+            background: rgba(2, 6, 23, 0.38);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            color: #cbd5e1;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .preview-content {
+            display: grid;
+            gap: 16px;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .preview-title-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .preview-meta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        .preview-body {
+            display: grid;
+            gap: 14px;
+            max-height: 68vh;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .preview-chunk {
+            padding: 16px;
+            border-radius: 18px;
+            background: rgba(2, 6, 23, 0.34);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+        }
+
+        .chunk-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .chunk-copy-btn {
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(15, 23, 42, 0.8);
+            color: #cbd5e1;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .chunk-copy-btn:hover {
+            border-color: rgba(25, 195, 125, 0.4);
+            color: #f8fafc;
+        }
+
+        .empty-state {
+            color: #cbd5e1;
+        }
+
+        .empty-illustration {
+            background: rgba(2, 6, 23, 0.28);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+        }
+
+        @media (max-width: 1100px) {
+            .kb-insight-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .kb-toolbar {
+                padding-bottom: 0;
+            }
+
+            .kb-filter-row,
+            .kb-selection-bar,
+            .kb-list-meta {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .knowledge-container {
+                padding: 20px;
+            }
+
+            .kb-header {
+                align-items: flex-start;
+            }
+
+            .kb-header-actions {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .kb-recent-panel,
+            .kb-insight-card {
+                border-radius: 20px;
+            }
+
+            .documents-list {
+                grid-template-columns: 1fr;
+                padding: 18px;
+            }
+
+            .kb-toolbar,
+            .kb-filter-row {
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+        }
+
+        /* ============ 知识库白底抽屉布局 ============ */
+        .knowledge-container {
+            background: linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
+            color: #0f172a;
+        }
+
+        .knowledge-content {
+            max-width: 1480px;
+        }
+
+        .kb-workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 390px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .kb-main-column {
+            min-width: 0;
+            display: grid;
+            gap: 18px;
+        }
+
+        .kb-detail-drawer {
+            position: sticky;
+            top: 20px;
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 28px;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+
+        .kb-detail-drawer.has-selection {
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        }
+
+        .kb-drawer-empty,
+        .kb-drawer-shell {
+            padding: 22px;
+            height: 100%;
+        }
+
+        .kb-drawer-empty {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 14px;
+            color: #64748b;
+        }
+
+        .kb-drawer-empty-icon {
+            width: 72px;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 22px;
+            background: #eff6ff;
+            font-size: 32px;
+        }
+
+        .kb-drawer-empty-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .kb-drawer-empty-text {
+            font-size: 13px;
+            line-height: 1.7;
+            max-width: 260px;
+        }
+
+        .kb-drawer-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow: hidden;
+        }
+
+        .kb-drawer-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .kb-drawer-header-top {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .kb-drawer-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #e0f2fe, #eef2ff);
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .kb-drawer-title-group {
+            min-width: 0;
+        }
+
+        .kb-drawer-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        .kb-drawer-subtitle {
+            margin-top: 5px;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .kb-drawer-close {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #334155;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .kb-drawer-close svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .kb-drawer-status {
+            display: inline-flex;
+            align-self: flex-start;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .kb-drawer-actions {
+            display: grid;
+            gap: 10px;
+        }
+
+        .kb-drawer-btn {
+            border: 1px solid #dbe4f0;
+            background: #0f172a;
+            color: #fff;
+            border-radius: 14px;
+            padding: 11px 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .kb-drawer-btn.secondary {
+            background: #fff;
+            color: #0f172a;
+        }
+
+        .kb-drawer-btn.danger {
+            background: #fff5f5;
+            color: #dc2626;
+            border-color: #fecaca;
+        }
+
+        .kb-drawer-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .kb-drawer-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .kb-meta-item {
+            padding: 12px;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .kb-meta-label {
+            display: block;
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .kb-meta-value {
+            color: #0f172a;
+            font-size: 13px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .kb-drawer-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .kb-drawer-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .kb-drawer-preview {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding-right: 4px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .kb-preview-empty {
+            padding: 18px;
+            border-radius: 18px;
+            background: #f8fafc;
+            border: 1px dashed #dbe4f0;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .kb-preview-loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 18px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .kb-preview-spinner {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            border-top-color: #0ea5e9;
+            animation: spin 1s linear infinite;
+            flex-shrink: 0;
+        }
+
+        .kb-preview-loading-title {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 13px;
+        }
+
+        .kb-preview-loading-text {
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .kb-preview-chunk {
+            padding: 14px;
+            border-radius: 18px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .kb-preview-chunk-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .kb-preview-chunk-body {
+            margin-top: 10px;
+            color: #334155;
+            font-size: 13px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .kb-copy-btn {
+            border: 1px solid #dbe4f0;
+            background: #fff;
+            color: #334155;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .kb-copy-btn:hover,
+        .kb-drawer-close:hover,
+        .kb-drawer-btn.secondary:hover {
+            background: #f8fafc;
+        }
+
+        .kb-main-card,
+        .kb-insight-card,
+        .kb-recent-panel,
+        .stat-card {
+            background: #ffffff;
+            border-color: #e2e8f0;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+        }
+
+        .kb-header-text h1,
+        .stat-value,
+        .kb-panel-title,
+        .kb-insight-value,
+        .empty-title {
+            color: #0f172a;
+        }
+
+        .kb-header-text p,
+        .stat-label,
+        .kb-panel-subtitle,
+        .kb-insight-label,
+        .kb-insight-text,
+        .recent-doc-meta,
+        .doc-summary,
+        .doc-chip,
+        .empty-text {
+            color: #64748b;
+        }
+
+        .kb-ghost-btn,
+        .kb-sort-select,
+        .kb-toolbar-btn,
+        .kb-filter-chip,
+        .upload-area,
+        .document-item,
+        .recent-doc-item,
+        .kb-selection-bar {
+            background: #fff;
+            border-color: #e2e8f0;
+            color: #334155;
+        }
+
+        .kb-ghost-btn {
+            background: #fff;
+        }
+
+        .kb-ghost-btn:hover,
+        .kb-toolbar-btn:hover,
+        .kb-filter-chip:hover,
+        .kb-filter-chip.active {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #0f172a;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragging {
+            background: #f8fbff;
+            border-color: #93c5fd;
+        }
+
+        .documents-list {
+            grid-template-columns: 1fr;
+        }
+
+        .document-item {
+            padding: 18px;
+        }
+
+        .document-item:hover,
+        .document-item.active {
+            border-color: #93c5fd;
+            box-shadow: 0 14px 36px rgba(14, 165, 233, 0.08);
+        }
+
+        .document-item.active {
+            background: #f8fbff;
+        }
+
+        .doc-type-badge,
+        .kb-type-pill {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .doc-type-badge.muted {
+            background: #f8fafc;
+            color: #475569;
+        }
+
+        .doc-action-btn {
+            background: #fff;
+            border-color: #dbe4f0;
+        }
+
+        .recent-doc-name,
+        .doc-name,
+        .kb-list-meta strong {
+            color: #0f172a;
+        }
+
+        .kb-list-meta {
+            color: #64748b;
+        }
+
+        .kb-selection-bar {
+            color: #475569;
+        }
+
+        @media (max-width: 1200px) {
+            .kb-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .kb-detail-drawer {
+                position: relative;
+                top: auto;
+                height: auto;
+                min-height: 420px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .kb-drawer-meta-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .kb-drawer-header {
+                flex-direction: column;
+            }
+
+            .kb-drawer-close {
+                align-self: flex-end;
+            }
+        }
     </style>
 </head>
 <body>
@@ -4403,7 +6323,6 @@
                 <div class="header-actions">
                     <button class="header-help-btn" id="headerDevModeBtn" title="开发模式">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                        <span id="headerDevModeText">开发模式关</span>
                     </button>
                     <button class="header-help-btn" id="headerHelpBtn" title="使用手册" onclick="window.open('/help.html', '_blank')">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
@@ -4485,6 +6404,8 @@
             <div class="page" id="knowledgePage">
                 <div class="knowledge-container">
                     <div class="knowledge-content">
+                        <div class="kb-workspace">
+                            <div class="kb-main-column">
                         <!-- 页面标题 -->
                         <div class="kb-header">
                             <div class="kb-header-left">
@@ -4495,6 +6416,10 @@
                                 </div>
                             </div>
                             <div class="kb-header-actions">
+                                <button class="kb-ghost-btn" id="refreshKnowledgeBtn" type="button">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                    刷新
+                                </button>
                                 <button class="btn-primary-large" onclick="document.getElementById('documentInput').click()">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                                     上传文档
@@ -4542,6 +6467,36 @@
                             </div>
                         </div>
 
+                        <div class="kb-insight-grid">
+                            <div class="kb-insight-card">
+                                <div class="kb-insight-label">索引状态</div>
+                                <div class="kb-insight-value" id="kbHealthValue">Ready</div>
+                                <div class="kb-insight-text" id="kbHealthText">索引已就绪</div>
+                            </div>
+                            <div class="kb-insight-card">
+                                <div class="kb-insight-label">文件分布</div>
+                                <div class="kb-type-breakdown" id="kbTypeBreakdown">
+                                    <span class="kb-type-pill muted">暂无分类</span>
+                                </div>
+                            </div>
+                            <div class="kb-insight-card">
+                                <div class="kb-insight-label">最近更新</div>
+                                <div class="kb-insight-value" id="recentDocsCount">0</div>
+                                <div class="kb-insight-text">条最新文档</div>
+                            </div>
+                        </div>
+
+                        <div class="kb-recent-panel">
+                            <div class="kb-panel-head">
+                                <div>
+                                    <div class="kb-panel-title">最近上传</div>
+                                    <div class="kb-panel-subtitle">最新同步到索引的文档</div>
+                                </div>
+                                <div class="kb-panel-badge">实时</div>
+                            </div>
+                            <div class="recent-docs-list" id="recentDocsList"></div>
+                        </div>
+
                         <!-- 主卡片 -->
                         <div class="kb-main-card">
                             <!-- 上传区域 -->
@@ -4579,6 +6534,30 @@
                                 </div>
                             </div>
 
+                            <div class="kb-filter-row">
+                                <div class="kb-filter-chips">
+                                    <button class="kb-filter-chip active" data-kb-filter="all">全部</button>
+                                    <button class="kb-filter-chip" data-kb-filter="pdf">PDF</button>
+                                    <button class="kb-filter-chip" data-kb-filter="doc">Word</button>
+                                    <button class="kb-filter-chip" data-kb-filter="txt">文本</button>
+                                    <button class="kb-filter-chip" data-kb-filter="md">Markdown</button>
+                                    <button class="kb-filter-chip" data-kb-filter="csv">CSV</button>
+                                </div>
+                                <select class="kb-sort-select" id="docSortSelect">
+                                    <option value="recent">最近更新</option>
+                                    <option value="oldest">最早上传</option>
+                                </select>
+                            </div>
+
+                            <div class="kb-selection-bar" id="selectionBar">
+                                <span id="selectionText">未选择文档</span>
+                            </div>
+
+                            <div class="kb-list-meta">
+                                <span>共 <strong id="documentsCount">0</strong> 个文档</span>
+                                <span>当前显示 <strong id="filteredCount">0</strong> 个</span>
+                            </div>
+
                             <!-- 文档列表 -->
                             <div class="documents-list" id="documentsList"></div>
 
@@ -4588,6 +6567,36 @@
                                 <div class="empty-title">暂无文档</div>
                                 <div class="empty-text">上传文档后即可开始使用知识库进行智能问答</div>
                             </div>
+                        </div>
+                            </div>
+                            <aside class="kb-detail-drawer" id="kbDetailDrawer">
+                                <div class="kb-drawer-empty" id="kbDrawerEmpty">
+                                    <div class="kb-drawer-empty-icon">📄</div>
+                                    <div class="kb-drawer-empty-title">选择一个文档</div>
+                                    <div class="kb-drawer-empty-text">左侧列表会显示你的全部知识库文档。点击任意一项，右侧会展开详情、元数据和文本预览。</div>
+                                </div>
+                                <div class="kb-drawer-shell" id="kbDrawerShell" style="display:none;">
+                                    <div class="kb-drawer-header">
+                                        <div class="kb-drawer-header-top">
+                                            <div class="kb-drawer-icon" id="kbDrawerIcon">📄</div>
+                                            <div class="kb-drawer-title-group">
+                                                <div class="kb-drawer-title" id="kbDrawerTitle">文档标题</div>
+                                                <div class="kb-drawer-subtitle" id="kbDrawerSubtitle">文档信息</div>
+                                            </div>
+                                        </div>
+                                        <button class="kb-drawer-close" id="kbDrawerCloseBtn" type="button" onclick="closeDocumentDrawer()" title="关闭详情">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        </button>
+                                    </div>
+                                    <div class="kb-drawer-status" id="kbDrawerStatus">已选中文档</div>
+                                    <div class="kb-drawer-actions" id="kbDrawerActions"></div>
+                                    <div class="kb-drawer-meta-grid" id="kbDrawerMeta"></div>
+                                    <div class="kb-drawer-section">
+                                        <div class="kb-drawer-section-title">内容预览</div>
+                                        <div class="kb-drawer-preview" id="kbDrawerPreview"></div>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     </div>
                 </div>
@@ -4610,10 +6619,16 @@
                                     <p class="sp-subtitle">管理智能体的技能插件，扩展系统能力</p>
                                 </div>
                             </div>
-                            <button class="sp-add-btn" id="addSkillBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                                添加技能
-                            </button>
+                            <div class="sp-header-actions">
+                                <button class="sp-ghost-btn" id="refreshSkillsBtn" type="button">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                    刷新
+                                </button>
+                                <button class="sp-add-btn" id="addSkillBtn" type="button">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    添加技能
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Stats -->
@@ -4632,7 +6647,7 @@
                                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                 </div>
                                 <div>
-                                    <div class="sp-stat-label">自定义脚本</div>
+                                    <div class="sp-stat-label">脚本总数</div>
                                     <div class="sp-stat-value" id="skillScriptCount">0</div>
                                 </div>
                             </div>
@@ -4642,26 +6657,97 @@
                                 </div>
                                 <div>
                                     <div class="sp-stat-label">内置技能</div>
-                                    <div class="sp-stat-value">3</div>
+                                    <div class="sp-stat-value" id="builtinSkillCount">3</div>
+                                </div>
+                            </div>
+                            <div class="sp-stat purple">
+                                <div class="sp-stat-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 20h9"/><path d="M12 4v16"/><path d="M4 8h4"/><path d="M4 12h4"/><path d="M4 16h4"/></svg>
+                                </div>
+                                <div>
+                                    <div class="sp-stat-label">自定义技能</div>
+                                    <div class="sp-stat-value" id="customSkillCount">0</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Section -->
-                        <div class="sp-section">
-                            <div class="sp-section-header">
-                                <div class="sp-section-title">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                                    所有技能
-                                    <span class="sp-count" id="skillCountBadge">0</span>
+                        <div class="skills-workspace">
+                            <div class="skills-main-column">
+                                <div class="sp-panel">
+                                    <div class="sp-panel-toolbar">
+                                        <div class="sp-search">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                            <input type="text" id="skillSearchInput" placeholder="搜索技能名称、描述、作者或标签...">
+                                        </div>
+                                        <select class="sp-sort-select" id="skillSortSelect">
+                                            <option value="updated">最近更新</option>
+                                            <option value="name">按名称</option>
+                                            <option value="scripts">脚本数量</option>
+                                        </select>
+                                    </div>
+                                    <div class="sp-filter-btns">
+                                        <button class="sp-filter-btn active" data-skill-filter="all">全部</button>
+                                        <button class="sp-filter-btn" data-skill-filter="builtin">内置</button>
+                                        <button class="sp-filter-btn" data-skill-filter="custom">自定义</button>
+                                    </div>
                                 </div>
-                                <div class="sp-filter-btns">
-                                    <button class="sp-filter-btn active">全部</button>
-                                    <button class="sp-filter-btn">内置</button>
-                                    <button class="sp-filter-btn">自定义</button>
+
+                                <div class="sp-section">
+                                    <div class="sp-section-header">
+                                        <div class="sp-section-title">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                            技能列表
+                                            <span class="sp-count" id="skillCountBadge">0</span>
+                                        </div>
+                                        <div class="sp-section-hint" id="skillListHint">点击任意技能查看详情</div>
+                                    </div>
+                                    <div class="skills-list" id="skillsGrid"></div>
+                                    <div class="sp-empty-state" id="skillsEmptyState" style="display:none;">
+                                        <div class="sp-empty-icon">🧩</div>
+                                        <div class="sp-empty-title">暂无匹配的技能</div>
+                                        <div class="sp-empty-text">试试清空搜索或切换筛选条件，或者创建一个新的自定义技能。</div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="sp-grid" id="skillsGrid"></div>
+
+                            <aside class="skill-detail-drawer" id="skillDetailDrawer">
+                                <div class="skill-drawer-empty" id="skillDrawerEmpty">
+                                    <div class="skill-drawer-empty-icon">⚙️</div>
+                                    <div class="skill-drawer-empty-title">选择一个技能</div>
+                                    <div class="skill-drawer-empty-text">在左侧选择一个 Skill，右侧会展示概览、脚本文件和 SKILL.md 内容。</div>
+                                </div>
+                                <div class="skill-drawer-shell" id="skillDrawerShell" style="display:none;">
+                                    <div class="skill-drawer-header">
+                                        <div class="skill-drawer-header-main">
+                                            <div class="skill-drawer-icon" id="skillDrawerIcon">SK</div>
+                                            <div class="skill-drawer-title-group">
+                                                <div class="skill-drawer-title" id="skillDrawerTitle">技能标题</div>
+                                                <div class="skill-drawer-subtitle" id="skillDrawerSubtitle">技能摘要</div>
+                                            </div>
+                                        </div>
+                                        <button class="skill-drawer-close" id="skillDrawerCloseBtn" type="button" onclick="closeSkillDrawer()" title="关闭详情">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="skill-drawer-status" id="skillDrawerStatus">已选中技能</div>
+                                    <div class="skill-drawer-actions" id="skillDrawerActions"></div>
+                                    <div class="skill-drawer-body">
+                                        <div class="skill-drawer-meta-grid" id="skillDrawerMeta"></div>
+                                        <div class="skill-drawer-section">
+                                            <div class="skill-drawer-section-title">技能说明</div>
+                                            <div class="skill-drawer-description" id="skillDrawerDescription"></div>
+                                        </div>
+                                        <div class="skill-drawer-section">
+                                            <div class="skill-drawer-section-title">SKILL.md</div>
+                                            <pre class="skill-drawer-code" id="skillDrawerMarkdown"></pre>
+                                        </div>
+                                        <div class="skill-drawer-section">
+                                            <div class="skill-drawer-section-title">脚本文件</div>
+                                            <div class="skill-drawer-scripts" id="skillDrawerScripts"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     </div>
                 </div>
@@ -4696,8 +6782,14 @@
                         <!-- 左侧：输入区 -->
                         <div class="input-area">
                             <div class="input-header">
-                                <span class="input-title">输入文本</span>
-                                <span class="char-count"><span id="charCount">0</span>/<span id="maxChars">10000</span></span>
+                                <div class="proofread-source-meta">
+                                    <span class="input-title">输入文本</span>
+                                    <span class="input-subtitle" id="proofreadSourceHint">支持粘贴文本，也支持导入文档，导入后会尽量保留换行和缩进。</span>
+                                </div>
+                                <div class="input-header-side">
+                                    <span class="proofread-source-badge" id="proofreadSourceBadge" style="display:none"></span>
+                                    <span class="char-count"><span id="charCount">0</span>/<span id="maxChars">10000</span></span>
+                                </div>
                             </div>
                             <div class="textarea-wrapper" id="textareaWrapper">
                                 <textarea class="proofread-textarea-new" id="proofreadInput" placeholder="在此输入或粘贴需要校对的文本..."></textarea>
@@ -4867,9 +6959,9 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                                 校对配置
                             </div>
-                            <div class="config-tip">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                                校对功能使用 LLM 进行智能文本检查，如未单独配置将复用 LLM 配置
+                                <div class="config-tip">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                校对功能已适配专用纠错模型，返回格式固定为 `<think>分析</think>` 加纠正文本，如未单独配置将复用通用 LLM 配置
                             </div>
                             <div class="form-group">
                                 <label class="form-label">
@@ -4880,17 +6972,17 @@
                             <div class="proofread-dedicated-config" id="proofreadDedicatedConfig" style="display: none;">
                                 <div class="form-group">
                                     <label class="form-label">API URL</label>
-                                    <input type="text" class="form-input" id="proofreadApiUrl" placeholder="http://localhost:8080/v1">
+                                    <input type="text" class="form-input" id="proofreadApiUrl" placeholder="http://172.20.98.51:8081/v1">
                                     <div class="form-hint">校对专用模型的 API 端点</div>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">API Key</label>
-                                    <input type="password" class="form-input" id="proofreadApiKey" placeholder="sk-...">
+                                    <input type="password" class="form-input" id="proofreadApiKey" placeholder="cube_llm_123">
                                     <div class="form-hint">校对模型的 API 密钥</div>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">模型名称</label>
-                                    <input type="text" class="form-input" id="proofreadModel" placeholder="qwen3">
+                                    <input type="text" class="form-input" id="proofreadModel" placeholder="ChineseErrorCorrector4">
                                     <div class="form-hint">使用的校对模型名称</div>
                                 </div>
                             </div>
@@ -5059,12 +7151,25 @@
     document.addEventListener('DOMContentLoaded', () => {
         const proofreadInput = document.getElementById('proofreadInput');
         const charCount = document.getElementById('charCount');
+        const textareaWrapper = document.getElementById('textareaWrapper');
 
         // 文本输入计数
         if (proofreadInput && charCount) {
             proofreadInput.addEventListener('input', () => {
                 const text = proofreadInput.value;
                 charCount.textContent = text.length;
+            });
+
+            proofreadInput.addEventListener('focus', () => {
+                if (textareaWrapper) {
+                    textareaWrapper.classList.add('is-editing');
+                }
+            });
+
+            proofreadInput.addEventListener('blur', () => {
+                if (textareaWrapper) {
+                    textareaWrapper.classList.remove('is-editing');
+                }
             });
 
             // textarea 和高亮层滚动同步
@@ -5087,19 +7192,7 @@
         const clearBtn = document.getElementById('clearProofreadBtn');
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
-                if (proofreadInput) proofreadInput.value = '';
-                if (charCount) charCount.textContent = '0';
-                const resultsContent = document.getElementById('proofreadResultsContent');
-                const placeholder = document.getElementById('resultPlaceholder');
-                const highlightLayer = document.getElementById('highlightLayer');
-                const textareaWrapper = document.getElementById('textareaWrapper');
-                if (resultsContent) resultsContent.style.display = 'none';
-                if (placeholder) placeholder.style.display = 'flex';
-                if (highlightLayer) {
-                    highlightLayer.innerHTML = '';
-                    highlightLayer.style.display = 'none';
-                }
-                if (textareaWrapper) textareaWrapper.classList.remove('has-highlight');
+                setProofreadEditorContent('', '');
             });
         }
 
@@ -5109,10 +7202,21 @@
             proofreadFileInput.addEventListener('change', async () => {
                 if (proofreadFileInput.files[0]) {
                     const file = proofreadFileInput.files[0];
+                    updateProofreadSourceMeta(file.name, 0);
+                    if (window.showToast) {
+                        window.showToast(`正在导入 ${file.name}...`, 'info');
+                    }
                     const content = await parseFileOnServer(file);
-                    if (proofreadInput) {
-                        proofreadInput.value = content;
-                        charCount.textContent = content.length;
+                    if (content) {
+                        setProofreadEditorContent(content, file.name);
+                        if (window.showToast) {
+                            window.showToast(`已导入 ${file.name}，内容同步完成`, 'success');
+                        }
+                    } else {
+                        setProofreadEditorContent('', '');
+                        if (window.showToast) {
+                            window.showToast(`未能读取 ${file.name} 的内容`, 'error');
+                        }
                     }
                 }
             });
@@ -5145,8 +7249,9 @@
     });
 
     async function runProofread() {
-        const input = document.getElementById('proofreadInput').value.trim();
-        if (!input) {
+        const inputEl = document.getElementById('proofreadInput');
+        const input = inputEl ? inputEl.value : '';
+        if (!input.trim()) {
             alert('请输入需要校对的文本');
             return;
         }
@@ -5215,7 +7320,11 @@
                             }
                         } else if (data.type === 'done') {
                             const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-                            const finalData = { issues: allIssues, summary: { ...data.summary, elapsed } };
+                            const finalData = {
+                                issues: allIssues,
+                                summary: { ...data.summary, elapsed },
+                                corrected_text: buildCorrectedTextFromIssues(input, allIssues)
+                            };
                             renderProofreadResults(finalData, false);
                             return;
                         }
@@ -5227,7 +7336,11 @@
 
             // fallback：如果没有收到 done 事件，用当前累积的数据渲染
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-            const finalData = { issues: allIssues, summary: { total: allIssues.length, errors: 0, warnings: 0, elapsed } };
+            const finalData = {
+                issues: allIssues,
+                summary: { total: allIssues.length, errors: 0, warnings: 0, elapsed },
+                corrected_text: buildCorrectedTextFromIssues(input, allIssues)
+            };
             renderProofreadResults(finalData, false);
         } catch (error) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -5241,6 +7354,105 @@
                     <div class="success-subtitle-new" style="font-size:12px;color:#999;">用时: ${elapsed}秒</div>
                 </div>
             `;
+        }
+    }
+
+    function buildCorrectedTextFromIssues(sourceText, issues) {
+        if (!sourceText || !issues?.length) return sourceText || '';
+        const applicable = issues
+            .map(issue => ({
+                start: issue.position?.start,
+                end: issue.position?.end,
+                original: issue.original || '',
+                suggestion: issue.suggestion || '',
+                contextBefore: issue.context_before || '',
+                contextAfter: issue.context_after || ''
+            }))
+            .filter(item => Number.isInteger(item.start) && Number.isInteger(item.end))
+            .sort((a, b) => b.end - a.end || b.start - a.start);
+
+        let output = sourceText;
+        for (const item of applicable) {
+            let start = Math.max(0, Math.min(output.length, item.start));
+            let end = Math.max(start, Math.min(output.length, item.end));
+            if (item.original && output.slice(start, end) !== item.original) {
+                const foundAt = findBestTextMatch(output, item.original, start, item.contextBefore, item.contextAfter);
+                if (foundAt >= 0) {
+                    start = foundAt;
+                    end = foundAt + item.original.length;
+                } else {
+                    continue;
+                }
+            }
+            output = output.slice(0, start) + item.suggestion + output.slice(end);
+        }
+        return output;
+    }
+
+    function updateProofreadCorrectedPreview(text, isDocMode = false) {
+        window.proofreadCorrectedText = text || '';
+    }
+
+    function getTextCandidateScore(text, candidateStart, expectedStart, original, contextBefore = '', contextAfter = '') {
+        let score = Math.abs(candidateStart - expectedStart);
+
+        if (contextBefore) {
+            const leftStart = Math.max(0, candidateStart - contextBefore.length);
+            const leftText = text.slice(leftStart, candidateStart);
+            if (leftText === contextBefore) {
+                score -= 12;
+            }
+        }
+
+        if (contextAfter) {
+            const rightText = text.slice(candidateStart + original.length, candidateStart + original.length + contextAfter.length);
+            if (rightText === contextAfter) {
+                score -= 12;
+            }
+        }
+
+        if (original.length <= 1) {
+            score -= 1;
+        }
+
+        return score;
+    }
+
+    function findBestTextMatch(text, original, expectedStart = 0, contextBefore = '', contextAfter = '') {
+        if (!text || !original) return -1;
+
+        const matches = [];
+        let index = text.indexOf(original);
+        while (index >= 0) {
+            matches.push(index);
+            index = text.indexOf(original, index + 1);
+        }
+
+        if (matches.length === 0) return -1;
+        if (matches.length === 1) return matches[0];
+
+        let bestIndex = matches[0];
+        let bestScore = Infinity;
+
+        for (const candidate of matches) {
+            const score = getTextCandidateScore(text, candidate, expectedStart, original, contextBefore, contextAfter);
+            if (score < bestScore) {
+                bestScore = score;
+                bestIndex = candidate;
+            }
+        }
+
+        return bestIndex;
+    }
+
+    async function copyProofreadCorrectedText(isDocMode = false) {
+        const text = window.proofreadCorrectedText || '';
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast('校对后全文已复制', 'success');
+        } catch (error) {
+            showToast('复制失败', 'error');
         }
     }
 
@@ -5298,6 +7510,8 @@
         const errorCount = processedIssues.filter(i => i.type === 'error').length;
         const warningCount = processedIssues.filter(i => i.type === 'warning').length;
         const suggestionCount = processedIssues.filter(i => i.type === 'suggestion').length;
+        const correctedText = data.corrected_text || buildCorrectedTextFromIssues(inputText, processedIssues);
+        window.proofreadCorrectedText = correctedText;
 
         // 存储问题列表用于点击定位和采纳
         window.proofreadIssues = processedIssues;
@@ -5321,7 +7535,7 @@
             const elapsedText = elapsed ? `<div class="result-elapsed">用时: ${elapsed}秒</div>` : '';
             html = `
                 <div class="result-header">
-                    <div class="result-title">全部采纳 共 ${processedIssues.length} 个</div>
+                    <div class="result-title">发现 ${processedIssues.length} 处可优化项</div>
                     <div class="result-stats">
                         <div class="result-stat errors">
                             <span class="num">${errorCount}</span> 错误
@@ -5334,9 +7548,29 @@
                         </div>
                         ${elapsedText}
                     </div>
+                    <div class="result-summary-grid">
+                        <div class="result-summary-card">
+                            <div class="label">建议</div>
+                            <div class="value">${suggestionCount + warningCount}</div>
+                            <div class="meta">可逐条采纳或忽略</div>
+                        </div>
+                        <div class="result-summary-card">
+                            <div class="label">当前文稿</div>
+                            <div class="value">${inputText.length}</div>
+                            <div class="meta">字符数，排版保持不变</div>
+                        </div>
+                        <div class="result-summary-card">
+                            <div class="label">工作流</div>
+                            <div class="value">同步</div>
+                            <div class="meta">采纳后直接写回输入框</div>
+                        </div>
+                    </div>
                     <div class="result-actions">
                         <button class="result-action-btn primary" onclick="adoptAllIssues()">全部采纳</button>
                         <button class="result-action-btn" onclick="ignoreAllIssues()">全部忽略</button>
+                    </div>
+                    <div class="result-note">
+                        <strong>校对体验</strong>：采纳后会直接同步到左侧输入框，保留你导入的换行与缩进，不再单独展示全文副本。
                     </div>
                 </div>
                 <div class="result-list">
@@ -5425,15 +7659,27 @@
 
         resultsContent.innerHTML = html;
 
-        // 显示高亮层并更新显示
-        if (highlightLayer) {
-            highlightLayer.style.display = 'block';
-        }
-        if (textareaWrapper) {
-            textareaWrapper.classList.add('has-highlight');
+        // 只有存在问题时才启用高亮层，避免无问题时文本被置为透明
+        if (processedIssues.length > 0) {
+            if (highlightLayer) {
+                highlightLayer.style.display = 'block';
+            }
+            if (textareaWrapper) {
+                textareaWrapper.classList.add('has-highlight');
+            }
+        } else {
+            if (highlightLayer) {
+                highlightLayer.innerHTML = '';
+                highlightLayer.style.display = 'none';
+            }
+            if (textareaWrapper) {
+                textareaWrapper.classList.remove('has-highlight');
+                textareaWrapper.classList.remove('is-editing');
+            }
         }
 
         updateHighlight();
+        updateProofreadCorrectedPreview(correctedText, isDocMode);
     }
 
     // 更新高亮显示
@@ -5473,13 +7719,15 @@
             .sort((a, b) => (a.position?.start || 0) - (b.position?.start || 0));
 
         // 过滤掉已被忽略的问题，并修正位置
-        const visibleIssues = sortedIssues.filter((_, idx) => !ignored.has(idx));
+        const visibleIssues = sortedIssues.filter(issue => !ignored.has(issue.idx));
 
         for (const issue of visibleIssues) {
             let start = issue.position?.start ?? 0;
             let end = issue.position?.end ?? start;
             const idx = issue.idx;
             const original = issue.original || '';
+            const contextBefore = issue.context_before || '';
+            const contextAfter = issue.context_after || '';
 
             // 前端验证：如果 text.slice(start, end) 不等于 original，尝试在前端文本中找正确的位置
             if (original && (start < 0 || end > text.length || text.slice(start, end) !== original)) {
@@ -5492,27 +7740,32 @@
                 const searchStart = Math.max(0, start - searchRange);
                 const searchEnd = Math.min(text.length, end + searchRange);
 
+                const nearbyMatches = [];
                 for (let i = searchStart; i < searchEnd; i++) {
-                    // 检查从位置 i 开始是否能匹配 original
-                    let match = true;
-                    for (let j = 0; j < original.length && i + j < text.length; j++) {
-                        if (text[i + j] !== original[j]) {
-                            match = false;
-                            break;
+                    if (text.slice(i, i + original.length) === original) {
+                        nearbyMatches.push(i);
+                    }
+                }
+
+                if (nearbyMatches.length > 0) {
+                    let bestCandidate = nearbyMatches[0];
+                    let bestScore = Infinity;
+                    for (const candidate of nearbyMatches) {
+                        const score = getTextCandidateScore(text, candidate, origStart, original, contextBefore, contextAfter);
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestCandidate = candidate;
                         }
                     }
-                    if (match && original.length > 0) {
-                        start = i;
-                        end = i + original.length;
-                        found = true;
-                        console.log(`[Highlight] 修正位置: idx=${idx}, orig='${original}', pos=${origStart}->${start}, text='${text.slice(start, end)}'`);
-                        break;
-                    }
+                    start = bestCandidate;
+                    end = bestCandidate + original.length;
+                    found = true;
+                    console.log(`[Highlight] 修正位置: idx=${idx}, orig='${original}', pos=${origStart}->${start}, text='${text.slice(start, end)}'`);
                 }
 
                 // 方法2：如果方法1失败，在全文中搜索（可能 original 被修改过）
                 if (!found && original.length > 0) {
-                    const idx_in_text = text.indexOf(original);
+                    const idx_in_text = findBestTextMatch(text, original, origStart, contextBefore, contextAfter);
                     if (idx_in_text >= 0) {
                         start = idx_in_text;
                         end = idx_in_text + original.length;
@@ -5696,6 +7949,9 @@
         // 更新文本
         applyAdoptedChanges();
         updateHighlight();
+        if (window.showToast) {
+            window.showToast('已同步到输入框，可直接复制左侧内容', 'success');
+        }
     }
 
     // 全部忽略
@@ -5745,10 +8001,12 @@
             let start = issue.position?.start ?? 0;
             let end = issue.position?.end ?? start;
             const original = issue.original || '';
+            const contextBefore = issue.context_before || '';
+            const contextAfter = issue.context_after || '';
 
             // 前端验证位置
             if (original && (start < 0 || end > text.length || text.slice(start, end) !== original)) {
-                const idx_in_text = text.indexOf(original);
+                const idx_in_text = findBestTextMatch(text, original, start, contextBefore, contextAfter);
                 if (idx_in_text >= 0) {
                     start = idx_in_text;
                     end = idx_in_text + original.length;
@@ -5777,6 +8035,8 @@
         if (isDocMode && docPreview) {
             docPreview.textContent = text;
         }
+
+        updateProofreadCorrectedPreview(text, isDocMode);
     }
 
     function escapeHtml(text) {
@@ -5852,6 +8112,72 @@
         } catch (e) {
             console.error('parseFileOnServer error:', e);
             return '';
+        }
+    }
+
+    function updateProofreadSourceMeta(fileName = '', contentLength = 0) {
+        const badge = document.getElementById('proofreadSourceBadge');
+        const hint = document.getElementById('proofreadSourceHint');
+
+        if (badge) {
+            if (fileName) {
+                badge.textContent = `${fileName}${contentLength ? ` · ${contentLength} 字` : ''}`;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.textContent = '';
+                badge.style.display = 'none';
+            }
+        }
+
+        if (hint) {
+            hint.textContent = fileName
+                ? '已导入文档，内容会直接同步到输入框，保留换行与缩进。'
+                : '支持粘贴文本，也支持导入文档，导入后会尽量保留换行和缩进。';
+        }
+    }
+
+    function setProofreadEditorContent(content, sourceName = '') {
+        const proofreadInput = document.getElementById('proofreadInput');
+        const charCount = document.getElementById('charCount');
+        const resultsContent = document.getElementById('proofreadResultsContent');
+        const placeholder = document.getElementById('resultPlaceholder');
+        const highlightLayer = document.getElementById('highlightLayer');
+        const textareaWrapper = document.getElementById('textareaWrapper');
+
+        if (proofreadInput) {
+            proofreadInput.value = content || '';
+            proofreadInput.scrollTop = 0;
+        }
+        if (charCount) {
+            charCount.textContent = (content || '').length;
+        }
+
+        updateProofreadSourceMeta(sourceName, (content || '').length);
+
+        window.proofreadSourceText = content || '';
+        window.proofreadCorrectedText = '';
+        window.proofreadIssues = [];
+        window.adoptedIssues = new Set();
+        window.ignoredIssues = new Set();
+
+        if (resultsContent) {
+            resultsContent.innerHTML = '';
+            resultsContent.style.display = 'none';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'flex';
+        }
+        if (highlightLayer) {
+            highlightLayer.innerHTML = '';
+            highlightLayer.style.display = 'none';
+        }
+        if (textareaWrapper) {
+            textareaWrapper.classList.remove('has-highlight');
+            textareaWrapper.classList.remove('is-editing');
+        }
+
+        if (proofreadInput) {
+            proofreadInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
     }
 
@@ -6730,29 +9056,6 @@
             });
         });
 
-        // 知识库上传
-        const uploadArea = document.getElementById('uploadArea');
-        const documentInput = document.getElementById('documentInput');
-
-        uploadArea.addEventListener('click', () => documentInput.click());
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragging');
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragging');
-        });
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragging');
-            const files = Array.from(e.dataTransfer.files);
-            handleDocumentUpload(files);
-        });
-        documentInput.addEventListener('change', () => {
-            handleDocumentUpload(Array.from(documentInput.files));
-            documentInput.value = '';
-        });
-
         // 全局函数
         window.toggleThinking = toggleThinking;
         window.removeAttachment = removeAttachment;
@@ -6763,41 +9066,6 @@
 
         console.log('✅ DeepAgentForce 已加载');
     });
-
-    // ============ 文档上传 ============
-    async function handleDocumentUpload(files) {
-        if (files.length === 0) return;
-        
-        showToast('正在上传文档...', 'success');
-        
-        const formData = new FormData();
-        files.forEach(file => formData.append('files', file));
-        
-        try {
-            const token = localStorage.getItem('access_token');
-            const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-            const response = await fetch(`${getApiUrl()}/rag/documents/upload`, {
-                method: 'POST',
-                headers: headers,
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showToast(`成功上传 ${files.length} 个文档`, 'success');
-                loadDocuments();
-                loadKnowledgeBaseStats();
-            } else {
-                showToast(result.message || '上传失败', 'error');
-            }
-        } catch (error) {
-            showToast('上传失败: ' + error.message, 'error');
-        }
-    }
 
     // ============ 模态框 HTML ============
     // Add/Edit Skill Modal

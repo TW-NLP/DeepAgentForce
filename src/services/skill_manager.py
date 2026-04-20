@@ -166,9 +166,11 @@ class SkillManager:
             # 获取 scripts 目录信息
             scripts_dir = skill_path / "scripts"
             scripts = []
+            script_names = []
             if scripts_dir.exists():
                 for script_file in scripts_dir.iterdir():
                     if script_file.is_file() and script_file.suffix == '.py':
+                        script_names.append(script_file.name)
                         # 使用 skill_path 作为基准，避免跨目录计算相对路径
                         scripts.append({
                             'name': script_file.stem,
@@ -179,6 +181,20 @@ class SkillManager:
             # 统计信息
             created_at = datetime.fromtimestamp(skill_path.stat().st_ctime).isoformat()
             modified_at = datetime.fromtimestamp(skill_path.stat().st_mtime).isoformat()
+            size_bytes = 0
+            file_count = 0
+            for item in skill_path.rglob('*'):
+                if item.is_file():
+                    file_count += 1
+                    try:
+                        size_bytes += item.stat().st_size
+                    except OSError:
+                        continue
+
+            summary = metadata.get('description', '')
+            if not summary:
+                body_lines = [line.strip() for line in content.splitlines() if line.strip() and not line.startswith('---')]
+                summary = body_lines[0][:120] if body_lines else ''
 
             return {
                 'id': skill_path.name,
@@ -190,6 +206,12 @@ class SkillManager:
                 'path': str(skill_path),
                 'scripts': scripts,
                 'script_count': len(scripts),
+                'script_names': script_names,
+                'size_bytes': size_bytes,
+                'file_count': file_count,
+                'summary': summary,
+                'is_builtin': skill_path.parent == self.builtin_skills_dir or skill_path.name in BUILTIN_SKILL_IDS,
+                'is_custom': skill_path.parent != self.builtin_skills_dir and skill_path.name not in BUILTIN_SKILL_IDS,
                 'created_at': created_at,
                 'modified_at': modified_at
             }

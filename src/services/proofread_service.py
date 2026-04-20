@@ -301,10 +301,12 @@ class ProofreadService:
 
         # 统计
         summary = self._generate_summary(issues)
+        corrected_text = self._apply_issues_to_text(text, issues)
 
         return {
             "issues": issues,
-            "summary": summary
+            "summary": summary,
+            "corrected_text": corrected_text
         }
 
     def _rule_based_check(self, text: str) -> List[Dict[str, Any]]:
@@ -847,7 +849,8 @@ class ProofreadService:
         for i, (offset, chunk_text) in enumerate(chunks):
             try:
                 # 提取句子（按换行分割）
-                sentences = [s.strip() for s in chunk_text.split('\n') if s.strip()]
+                chunk_lines = chunk_text.split('\n')
+                sentences = [line for line in chunk_lines if line.strip()]
 
                 if not sentences:
                     completed += 1
@@ -858,14 +861,13 @@ class ProofreadService:
                 # 计算 sentences 中每个句子在 chunk_text 中的位置
                 sentence_positions = []
                 temp_pos = 0
-                for s in chunk_text.split('\n'):
-                    stripped = s.strip()
-                    if stripped:
+                for line in chunk_lines:
+                    if line.strip():
                         # 找到该句子在 chunk_text 中的实际位置
-                        pos = chunk_text.find(stripped, temp_pos)
+                        pos = chunk_text.find(line, temp_pos)
                         if pos >= 0:
                             sentence_positions.append(pos)
-                            temp_pos = pos + len(stripped)
+                            temp_pos = pos + len(line)
 
                 # 调用 ChineseCorrector
                 results = self._corrector_adapter.correct(sentences)
@@ -915,7 +917,7 @@ class ProofreadService:
                         if base_pos < 0:
                             for si, sp in enumerate(sentence_positions):
                                 s_text = sentences[si] if si < len(sentences) else ""
-                                if result.original in s_text or s_text in result.original:
+                                if result.original in s_text or s_text in result.original or s_text.strip() == result.original.strip():
                                     base_pos = sp
                                     break
 
@@ -948,6 +950,9 @@ class ProofreadService:
 
                         # 对于删除操作，suggestion 为空
                         suggestion = span.corrected_text if span.corrected_text else None
+                        context_window = 8
+                        local_start = max(0, span.start - context_window)
+                        local_end = min(len(result.original), span.end + context_window)
 
                         issue = {
                             "type": "error",
@@ -960,7 +965,9 @@ class ProofreadService:
                             "original": span.original_text,
                             "suggestion": suggestion,
                             "explanation": explanation,
-                            "reasoning": result.reasoning
+                            "reasoning": result.reasoning,
+                            "context_before": result.original[local_start:span.start],
+                            "context_after": result.original[span.end:local_end]
                         }
                         all_issues.append(issue)
                         logger.info(f"[ProofreadService] 生成 issue: orig='{span.original_text}', corr='{span.corrected_text}', pos={start}-{end}")
@@ -993,20 +1000,20 @@ class ProofreadService:
 
         for offset, chunk_text in batch:
             try:
-                sentences = [s.strip() for s in chunk_text.split('\n') if s.strip()]
+                chunk_lines = chunk_text.split('\n')
+                sentences = [line for line in chunk_lines if line.strip()]
                 if not sentences:
                     continue
 
                 # 计算 sentences 中每个句子在 chunk_text 中的位置
                 sentence_positions = []
                 temp_pos = 0
-                for s in chunk_text.split('\n'):
-                    stripped = s.strip()
-                    if stripped:
-                        pos = chunk_text.find(stripped, temp_pos)
+                for line in chunk_lines:
+                    if line.strip():
+                        pos = chunk_text.find(line, temp_pos)
                         if pos >= 0:
                             sentence_positions.append(pos)
-                            temp_pos = pos + len(stripped)
+                            temp_pos = pos + len(line)
 
                 results = self._corrector_adapter.correct(sentences)
 
@@ -1052,7 +1059,7 @@ class ProofreadService:
                         if base_pos < 0:
                             for si, sp in enumerate(sentence_positions):
                                 s_text = sentences[si] if si < len(sentences) else ""
-                                if result.original in s_text or s_text in result.original:
+                                if result.original in s_text or s_text in result.original or s_text.strip() == result.original.strip():
                                     base_pos = sp
                                     break
 
@@ -1082,6 +1089,9 @@ class ProofreadService:
                         start = offset + base_pos + span.start
                         end = offset + base_pos + span.end
                         suggestion = span.corrected_text if span.corrected_text else None
+                        context_window = 8
+                        local_start = max(0, span.start - context_window)
+                        local_end = min(len(result.original), span.end + context_window)
 
                         issue = {
                             "type": "error",
@@ -1090,7 +1100,9 @@ class ProofreadService:
                             "original": span.original_text,
                             "suggestion": suggestion,
                             "explanation": explanation,
-                            "reasoning": result.reasoning
+                            "reasoning": result.reasoning,
+                            "context_before": result.original[local_start:span.start],
+                            "context_after": result.original[span.end:local_end]
                         }
                         all_issues.append(issue)
                         logger.info(f"[ProofreadService] 批次生成 issue: orig='{span.original_text}', corr='{span.corrected_text}', pos={start}-{end}")
@@ -1223,6 +1235,49 @@ class ProofreadService:
             "suggestions": suggestions,
             "overall": overall
         }
+
+    def _apply_issues_to_text(self, text: str, issues: List[Dict]) -> str:
+        """根据 issue 列表生成校对后的全文。"""
+        if not text or not issues:
+            return text
+
+        applicable = []
+        for issue in issues:
+            pos = issue.get("position") or {}
+            start = pos.get("start")
+            end = pos.get("end")
+            if start is None or end is None:
+                continue
+            applicable.append({
+                "start": start,
+                "end": end,
+                "original": issue.get("original", "") or "",
+                "suggestion": issue.get("suggestion", "") or "",
+            })
+
+        if not applicable:
+            return text
+
+        applicable.sort(key=lambda item: (item["end"], item["start"]), reverse=True)
+        output = text
+
+        for item in applicable:
+            start = max(0, min(len(output), item["start"]))
+            end = max(start, min(len(output), item["end"]))
+            original = item["original"]
+            suggestion = item["suggestion"]
+
+            if original and output[start:end] != original:
+                found_at = output.find(original)
+                if found_at >= 0:
+                    start = found_at
+                    end = found_at + len(original)
+                else:
+                    continue
+
+            output = output[:start] + suggestion + output[end:]
+
+        return output
 
     async def proofread_document(self, text: str, filename: str = None) -> Dict[str, Any]:
         """

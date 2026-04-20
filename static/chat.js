@@ -405,9 +405,11 @@ function toggleDevMode() {
 }
 
 function refreshDevModeUI() {
-    if (!devModeButton || !devModeText) return;
+    if (!devModeButton) return;
     devModeButton.classList.toggle('dev-active', devModeEnabled);
-    devModeText.textContent = devModeEnabled ? '开发模式开' : '开发模式关';
+    if (devModeText) {
+        devModeText.textContent = devModeEnabled ? '开发模式开' : '开发模式关';
+    }
 }
 
 function updateComposerState() {

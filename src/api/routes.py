@@ -3,6 +3,7 @@ import uuid
 import shutil
 import json
 import math
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Dict, List
@@ -40,6 +41,75 @@ def get_tenant_uuid_from_request(request: Request) -> Optional[str]:
         return payload.get("tenant_uuid")  # 🆕 使用 tenant_uuid
     except Exception:
         return None
+
+
+def _format_bytes(size_bytes: int) -> str:
+    if size_bytes <= 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    index = min(int(math.floor(math.log(size_bytes, 1024))), len(units) - 1)
+    value = size_bytes / (1024 ** index)
+    return f"{value:.1f} {units[index]}"
+
+
+async def _store_uploaded_document(
+    request: Request,
+    file: UploadFile,
+    title: Optional[str] = None,
+    author: Optional[str] = None,
+    category: Optional[str] = None,
+) -> "UploadResponse":
+    engine = request.app.state.engine
+    tenant_id = get_tenant_uuid_from_request(request)
+    allowed = {'.pdf', '.docx', '.doc', '.txt', '.md', '.markdown', '.csv'}
+    ext = Path(file.filename).suffix.lower()
+
+    if ext not in allowed:
+        raise HTTPException(status_code=400, detail=f"不支持的文件类型: {ext}")
+
+    tenant_upload_dir = engine.settings.UPLOAD_DIR / str(tenant_id or "default")
+    tenant_upload_dir.mkdir(parents=True, exist_ok=True)
+    file_path = tenant_upload_dir / f"{uuid.uuid4()}_{file.filename}"
+
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        file_size = file_path.stat().st_size
+        metadata = {
+            "title": title or file.filename,
+            "author": author,
+            "category": category,
+            "original_filename": file.filename,
+            "file_extension": ext,
+            "mime_type": file.content_type,
+            "size_bytes": file_size,
+            "display_name": title or file.filename,
+            "tenant_uuid": tenant_id,
+        }
+
+        pipeline = engine.get_rag_engine(tenant_id)
+        doc_uuid = await pipeline.add_document(str(file_path), metadata, tenant_uuid=tenant_id)
+        doc_info = pipeline._get_tenant_documents(tenant_id).get(
+            doc_uuid,
+            {'chunks_count': 0, 'added_at': str(datetime.now())}
+        )
+
+        return UploadResponse(
+            success=True,
+            message="文档上传并索引成功",
+            document_id=doc_uuid,
+            document_name=file.filename,
+            chunks_count=doc_info.get('chunks_count', 0),
+            uploaded_at=doc_info.get('added_at', "")
+        )
+    except Exception:
+        if file_path.exists():
+            try:
+                file_path.unlink()
+            except Exception:
+                pass
+        raise
 
 
 
@@ -111,6 +181,24 @@ class UploadResponse(BaseModel):
     chunks_count: int
     uploaded_at: str
 
+
+class BatchUploadItem(BaseModel):
+    success: bool
+    file_name: str
+    message: str
+    document_id: Optional[str] = None
+    chunks_count: int = 0
+    uploaded_at: Optional[str] = None
+
+
+class BatchUploadResponse(BaseModel):
+    success: bool
+    message: str
+    total_files: int
+    success_count: int
+    failure_count: int
+    results: List[BatchUploadItem]
+
 class DeleteResponse(BaseModel):
     success: bool
     message: str
@@ -169,8 +257,11 @@ class IndexStatusResponse(BaseModel):
     document_count: int
     chunks_count: int = 0
     total_size: str = "0 KB"
+    total_size_bytes: int = 0
     last_updated: Optional[str] = None
     status: str = "ready"
+    file_type_counts: Dict[str, int] = Field(default_factory=dict)
+    recent_documents: List[Dict[str, Any]] = Field(default_factory=list)
 
 # ==================== API 路由实现 ====================
 
@@ -574,56 +665,79 @@ async def get_history(request: Request, session_id: str):
 async def upload_document(
     request: Request,
     file: UploadFile = File(...),
-    title: Optional[str] = None,
-    author: Optional[str] = None,
-    category: Optional[str] = None
+    title: Optional[str] = Form(None),
+    author: Optional[str] = Form(None),
+    category: Optional[str] = Form(None)
 ):
     """
     上传文档到当前租户的知识库
     🆕 多租户：文档按租户隔离
     """
-    engine = request.app.state.engine
-    tenant_id = get_tenant_uuid_from_request(request)  # 🆕
-    allowed = {'.pdf', '.docx', '.doc', '.txt', '.md', '.markdown', '.csv'}
-    ext = Path(file.filename).suffix.lower()
-    
-    if ext not in allowed:
-        raise HTTPException(status_code=400, detail=f"不支持的文件类型: {ext}")
-    
     try:
-        # 🆕 多租户：文件存储到租户专属目录
-        tenant_upload_dir = engine.settings.UPLOAD_DIR / str(tenant_id or "default")
-        tenant_upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = tenant_upload_dir / f"{uuid.uuid4()}_{file.filename}"
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        metadata = {
-            "title": title or file.filename,
-            "author": author,
-            "category": category,
-            "original_filename": file.filename,
-            "file_extension": ext,
-            "tenant_uuid": tenant_id,  # 🆕 记录所属租户
-        }
-        
-        # 🆕 获取租户专属的 RAG pipeline
-        pipeline = engine.get_rag_engine(tenant_id)
-        doc_uuid = await pipeline.add_document(str(file_path), metadata, tenant_uuid=tenant_id)
-        # 🆕 从租户文档元数据获取信息
-        doc_info = pipeline._get_tenant_documents(tenant_id).get(doc_uuid, {'chunks_count': 0, 'added_at': str(datetime.now())})
-        
-        return UploadResponse(
-            success=True,
-            message="文档上传并索引成功",
-            document_id=doc_uuid,
-            document_name=file.filename,
-            chunks_count=doc_info.get('chunks_count', 0),
-            uploaded_at=doc_info.get('added_at', "")
+        return await _store_uploaded_document(
+            request=request,
+            file=file,
+            title=title,
+            author=author,
+            category=category,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ 上传失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/rag/documents/upload-batch", response_model=BatchUploadResponse, tags=["RAG"])
+async def upload_documents_batch(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    title: Optional[str] = Form(None),
+    author: Optional[str] = Form(None),
+    category: Optional[str] = Form(None)
+):
+    """批量上传文档。"""
+    if not files:
+        raise HTTPException(status_code=400, detail="请至少选择一个文件")
+
+    results: List[BatchUploadItem] = []
+    success_count = 0
+    failure_count = 0
+
+    for file in files:
+        try:
+            result = await _store_uploaded_document(
+                request=request,
+                file=file,
+                title=title,
+                author=author,
+                category=category,
+            )
+            success_count += 1
+            results.append(BatchUploadItem(
+                success=True,
+                file_name=file.filename,
+                message=result.message,
+                document_id=result.document_id,
+                chunks_count=result.chunks_count,
+                uploaded_at=result.uploaded_at,
+            ))
+        except Exception as exc:
+            failure_count += 1
+            results.append(BatchUploadItem(
+                success=False,
+                file_name=file.filename,
+                message=getattr(exc, "detail", str(exc)),
+            ))
+
+    return BatchUploadResponse(
+        success=failure_count == 0,
+        message="批量上传完成" if failure_count == 0 else "部分文件上传失败",
+        total_files=len(files),
+        success_count=success_count,
+        failure_count=failure_count,
+        results=results,
+    )
 
 @router.get("/rag/documents", response_model=ListDocumentsResponse, tags=["RAG"])
 async def list_documents(request: Request):
@@ -633,16 +747,17 @@ async def list_documents(request: Request):
     try:
         pipeline = engine.get_rag_engine(tenant_id)
         docs = pipeline.list_documents(tenant_uuid=tenant_id)  # 🆕
-        doc_list = [
+        doc_list = sorted([
             DocumentInfo(
                 document_id=doc['uuid'],
                 name=doc['title'],
                 path=str(doc.get('path', '')),
                 chunks=doc.get('chunks_count', 0),
+                size=doc.get('size_bytes', doc.get('size', 0)),
                 uploaded_at=doc.get('added_at', ''),
                 metadata=doc
             ) for doc in docs
-        ]
+        ], key=lambda item: item.uploaded_at or "", reverse=True)
         return ListDocumentsResponse(success=True, total=len(doc_list), documents=doc_list)
     except Exception as e:
         logger.error(f"列表获取失败: {e}")
@@ -750,33 +865,46 @@ async def get_index_status(request: Request):
         pipeline = engine.get_rag_engine(tenant_id)
         docs = pipeline.list_documents(tenant_uuid=tenant_id)  # 🆕
 
-        # 计算总块数和大小
         total_chunks = sum(doc.get('chunks', 0) for doc in docs)
-        total_size = sum(doc.get('size', 0) for doc in docs)
+        total_size_bytes = sum(doc.get('size_bytes', doc.get('size', 0)) for doc in docs)
+        file_type_counts = Counter(
+            (doc.get('file_extension') or Path(doc.get('path', '')).suffix.lower() or 'unknown').lstrip('.').upper()
+            for doc in docs
+        )
 
-        # 格式化大小
-        def format_size(bytes_val):
-            if bytes_val == 0:
-                return "0 B"
-            k = 1024
-            sizes = ['B', 'KB', 'MB', 'GB']
-            i = int(math.floor(math.log(bytes_val) / math.log(k)))
-            return f"{bytes_val / k ** i:.1f} {sizes[i]}"
-
-        # 获取最后更新时间
         last_updated = None
         if docs:
             uploaded_times = [doc.get('uploaded_at', '') for doc in docs if doc.get('uploaded_at')]
             if uploaded_times:
                 last_updated = max(uploaded_times)
 
+        recent_documents = sorted(
+            docs,
+            key=lambda doc: doc.get('uploaded_at', ''),
+            reverse=True
+        )[:5]
+        recent_documents_payload = [
+            {
+                "document_id": doc.get("uuid"),
+                "name": doc.get("title"),
+                "uploaded_at": doc.get("uploaded_at", ""),
+                "chunks": doc.get("chunks", doc.get("chunks_count", 0)),
+                "size_bytes": doc.get("size_bytes", doc.get("size", 0)),
+                "file_extension": doc.get("file_extension"),
+            }
+            for doc in recent_documents
+        ]
+
         return IndexStatusResponse(
             success=True,
             document_count=len(docs),
             chunks_count=total_chunks,
-            total_size=format_size(total_size),
+            total_size=_format_bytes(total_size_bytes),
+            total_size_bytes=total_size_bytes,
             last_updated=last_updated,
-            status="ready"
+            status="ready",
+            file_type_counts=dict(file_type_counts),
+            recent_documents=recent_documents_payload
         )
     except Exception as e:
         logger.error(f"获取索引状态失败: {e}", exc_info=True)
@@ -1181,7 +1309,3 @@ async def proofread_text_stream(
     except Exception as e:
         logger.error(f"流式文本校对失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-

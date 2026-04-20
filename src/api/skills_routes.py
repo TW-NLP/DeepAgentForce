@@ -52,6 +52,12 @@ class SkillInfo(BaseModel):
     path: str
     scripts: List[Dict[str, str]] = Field(default_factory=list)
     script_count: int = 0
+    script_names: List[str] = Field(default_factory=list)
+    size_bytes: int = 0
+    file_count: int = 0
+    summary: str = ""
+    is_builtin: bool = False
+    is_custom: bool = False
     created_at: str = ""
     modified_at: str = ""
 

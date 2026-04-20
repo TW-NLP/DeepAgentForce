@@ -7,6 +7,10 @@ let allDocuments = [];
 let selectedDocuments = new Set();
 let searchKeyword = '';
 let currentFilter = 'all';
+let currentSort = 'recent';
+let currentDrawerDocId = null;
+let currentDrawerPreview = null;
+let currentDrawerLoading = false;
 
 // ============ UI 组件 ============
 const LoadingManager = {
@@ -47,7 +51,7 @@ const LoadingManager = {
 
 // ============ 工具函数 ============
 function getFileIcon(filename) {
-    const ext = filename.split('.').pop().toLowerCase();
+    const ext = (filename || '').split('.').pop().toLowerCase();
     const icons = {
         'pdf': '📕', 'docx': '📘', 'doc': '📘',
         'txt': '📄', 'md': '📝', 'markdown': '📝', 'csv': '📊'
@@ -75,6 +79,21 @@ function formatDate(dateString) {
     });
 }
 
+function formatRelativeTime(dateString) {
+    if (!dateString) return '刚刚';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '未知时间';
+    const diff = Date.now() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes} 分钟前`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} 小时前`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} 天前`;
+    return formatDate(dateString);
+}
+
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -89,6 +108,199 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function getDocumentExtension(doc) {
+    const ext = (doc?.metadata?.file_extension || doc?.name || '').split('.').pop().toLowerCase();
+    return ext || 'unknown';
+}
+
+function getDocumentTypeLabel(doc) {
+    const ext = getDocumentExtension(doc);
+    return getFileTypeLabel(ext);
+}
+
+function getFilterLabel(filter) {
+    const labels = {
+        all: '全部',
+        pdf: 'PDF',
+        doc: 'Word',
+        docx: 'Word',
+        txt: '文本',
+        md: 'Markdown',
+        markdown: 'Markdown',
+        csv: 'CSV'
+    };
+    return labels[filter] || filter.toUpperCase();
+}
+
+function buildDocumentSummary(doc) {
+    const chunks = doc.chunks || 0;
+    const sizeBytes = doc.metadata?.size_bytes || doc.size || 0;
+    const pieces = [];
+    pieces.push(`${chunks} 个文本块`);
+    if (sizeBytes) pieces.push(formatFileSize(sizeBytes));
+    if (doc.metadata?.author) pieces.push(doc.metadata.author);
+    return pieces.join(' · ');
+}
+
+function getDrawerElements() {
+    return {
+        drawer: document.getElementById('kbDetailDrawer'),
+        empty: document.getElementById('kbDrawerEmpty'),
+        shell: document.getElementById('kbDrawerShell'),
+        title: document.getElementById('kbDrawerTitle'),
+        subtitle: document.getElementById('kbDrawerSubtitle'),
+        icon: document.getElementById('kbDrawerIcon'),
+        status: document.getElementById('kbDrawerStatus'),
+        meta: document.getElementById('kbDrawerMeta'),
+        preview: document.getElementById('kbDrawerPreview'),
+        actions: document.getElementById('kbDrawerActions'),
+        closeBtn: document.getElementById('kbDrawerCloseBtn')
+    };
+}
+
+function renderDrawer(doc, previewData = null, loading = false) {
+    const els = getDrawerElements();
+    if (!els.drawer || !els.empty || !els.shell) return;
+
+    if (!doc) {
+        els.empty.style.display = 'flex';
+        els.shell.style.display = 'none';
+        currentDrawerDocId = null;
+        currentDrawerPreview = null;
+        els.drawer.classList.remove('has-selection');
+        return;
+    }
+
+    els.empty.style.display = 'none';
+    els.shell.style.display = 'flex';
+    els.drawer.classList.add('has-selection');
+
+    if (els.title) els.title.textContent = doc.name || '未命名文档';
+    if (els.subtitle) {
+        const extLabel = getDocumentTypeLabel(doc);
+        els.subtitle.textContent = `${extLabel} · ${formatRelativeTime(doc.uploaded_at)} · ${buildDocumentSummary(doc)}`;
+    }
+    if (els.icon) els.icon.textContent = getFileIcon(doc.name);
+    if (els.status) {
+        els.status.textContent = loading ? '加载中' : (previewData ? `${previewData.chunks?.length || 0} 个块` : '已选中文档');
+    }
+
+    if (els.meta) {
+        const metadata = doc.metadata || {};
+        els.meta.innerHTML = `
+            <div class="kb-meta-item">
+                <span class="kb-meta-label">文档ID</span>
+                <span class="kb-meta-value mono">${escapeHtml(doc.document_id)}</span>
+            </div>
+            <div class="kb-meta-item">
+                <span class="kb-meta-label">大小</span>
+                <span class="kb-meta-value">${escapeHtml(formatFileSize(metadata.size_bytes || doc.size || 0))}</span>
+            </div>
+            <div class="kb-meta-item">
+                <span class="kb-meta-label">块数</span>
+                <span class="kb-meta-value">${doc.chunks || 0}</span>
+            </div>
+            <div class="kb-meta-item">
+                <span class="kb-meta-label">更新时间</span>
+                <span class="kb-meta-value">${escapeHtml(formatDate(doc.uploaded_at))}</span>
+            </div>
+            ${metadata.author ? `
+                <div class="kb-meta-item">
+                    <span class="kb-meta-label">作者</span>
+                    <span class="kb-meta-value">${escapeHtml(metadata.author)}</span>
+                </div>
+            ` : ''}
+            ${metadata.category ? `
+                <div class="kb-meta-item">
+                    <span class="kb-meta-label">分类</span>
+                    <span class="kb-meta-value">${escapeHtml(metadata.category)}</span>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    if (els.actions) {
+        els.actions.innerHTML = `
+            <button class="kb-drawer-btn" type="button" onclick="previewDocument('${doc.document_id}')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                预览内容
+            </button>
+            <button class="kb-drawer-btn secondary" type="button" onclick="showDocumentDetail('${doc.document_id}')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                详情
+            </button>
+            <button class="kb-drawer-btn danger" type="button" onclick="deleteDocument('${doc.document_id}')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                删除
+            </button>
+        `;
+    }
+
+    if (els.preview) {
+        if (loading) {
+            els.preview.innerHTML = `
+                <div class="kb-preview-loading">
+                    <div class="kb-preview-spinner"></div>
+                    <div>
+                        <div class="kb-preview-loading-title">正在加载预览</div>
+                        <div class="kb-preview-loading-text">请稍候，文档内容正在读取中。</div>
+                    </div>
+                </div>
+            `;
+        } else if (previewData && previewData.chunks) {
+            els.preview.innerHTML = previewData.chunks.length ? previewData.chunks.map((chunk, i) => `
+                <div class="kb-preview-chunk">
+                    <div class="kb-preview-chunk-header">
+                        <span>块 ${i + 1}</span>
+                        <button class="kb-copy-btn" type="button" onclick="copyChunkContent(${i}, '${doc.document_id}')">复制</button>
+                    </div>
+                    <div class="kb-preview-chunk-body">${escapeHtml(chunk.content || chunk.text || '')}</div>
+                </div>
+            `).join('') : '<div class="kb-preview-empty">暂无可预览内容</div>';
+        } else {
+            els.preview.innerHTML = '<div class="kb-preview-empty">点击“预览内容”加载文本切片。</div>';
+        }
+    }
+}
+
+function openDocumentDrawer(docId, options = {}) {
+    const doc = allDocuments.find(item => item.document_id === docId);
+    if (!doc) {
+        renderDrawer(null);
+        return;
+    }
+
+    currentDrawerDocId = docId;
+    currentDrawerPreview = null;
+    const loading = options.loading !== false;
+    renderDrawer(doc, null, loading);
+    document.querySelectorAll('.document-item').forEach(item => {
+        item.classList.toggle('active', item.getAttribute('data-id') === docId);
+    });
+}
+
+function closeDocumentDrawer() {
+    currentDrawerDocId = null;
+    currentDrawerPreview = null;
+    renderDrawer(null);
+    document.querySelectorAll('.document-item').forEach(item => item.classList.remove('active'));
+}
+
+function closeModal() {
+    closeDocumentDrawer();
+}
+
+function getVisibleDocuments() {
+    return allDocuments.filter(doc => {
+        const name = (doc.name || '').toLowerCase();
+        const keyword = searchKeyword.trim().toLowerCase();
+        const ext = getDocumentExtension(doc);
+        const matchesKeyword = !keyword || name.includes(keyword) || (doc.metadata?.title || '').toLowerCase().includes(keyword);
+        const matchesFilter = currentFilter === 'all' || currentFilter === ext || (currentFilter === 'word' && ['doc', 'docx'].includes(ext));
+        return matchesKeyword && matchesFilter;
+    });
+}
+
 // ============ API 调用 ============
 async function loadKnowledgeBaseStats() {
     try {
@@ -97,13 +309,58 @@ async function loadKnowledgeBaseStats() {
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         const response = await fetch(`${getApiUrl()}/rag/index/status`, { headers });
+        if (!response.ok) {
+            throw new Error(`请求失败 (${response.status})`);
+        }
         const data = await response.json();
 
         if (data.success) {
-            document.getElementById('statDocs').textContent = data.document_count;
-            document.getElementById('statChunks').textContent = data.chunks_count || 0;
-            document.getElementById('statSize').textContent = data.total_size || '0 KB';
-            document.getElementById('statLastUpdate').textContent = data.last_updated ? formatDate(data.last_updated) : '暂无';
+            const statDocs = document.getElementById('statDocs');
+            const statChunks = document.getElementById('statChunks');
+            const statSize = document.getElementById('statSize');
+            const statLastUpdate = document.getElementById('statLastUpdate');
+            const kbHealthText = document.getElementById('kbHealthText');
+            const kbHealthValue = document.getElementById('kbHealthValue');
+            const kbTypeBreakdown = document.getElementById('kbTypeBreakdown');
+            const recentDocsCount = document.getElementById('recentDocsCount');
+            const recentDocsList = document.getElementById('recentDocsList');
+
+            if (statDocs) statDocs.textContent = data.document_count;
+            if (statChunks) statChunks.textContent = data.chunks_count || 0;
+            if (statSize) statSize.textContent = data.total_size || '0 KB';
+            if (statLastUpdate) statLastUpdate.textContent = data.last_updated ? formatDate(data.last_updated) : '暂无';
+            if (kbHealthText) {
+                kbHealthText.textContent = data.document_count > 0 ? '索引已就绪' : '等待上传文档';
+            }
+            if (kbHealthValue) {
+                kbHealthValue.textContent = data.document_count > 0 ? 'Ready' : 'Empty';
+            }
+            if (kbTypeBreakdown) {
+                const breakdown = data.file_type_counts || {};
+                const entries = Object.entries(breakdown)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 4)
+                    .map(([key, value]) => `<span class="kb-type-pill">${key} · ${value}</span>`)
+                    .join('');
+                kbTypeBreakdown.innerHTML = entries || '<span class="kb-type-pill muted">暂无分类</span>';
+            }
+            if (recentDocsCount) {
+                recentDocsCount.textContent = Array.isArray(data.recent_documents) ? data.recent_documents.length : 0;
+            }
+            if (recentDocsList) {
+                const recent = Array.isArray(data.recent_documents) ? data.recent_documents : [];
+                recentDocsList.innerHTML = recent.length
+                    ? recent.map(doc => `
+                        <div class="recent-doc-item">
+                            <div class="recent-doc-icon">${getFileIcon(doc.name || '')}</div>
+                            <div class="recent-doc-body">
+                                <div class="recent-doc-name">${escapeHtml(doc.name || '未命名文档')}</div>
+                                <div class="recent-doc-meta">${formatRelativeTime(doc.uploaded_at)} · ${doc.chunks || 0} 块</div>
+                            </div>
+                        </div>
+                    `).join('')
+                    : '<div class="recent-doc-empty">暂无最近更新</div>';
+            }
         }
     } catch (error) {
         console.error('加载统计信息失败:', error);
@@ -117,10 +374,23 @@ async function loadDocuments() {
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         const response = await fetch(`${getApiUrl()}/rag/documents`, { headers });
+        if (!response.ok) {
+            throw new Error(`请求失败 (${response.status})`);
+        }
         const data = await response.json();
 
         if (data.success) {
-            allDocuments = data.documents || [];
+            allDocuments = (data.documents || []).sort((a, b) => {
+                const at = new Date(a.uploaded_at || 0).getTime();
+                const bt = new Date(b.uploaded_at || 0).getTime();
+                return bt - at;
+            });
+            selectedDocuments = new Set(
+                Array.from(selectedDocuments).filter(id => allDocuments.some(doc => doc.document_id === id))
+            );
+            if (currentDrawerDocId && !allDocuments.some(doc => doc.document_id === currentDrawerDocId)) {
+                closeDocumentDrawer();
+            }
             renderDocuments();
         }
     } catch (error) {
@@ -131,53 +401,82 @@ async function loadDocuments() {
 function renderDocuments() {
     const documentsList = document.getElementById('documentsList');
     const emptyState = document.getElementById('emptyState');
+    const documentsCount = document.getElementById('documentsCount');
+    const filteredCount = document.getElementById('filteredCount');
+    const selectionBar = document.getElementById('selectionBar');
+    const selectionText = document.getElementById('selectionText');
 
-    // 过滤文档
-    let filteredDocs = allDocuments;
-    if (searchKeyword) {
-        filteredDocs = filteredDocs.filter(doc =>
-            doc.name.toLowerCase().includes(searchKeyword.toLowerCase())
-        );
+    let filteredDocs = getVisibleDocuments();
+
+    if (currentSort === 'oldest') {
+        filteredDocs = filteredDocs.sort((a, b) => new Date(a.uploaded_at || 0) - new Date(b.uploaded_at || 0));
+    } else {
+        filteredDocs = filteredDocs.sort((a, b) => new Date(b.uploaded_at || 0) - new Date(a.uploaded_at || 0));
     }
 
     // 更新选中计数
     const selectedCount = selectedDocuments.size;
     const selectAllBtn = document.getElementById('selectAllBtn');
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
     if (selectAllBtn) {
         selectAllBtn.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             ${selectedCount > 0 ? `已选 ${selectedCount}` : '全选'}
         `;
     }
+    if (batchDeleteBtn) {
+        batchDeleteBtn.disabled = selectedCount === 0;
+        batchDeleteBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            ${selectedCount > 0 ? `批量删除 (${selectedCount})` : '批量删除'}
+        `;
+    }
+    if (selectionBar) {
+        selectionBar.classList.toggle('visible', selectedCount > 0);
+    }
+    if (selectionText) {
+        selectionText.textContent = selectedCount > 0 ? `已选中 ${selectedCount} 个文档` : '未选择文档';
+    }
+    if (documentsCount) {
+        documentsCount.textContent = allDocuments.length;
+    }
+    if (filteredCount) {
+        filteredCount.textContent = filteredDocs.length;
+    }
 
     if (filteredDocs.length === 0) {
         documentsList.innerHTML = '';
-        emptyState.style.display = 'flex';
+        if (emptyState) emptyState.style.display = 'flex';
         return;
     }
 
-    emptyState.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
 
     documentsList.innerHTML = filteredDocs.map((doc, index) => `
-        <div class="document-item ${selectedDocuments.has(doc.document_id) ? 'selected' : ''}"
+        <div class="document-item ${selectedDocuments.has(doc.document_id) ? 'selected' : ''} ${currentDrawerDocId === doc.document_id ? 'active' : ''}"
              data-id="${doc.document_id}"
              style="animation-delay: ${index * 50}ms">
             <div class="doc-top">
-                <div class="doc-checkbox" onclick="toggleDocumentSelect('${doc.document_id}', event)">
+                <div class="doc-checkbox" onclick="toggleDocumentSelect('${doc.document_id}', event)" aria-label="选择文档">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="20 6 9 17 4 12"/>
                     </svg>
                 </div>
                 <div class="doc-icon">${getFileIcon(doc.name)}</div>
-                <div class="doc-info" onclick="previewDocument('${doc.document_id}')">
+                <div class="doc-info" onclick="showDocumentDetail('${doc.document_id}')">
                     <div class="doc-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</div>
+                    <div class="doc-summary">${escapeHtml(buildDocumentSummary(doc))}</div>
                     <div class="doc-meta">
-                        <span class="doc-type-badge">${getFileTypeLabel(doc.name.split('.').pop())}</span>
+                        <span class="doc-type-badge">${getDocumentTypeLabel(doc)}</span>
+                        ${doc.metadata?.category ? `<span class="doc-type-badge muted">${escapeHtml(doc.metadata.category)}</span>` : ''}
                     </div>
                 </div>
                 <div class="doc-actions">
                     <button class="doc-action-btn" onclick="previewDocument('${doc.document_id}')" title="预览">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <button class="doc-action-btn" onclick="showDocumentDetail('${doc.document_id}')" title="详情">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                     </button>
                     <button class="doc-action-btn delete" onclick="deleteDocument('${doc.document_id}')" title="删除">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -191,7 +490,11 @@ function renderDocuments() {
                 </div>
                 <div class="doc-chip">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    ${formatDate(doc.uploaded_at)}
+                    ${formatRelativeTime(doc.uploaded_at)}
+                </div>
+                <div class="doc-chip">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 2h10l4 4v16H7z"/><path d="M14 2v6h6"/></svg>
+                    ${formatFileSize(doc.metadata?.size_bytes || doc.size || 0)}
                 </div>
             </div>
         </div>
@@ -209,11 +512,16 @@ function toggleDocumentSelect(docId, event) {
 }
 
 function selectAllDocuments() {
-    if (selectedDocuments.size === allDocuments.length) {
-        selectedDocuments.clear();
+    const visibleDocs = getVisibleDocuments();
+    const visibleIds = new Set(visibleDocs.map(doc => doc.document_id));
+    const allVisibleSelected = visibleDocs.length > 0 && visibleDocs.every(doc => selectedDocuments.has(doc.document_id));
+
+    if (allVisibleSelected) {
+        visibleIds.forEach(id => selectedDocuments.delete(id));
     } else {
-        allDocuments.forEach(doc => selectedDocuments.add(doc.document_id));
+        visibleDocs.forEach(doc => selectedDocuments.add(doc.document_id));
     }
+
     renderDocuments();
 }
 
@@ -278,57 +586,20 @@ async function deleteDocument(documentId) {
 }
 
 function showDocumentDetail(docId) {
-    const doc = allDocuments.find(d => d.document_id === docId);
-    if (!doc) return;
-
-    const modal = createModal('文档详情', `
-        <div class="detail-modal">
-            <div class="detail-header">
-                <div class="detail-icon">${getFileIcon(doc.name)}</div>
-                <div class="detail-title">
-                    <h3>${escapeHtml(doc.name)}</h3>
-                    <span class="detail-type">${getFileTypeLabel(doc.name.split('.').pop())}</span>
-                </div>
-            </div>
-            <div class="detail-info">
-                <div class="detail-row">
-                    <span class="detail-label">文档ID</span>
-                    <span class="detail-value">${doc.document_id}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">文件大小</span>
-                    <span class="detail-value">${formatFileSize(doc.size || 0)}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">文本块数</span>
-                    <span class="detail-value">${doc.chunks || 0}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">上传时间</span>
-                    <span class="detail-value">${formatDate(doc.uploaded_at)}</span>
-                </div>
-                ${doc.metadata ? `
-                <div class="detail-row">
-                    <span class="detail-label">元数据</span>
-                    <span class="detail-value">${JSON.stringify(doc.metadata, null, 2)}</span>
-                </div>
-                ` : ''}
-            </div>
-            <div class="detail-actions">
-                <button class="btn btn-primary" onclick="previewDocument('${docId}'); closeModal();">
-                    👁️ 预览内容
-                </button>
-                <button class="btn btn-danger" onclick="deleteDocument('${docId}'); closeModal();">
-                    🗑️ 删除文档
-                </button>
-            </div>
-        </div>
-    `);
-    document.body.appendChild(modal);
+    openDocumentDrawer(docId, { loading: true });
+    loadDocumentDrawerPreview(docId);
 }
 
 async function previewDocument(docId) {
-    LoadingManager.show('正在加载预览...');
+    openDocumentDrawer(docId, { loading: true });
+    await loadDocumentDrawerPreview(docId);
+}
+
+async function loadDocumentDrawerPreview(docId) {
+    const doc = allDocuments.find(item => item.document_id === docId);
+    if (!doc) return;
+    currentDrawerLoading = true;
+    renderDrawer(doc, null, true);
     try {
         const token = localStorage.getItem('access_token');
         const response = await fetch(`${getApiUrl()}/rag/documents/${docId}/content`, {
@@ -338,68 +609,38 @@ async function previewDocument(docId) {
         if (!response.ok) throw new Error('无法加载预览');
 
         const data = await response.json();
-        const doc = allDocuments.find(d => d.document_id === docId);
-
-        const modal = createModal(`预览: ${doc?.name || '文档'}`, `
-            <div class="preview-content">
-                <div class="preview-header">
-                    <span class="preview-type">${getFileTypeLabel(doc?.name.split('.').pop() || '')}</span>
-                    <span class="preview-chunks">${data.chunks?.length || 0} 个文本块</span>
-                </div>
-                <div class="preview-body">
-                    ${(data.chunks || []).map((chunk, i) => `
-                        <div class="preview-chunk">
-                            <div class="chunk-header">块 ${i + 1}</div>
-                            <div class="chunk-content">${escapeHtml(chunk.content || chunk.text || '')}</div>
-                        </div>
-                    `).join('')}
-                    ${(!data.chunks || data.chunks.length === 0) ? '<div class="empty-preview">暂无内容</div>' : ''}
-                </div>
-            </div>
-        `);
-        document.body.appendChild(modal);
+        currentDrawerPreview = data;
+        const latestDoc = allDocuments.find(item => item.document_id === docId);
+        if (latestDoc && currentDrawerDocId === docId) {
+            renderDrawer(latestDoc, data, false);
+        }
     } catch (error) {
+        const latestDoc = allDocuments.find(item => item.document_id === docId);
+        if (latestDoc && currentDrawerDocId === docId) {
+            renderDrawer(latestDoc, { chunks: [] }, false);
+        }
         showToast('预览加载失败: ' + error.message, 'error');
     } finally {
-        LoadingManager.hide();
+        currentDrawerLoading = false;
     }
 }
 
-function createModal(title, content) {
-    // 移除已有的模态框
-    const existingModal = document.querySelector('.modal-overlay');
-    if (existingModal) existingModal.remove();
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay active';
-    modal.innerHTML = `
-        <div class="modal detail-modal-container">
-            <div class="modal-header">
-                <h2>${title}</h2>
-                <button class="modal-close" onclick="closeModal()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">${content}</div>
-        </div>
-    `;
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-    });
-    window.currentModal = modal;
-    return modal;
-}
-
-function closeModal() {
-    const modal = document.querySelector('.modal-overlay');
-    if (modal) {
-        modal.classList.remove('active');
-        setTimeout(() => modal.remove(), 300); // 等待动画完成后移除
+async function copyChunkContent(index, docId) {
+    try {
+        const doc = allDocuments.find(item => item.document_id === docId);
+        if (!doc) return;
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`${getApiUrl()}/rag/documents/${docId}/content`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const data = await response.json();
+        const chunk = data?.chunks?.[index];
+        if (!chunk) return;
+        await navigator.clipboard.writeText(chunk.content || chunk.text || '');
+        showToast('已复制文本块');
+    } catch (error) {
+        showToast('复制失败: ' + error.message, 'error');
     }
-    window.currentModal = null;
 }
 
 // ============ 上传进度管理 ============
@@ -420,7 +661,7 @@ const UploadProgress = {
                 <div class="upload-progress-fill"></div>
             </div>
             <div class="upload-file-list"></div>
-        </div `;
+        `;
         document.body.appendChild(div);
         this.container = div;
         this.fileList = div.querySelector('.upload-file-list');
@@ -523,6 +764,16 @@ async function handleBatchUpload(files) {
     await Promise.all([loadDocuments(), loadKnowledgeBaseStats()]);
 }
 
+async function refreshKnowledgeBase() {
+    LoadingManager.show('正在刷新知识库...');
+    try {
+        await Promise.all([loadDocuments(), loadKnowledgeBaseStats()]);
+        showToast('知识库已刷新');
+    } finally {
+        LoadingManager.hide();
+    }
+}
+
 // ============ 事件监听 ============
 document.addEventListener('DOMContentLoaded', () => {
     LoadingManager.init();
@@ -531,6 +782,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('documentInput');
     const searchInput = document.getElementById('docSearchInput');
+    const refreshBtn = document.getElementById('refreshKnowledgeBtn');
+    const sortSelect = document.getElementById('docSortSelect');
 
     // 文件上传
     if (fileInput) {
@@ -585,6 +838,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 排序
+    if (sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderDocuments();
+        });
+    }
+
+    // 刷新
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', refreshKnowledgeBase);
+    }
+
+    // 类型筛选
+    document.querySelectorAll('[data-kb-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentFilter = btn.getAttribute('data-kb-filter') || 'all';
+            document.querySelectorAll('[data-kb-filter]').forEach(item => item.classList.remove('active'));
+            btn.classList.add('active');
+            renderDocuments();
+        });
+    });
+
     // 批量操作按钮
     const selectAllBtn = document.getElementById('selectAllBtn');
     if (selectAllBtn) {
@@ -605,3 +881,4 @@ window.toggleDocumentSelect = toggleDocumentSelect;
 window.showDocumentDetail = showDocumentDetail;
 window.previewDocument = previewDocument;
 window.closeModal = closeModal;
+window.closeDocumentDrawer = closeDocumentDrawer;
