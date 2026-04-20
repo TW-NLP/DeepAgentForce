@@ -14,12 +14,24 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 let currentSessionId = null;
 let attachedFiles = [];
 let sessionListLoadedViaWebSocket = false; // 🆕 标记会话列表是否已通过 WebSocket 加载
+let shouldStickToBottom = true;
+let streamingPendingText = '';
+let streamingRawText = '';
+let streamingRenderFrame = null;
+let lastStreamingMarkdownRenderAt = 0;
+const STREAMING_MARKDOWN_RENDER_INTERVAL = 140;
+let currentProcessingMode = null;
+let streamingAnswerPhaseStarted = false;
 
 // DOM 元素引用
 let messagesWrapper, messagesContainer, welcomeScreen, messageInput, sendButton;
 let attachButton, chatFileInput, fileAttachmentsContainer;
 let historyList, newChatBtn, sidebarNewChatBtn, statusIndicator, statusText;
-let chatTitle;
+let chatTitle, stopButton, regenerateButton;
+let lastSubmittedMessage = '';
+let lastCompletedUserMessage = '';
+let devModeButton, devModeText;
+let devModeEnabled = localStorage.getItem('chat_dev_mode') === '1';
 
 // ============ 1. DOM 初始化 ============
 function initDOM() {
@@ -28,6 +40,8 @@ function initDOM() {
     welcomeScreen = document.getElementById('welcomeScreen');
     messageInput = document.getElementById('messageInput');
     sendButton = document.getElementById('sendButton');
+    stopButton = document.getElementById('stopButton');
+    regenerateButton = document.getElementById('regenerateButton');
     attachButton = document.getElementById('attachButton');
     chatFileInput = document.getElementById('chatFileInput');
     fileAttachmentsContainer = document.getElementById('fileAttachments');
@@ -35,6 +49,8 @@ function initDOM() {
     statusIndicator = document.getElementById('statusIndicator');
     statusText = document.getElementById('statusText');
     chatTitle = document.getElementById('chatTitle');
+    devModeButton = document.getElementById('headerDevModeBtn');
+    devModeText = document.getElementById('headerDevModeText');
 }
 
 // ============ 2. 历史记录 ============
@@ -112,12 +128,15 @@ function renderSessionHistory(historyData) {
     if (!historyData?.conversations?.length) return;
 
     hideWelcomeScreen();
+    const lastConv = historyData.conversations[historyData.conversations.length - 1];
+    lastCompletedUserMessage = lastConv?.user_content || '';
 
     historyData.conversations.forEach(conv => {
         if (conv.user_content) addMessage('user', conv.user_content);
         if (conv.thinking_steps?.length > 0) renderThinkingSteps(conv.thinking_steps);
         if (conv.ai_content) addMessage('assistant', conv.ai_content);
     });
+    updateComposerState();
 }
 
 // 处理 WebSocket 发送的会话列表（用于侧边栏显示）
@@ -216,11 +235,14 @@ function restoreSession(session) {
 
     // 如果本地有对话数据，直接渲染
     if (session.conversation?.length > 0) {
+        const lastConv = session.conversation[session.conversation.length - 1];
+        lastCompletedUserMessage = lastConv?.user_content || '';
         session.conversation.forEach(conv => {
             if (conv.user_content) addMessage('user', conv.user_content);
             if (conv.thinking_steps?.length > 0) renderThinkingSteps(conv.thinking_steps);
             if (conv.ai_content) addMessage('assistant', conv.ai_content);
         });
+        updateComposerState();
     } else {
         // 本地没有数据，通过 API 加载完整会话
         loadSessionMessages(session.session_id);
@@ -239,11 +261,14 @@ async function loadSessionMessages(sessionId) {
 
         const data = await response.json();
         if (data.success && data.session?.conversations?.length > 0) {
+            const lastConv = data.session.conversations[data.session.conversations.length - 1];
+            lastCompletedUserMessage = lastConv?.user_content || '';
             data.session.conversations.forEach(conv => {
                 if (conv.user_content) addMessage('user', conv.user_content);
                 if (conv.thinking_steps?.length > 0) renderThinkingSteps(conv.thinking_steps);
                 if (conv.ai_content) addMessage('assistant', conv.ai_content);
             });
+            updateComposerState();
         }
     } catch (error) {
         console.error('加载会话消息失败:', error);
@@ -299,9 +324,34 @@ function connectWebSocket() {
     };
 }
 
+function sendWsPayload(payload) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        window.showToast?.('连接尚未就绪，请稍后重试', 'error');
+        return false;
+    }
+    ws.send(JSON.stringify(payload));
+    return true;
+}
+
+function stopGeneration() {
+    if (!isProcessing) return;
+    sendWsPayload({ action: 'stop', session_id: currentSessionId });
+}
+
+function regenerateLastResponse() {
+    if (isProcessing || !lastCompletedUserMessage) return;
+    sendMessage(lastCompletedUserMessage);
+}
+
 function handleWebSocketMessage(payload) {
     console.log('处理消息类型:', payload.type);
     switch (payload.type) {
+        case 'assistant_start':
+            handleAssistantStart();
+            break;
+        case 'answer_start':
+            handleAnswerStart(payload.data || {});
+            break;
         case 'step':
             handleStepUpdate(payload);
             break;
@@ -311,6 +361,9 @@ function handleWebSocketMessage(payload) {
         case 'done':
             if (payload.data?.session_id) currentSessionId = payload.data.session_id;
             handleDone(payload.data?.message || payload.message);
+            break;
+        case 'assistant_stopped':
+            handleStopped(payload.data?.message || '已停止生成');
             break;
         case 'error':
             handleError(payload.data?.message || payload.message);
@@ -336,6 +389,49 @@ function updateStatus(connected) {
         statusIndicator.className = `status-indicator ${connected ? 'connected' : ''}`;
         if (statusText) statusText.textContent = connected ? '在线' : '连接中';
     }
+    updateComposerState();
+}
+
+function saveDevMode(enabled) {
+    devModeEnabled = enabled;
+    localStorage.setItem('chat_dev_mode', enabled ? '1' : '0');
+    refreshDevModeUI();
+    refreshAllDebugPanels();
+}
+
+function toggleDevMode() {
+    saveDevMode(!devModeEnabled);
+    window.showToast?.(devModeEnabled ? '开发模式已开启' : '开发模式已关闭', 'success');
+}
+
+function refreshDevModeUI() {
+    if (!devModeButton || !devModeText) return;
+    devModeButton.classList.toggle('dev-active', devModeEnabled);
+    devModeText.textContent = devModeEnabled ? '开发模式开' : '开发模式关';
+}
+
+function updateComposerState() {
+    if (sendButton) {
+        sendButton.style.display = isProcessing ? 'none' : 'flex';
+        sendButton.disabled = !isConnected || isProcessing;
+    }
+
+    if (stopButton) {
+        const canStop = isProcessing && currentProcessingMode === 'ws';
+        stopButton.style.display = canStop ? 'flex' : 'none';
+        stopButton.disabled = !canStop;
+    }
+
+    if (regenerateButton) {
+        regenerateButton.style.display = !isProcessing && !!lastCompletedUserMessage ? 'flex' : 'none';
+        regenerateButton.disabled = !lastCompletedUserMessage || isProcessing;
+    }
+
+    if (attachButton) {
+        attachButton.disabled = isProcessing;
+        attachButton.style.opacity = isProcessing ? '0.5' : '1';
+        attachButton.style.pointerEvents = isProcessing ? 'none' : '';
+    }
 }
 
 // ============ 4. 消息渲染 ============
@@ -345,61 +441,107 @@ function hideWelcomeScreen() {
     }
 }
 
+function isNearBottom(threshold = 120) {
+    if (!messagesContainer) return true;
+    const distance = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight;
+    return distance <= threshold;
+}
+
+function updateScrollStickiness() {
+    shouldStickToBottom = isNearBottom();
+}
+
 // ============ 工具函数 ============
 
 // 过滤 AI 流式回答中的残留噪音（最小化处理）
 function filterAIResponse(content, removeHtmlImages = false) {
     if (!content || typeof content !== 'string') return content;
 
-    // 1. 移除代码块
-    content = content.replace(/```[\w]*\n?[\s\S]*?```/g, '');
-    content = content.replace(/```[\s\S]*/g, '');
+    return basicCleanAIResponse(content, removeHtmlImages);
+}
 
-    // 2. 移除 HTML img
+function basicCleanAIResponse(content, removeHtmlImages = false) {
+    if (!content || typeof content !== 'string') return content;
+
+    let cleaned = content;
+    cleaned = cleaned.replace(/```[\w]*\n?[\s\S]*?```/g, '');
+    cleaned = cleaned.replace(/```[\s\S]*/g, '');
     if (removeHtmlImages) {
-        content = content.replace(/<img[^>]*>/gi, '');
+        cleaned = cleaned.replace(/<img[^>]*>/gi, '');
     }
+    cleaned = cleaned.replace(/\/(?:Users|home|app|tmp)[^\s,'"\]]+/g, '');
+    cleaned = cleaned.replace(/\[[^\]]*\/[^\]]*(?:SKILL\.md|\.py)[^\]]*\]/g, '');
+    cleaned = cleaned.replace(/\{\s*"datetime"\s*:\s*".*?"\s*,\s*"date"\s*:\s*".*?"\s*,\s*"time"\s*:\s*".*?"[\s\S]*?"utc_offset"\s*:\s*".*?"\s*\}/g, '');
+    return cleaned.trim();
+}
 
-    // 3. 移除工具/脚本原始输出的噪音内容
-    const noisePatterns = [
-        // 分隔线（各种样式）
-        /^={3,}.*$|\|={3,}/gm,
-        // 配置加载信息
-        /✅?\s*成功从\s+[\/\w\-\.]+\.json\s+加载配置/gi,
-        // RAG 查询结果头部
-        /📘\s*RAG Query Result[\s🏢]*.*$/gim,
-        // RAG 结果尾部信息
-        /⏱\s*Processing Time:[\s\d\.s]+/gi,
-        // 问句标记
-        /❓\s*Question:.*$/gim,
-        // 答案标记
-        /✅?\s*Answer:?\s*$/gim,
-        // 错误/警告信息
-        /❌\s*(Error|Query failed|HTTP request failed|Unexpected error):?\s*/gi,
-        /⚠️\s*Warning:.*$/gi,
-        // Skill 执行结果标记
-        /📁\s*Skill Execution Result/gi,
-        // 租户信息
-        /🏢\s*Tenant:[\s\w\-]+/gi,
-        // 工具调用输出（行首的 emoji + 描述模式）
-        /^[🔧⚙️🔨📋📊📄📝]+.*$/gm,
-        // 各种常见脚本输出前缀
-        /^(使用|当前|加载|读取|保存|写入|执行|查询|搜索|更新|删除|创建|初始化)[\s\S]{0,50}$/gm,
-    ];
+function createMessageDebugPanel() {
+    const panel = document.createElement('div');
+    panel.className = `message-debug ${devModeEnabled ? '' : 'is-hidden'}`;
+    panel.innerHTML = `
+        <div class="message-debug-header">
+            <span>Debug View</span>
+            <span class="message-debug-meta">raw vs filtered</span>
+        </div>
+        <div class="message-debug-body">
+            <div class="message-debug-col">
+                <div class="message-debug-label">Raw</div>
+                <pre class="message-debug-pre" data-debug-raw></pre>
+            </div>
+            <div class="message-debug-col">
+                <div class="message-debug-label">Filtered</div>
+                <pre class="message-debug-pre" data-debug-filtered></pre>
+            </div>
+        </div>
+    `;
+    return panel;
+}
 
-    for (const pattern of noisePatterns) {
-        content = content.replace(pattern, '');
+function ensureMessageDebugPanel(messageEl) {
+    if (!messageEl) return null;
+    let panel = messageEl.querySelector('.message-debug');
+    if (!panel) {
+        panel = createMessageDebugPanel();
+        const contentEl = messageEl.querySelector('.message-content');
+        contentEl?.appendChild(panel);
     }
+    return panel;
+}
 
-    return content.trim();
+function updateMessageDebugPanel(messageEl, rawText = '', filteredText = '', meta = '') {
+    const panel = ensureMessageDebugPanel(messageEl);
+    if (!panel) return;
+    panel.classList.toggle('is-hidden', !devModeEnabled);
+    const rawEl = panel.querySelector('[data-debug-raw]');
+    const filteredEl = panel.querySelector('[data-debug-filtered]');
+    const metaEl = panel.querySelector('.message-debug-meta');
+    if (rawEl) rawEl.textContent = rawText || '';
+    if (filteredEl) filteredEl.textContent = filteredText || '';
+    if (metaEl && meta) metaEl.textContent = meta;
+    messageEl.dataset.debugRaw = rawText || '';
+    messageEl.dataset.debugFiltered = filteredText || '';
+    if (meta) messageEl.dataset.debugMeta = meta;
+}
+
+function refreshAllDebugPanels() {
+    document.querySelectorAll('.message, .message-final, .message-streaming').forEach((messageEl) => {
+        const panel = messageEl.querySelector('.message-debug');
+        if (panel) {
+            panel.classList.toggle('is-hidden', !devModeEnabled);
+        }
+    });
 }
 
 function addMessage(role, content) {
     hideWelcomeScreen();
+    const originalContent = content || '';
+    let filteredForDebug = originalContent;
 
     // AI 消息需要过滤原始内容
     if (role === 'assistant') {
-        content = filterAIResponse(content);
+        const filteredContent = filterAIResponse(content);
+        content = filteredContent || basicCleanAIResponse(content);
+        filteredForDebug = content || originalContent;
     }
 
     const div = document.createElement('div');
@@ -411,10 +553,16 @@ function addMessage(role, content) {
     if (role === 'assistant') {
         // 过滤原始内容
         let filtered = filterAIResponse(content, false);
+        if (!filtered) {
+            filtered = basicCleanAIResponse(content, false);
+        }
         // 完成后解析 markdown
         if (typeof marked !== 'undefined') {
             let parsed = marked.parse(filtered);
             parsed = filterAIResponse(parsed, true); // 移除 HTML img
+            if (!parsed) {
+                parsed = basicCleanAIResponse(marked.parse(filtered), true);
+            }
             messageHtml = parsed;
         } else {
             messageHtml = escapeHtml(filtered);
@@ -436,56 +584,185 @@ function addMessage(role, content) {
     `;
 
     messagesWrapper.appendChild(div);
-    scrollToBottom();
+    if (role === 'assistant') {
+        updateMessageDebugPanel(div, originalContent, filteredForDebug, 'final_message');
+    }
+    scrollToBottom(true);
     return div;
 }
 
-function handleTokenUpdate(token) {
-    if (!currentStreamingAnswer) {
-        currentStreamingAnswer = document.createElement('div');
-        currentStreamingAnswer.className = 'message message-streaming';
-        currentStreamingAnswer.innerHTML = `
-            <div class="message-avatar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
-            </div>
-            <div class="message-content">
-                <div class="streaming-body">
-                    <div class="streaming-thinking"></div>
-                    <div class="streaming-final"><span class="streaming-cursor">▎</span></div>
+function buildStreamingMessageShell() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message message-streaming';
+    wrapper.innerHTML = `
+        <div class="message-avatar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
+        </div>
+        <div class="message-content">
+            <div class="streaming-body">
+                <div class="streaming-thinking"></div>
+                <div class="streaming-status">
+                    <span class="typing-indicator"><span></span><span></span><span></span></span>
+                    <span class="streaming-status-text">正在思考</span>
                 </div>
+                <div class="streaming-final is-hidden is-pending"><span class="streaming-cursor">▎</span></div>
             </div>
-        `;
-        messagesWrapper.appendChild(currentStreamingAnswer);
+        </div>
+    `;
+    messagesWrapper.appendChild(wrapper);
+    return wrapper;
+}
+
+function ensureStreamingAnswer(statusText = '正在思考') {
+    hideWelcomeScreen();
+
+    if (!currentStreamingAnswer) {
+        currentStreamingAnswer = buildStreamingMessageShell();
         currentThinkingSteps = [];
+        streamingPendingText = '';
+        streamingRawText = '';
+        streamingAnswerPhaseStarted = false;
+        lastStreamingMarkdownRenderAt = 0;
+    }
+
+    setStreamingStatus(statusText);
+    scrollToBottom(true);
+    return currentStreamingAnswer;
+}
+
+function setStreamingStatus(text = '正在思考', mode = 'active') {
+    if (!currentStreamingAnswer) return;
+    const statusEl = currentStreamingAnswer.querySelector('.streaming-status');
+    const textEl = currentStreamingAnswer.querySelector('.streaming-status-text');
+    if (!statusEl || !textEl) return;
+
+    statusEl.classList.remove('is-hidden', 'is-complete');
+    if (mode === 'complete') {
+        statusEl.classList.add('is-complete');
+    }
+    textEl.textContent = text;
+}
+
+function hideStreamingStatus() {
+    if (!currentStreamingAnswer) return;
+    const statusEl = currentStreamingAnswer.querySelector('.streaming-status');
+    if (statusEl) {
+        statusEl.classList.add('is-hidden');
+    }
+}
+
+function cancelStreamingRender() {
+    if (streamingRenderFrame) {
+        cancelAnimationFrame(streamingRenderFrame);
+        streamingRenderFrame = null;
+    }
+}
+
+function markAnswerPhaseStarted() {
+    if (!currentStreamingAnswer) return;
+    const finalEl = currentStreamingAnswer.querySelector('.streaming-final');
+    if (finalEl) {
+        finalEl.classList.remove('is-hidden');
+    }
+    streamingAnswerPhaseStarted = true;
+}
+
+function renderStreamingOutput({ forceMarkdown = false } = {}) {
+    streamingRenderFrame = null;
+
+    if (!currentStreamingAnswer) return;
+
+    if (streamingPendingText) {
+        streamingRawText += streamingPendingText;
+        streamingPendingText = '';
     }
 
     const finalEl = currentStreamingAnswer.querySelector('.streaming-final');
-    const currentRaw = finalEl.dataset.raw || '';
-    const newRaw = currentRaw + token;
-    finalEl.dataset.raw = newRaw;
+    if (!finalEl) return;
 
-    const filtered = filterAIResponse(newRaw, false);
-    const escaped = filtered
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\n/g, '<br>');
-    finalEl.innerHTML = escaped + '<span class="streaming-cursor">▎</span>';
+    let filtered = filterAIResponse(streamingRawText, false);
+    if (!filtered) {
+        filtered = basicCleanAIResponse(streamingRawText, false);
+    }
+    if (!filtered.trim()) {
+        finalEl.classList.add('is-pending');
+        finalEl.innerHTML = '<span class="streaming-cursor">▎</span>';
+        updateMessageDebugPanel(currentStreamingAnswer, streamingRawText, filtered, 'streaming_pending');
+        scrollToBottom();
+        return;
+    }
+
+    finalEl.classList.remove('is-hidden');
+    finalEl.classList.remove('is-pending');
+
+    const now = performance.now();
+    const shouldRenderMarkdown = forceMarkdown || (
+        typeof marked !== 'undefined' &&
+        now - lastStreamingMarkdownRenderAt >= STREAMING_MARKDOWN_RENDER_INTERVAL
+    );
+
+    if (shouldRenderMarkdown) {
+        let parsed = marked.parse(filtered);
+        parsed = filterAIResponse(parsed, true) || basicCleanAIResponse(parsed, true);
+        finalEl.innerHTML = parsed + '<span class="streaming-cursor">▎</span>';
+        lastStreamingMarkdownRenderAt = now;
+    } else {
+        finalEl.innerHTML = escapeHtml(filtered).replace(/\n/g, '<br>') + '<span class="streaming-cursor">▎</span>';
+    }
+
+    updateMessageDebugPanel(currentStreamingAnswer, streamingRawText, filtered, 'streaming_answer');
     scrollToBottom();
+}
+
+function queueStreamingRender() {
+    if (streamingRenderFrame) return;
+    streamingRenderFrame = requestAnimationFrame(() => renderStreamingOutput());
+}
+
+function handleAssistantStart() {
+    ensureStreamingAnswer('正在思考');
+}
+
+function handleAnswerStart() {
+    ensureStreamingAnswer('正在生成答案');
+    markAnswerPhaseStarted();
+}
+
+function handleTokenUpdate(token) {
+    ensureStreamingAnswer('正在回复');
+    if (!streamingAnswerPhaseStarted) {
+        markAnswerPhaseStarted();
+    }
+    streamingPendingText += token;
+    queueStreamingRender();
 }
 
 function handleDone(finalMessage) {
     if (currentStreamingAnswer) {
+        cancelStreamingRender();
+        if (streamingPendingText) {
+            streamingRawText += streamingPendingText;
+            streamingPendingText = '';
+        }
+
         currentStreamingAnswer.className = 'message message-final';
         const finalEl = currentStreamingAnswer.querySelector('.streaming-final');
         const thinkingEl = currentStreamingAnswer.querySelector('.streaming-thinking');
-        const cleaned = filterAIResponse(finalMessage || '', false);
+        let cleaned = filterAIResponse(finalMessage || streamingRawText || '', false);
+        if (!cleaned) {
+            cleaned = basicCleanAIResponse(finalMessage || streamingRawText || '', false);
+        }
 
         if (cleaned.trim()) {
-            finalEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(cleaned) : escapeHtml(cleaned);
+            finalEl.classList.remove('is-hidden');
+            finalEl.classList.remove('is-pending');
+            finalEl.innerHTML = typeof marked !== 'undefined'
+                ? (filterAIResponse(marked.parse(cleaned), true) || basicCleanAIResponse(marked.parse(cleaned), true))
+                : escapeHtml(cleaned).replace(/\n/g, '<br>');
         } else {
             finalEl.style.display = 'none';
         }
+        updateMessageDebugPanel(currentStreamingAnswer, finalMessage || streamingRawText || '', cleaned, 'done');
 
         if (!thinkingEl.querySelector('.thinking-process') || currentThinkingSteps.length === 0) {
             thinkingEl.style.display = 'none';
@@ -514,26 +791,96 @@ function handleDone(finalMessage) {
             }
         }
 
+        const statusEl = currentStreamingAnswer.querySelector('.streaming-status');
+        setStreamingStatus('回复完成', 'complete');
+        setTimeout(() => statusEl?.classList.add('is-hidden'), 900);
+
         currentStreamingAnswer = null;
         currentThinkingSteps = [];
+        streamingPendingText = '';
+        streamingRawText = '';
+        streamingRenderFrame = null;
+        streamingAnswerPhaseStarted = false;
     }
 
     isProcessing = false;
+    currentProcessingMode = null;
+    lastCompletedUserMessage = lastSubmittedMessage || lastCompletedUserMessage;
     if (sendButton) sendButton.disabled = false;
     if (messageInput) { messageInput.disabled = false; messageInput.focus(); }
+    updateComposerState();
     loadSavedHistory();
 }
 
+function handleStopped(message = '已停止生成') {
+    if (currentStreamingAnswer) {
+        cancelStreamingRender();
+        if (streamingPendingText) {
+            streamingRawText += streamingPendingText;
+            streamingPendingText = '';
+        }
+
+        const finalEl = currentStreamingAnswer.querySelector('.streaming-final');
+        const statusEl = currentStreamingAnswer.querySelector('.streaming-status');
+        let partial = filterAIResponse(streamingRawText || '', false);
+        if (!partial) {
+            partial = basicCleanAIResponse(streamingRawText || '', false);
+        }
+
+        currentStreamingAnswer.className = 'message message-final';
+
+        if (partial.trim()) {
+            finalEl.classList.remove('is-hidden');
+            finalEl.classList.remove('is-pending');
+            finalEl.innerHTML = typeof marked !== 'undefined'
+                ? (filterAIResponse(marked.parse(partial), true) || basicCleanAIResponse(marked.parse(partial), true))
+                : escapeHtml(partial).replace(/\n/g, '<br>');
+        } else {
+            finalEl.innerHTML = `<span style="color: var(--text-tertiary);">${escapeHtml(message)}</span>`;
+        }
+        updateMessageDebugPanel(currentStreamingAnswer, streamingRawText || '', partial || message, 'stopped');
+
+        if (statusEl) {
+            statusEl.classList.remove('is-hidden');
+        }
+        setStreamingStatus('已停止生成', 'complete');
+        setTimeout(() => statusEl?.classList.add('is-hidden'), 1200);
+
+        currentStreamingAnswer = null;
+    }
+
+    currentThinkingSteps = [];
+    streamingPendingText = '';
+    streamingRawText = '';
+    streamingRenderFrame = null;
+    streamingAnswerPhaseStarted = false;
+    isProcessing = false;
+    currentProcessingMode = null;
+    lastCompletedUserMessage = lastSubmittedMessage || lastCompletedUserMessage;
+    if (sendButton) sendButton.disabled = false;
+    if (messageInput) {
+        messageInput.disabled = false;
+        messageInput.focus();
+    }
+    updateComposerState();
+}
+
 function handleError(msg) {
+    cancelStreamingRender();
     if (currentStreamingAnswer) {
         currentStreamingAnswer.remove();
         currentStreamingAnswer = null;
         currentThinkingSteps = [];
     }
+    streamingPendingText = '';
+    streamingRawText = '';
+    streamingAnswerPhaseStarted = false;
     addMessage('assistant', `❌ 错误: ${escapeHtml(msg)}`);
     isProcessing = false;
+    currentProcessingMode = null;
     if (sendButton) sendButton.disabled = false;
     if (messageInput) messageInput.disabled = false;
+    updateComposerState();
 }
 
 // ============ 5. 步骤处理（Claude/Gemini 风格） ============
@@ -542,23 +889,7 @@ function handleStepUpdate(payload) {
     const { step, title, description } = payload.data || payload;
     const timestamp = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    if (!currentStreamingAnswer) {
-        currentStreamingAnswer = document.createElement('div');
-        currentStreamingAnswer.className = 'message message-streaming';
-        currentStreamingAnswer.innerHTML = `
-            <div class="message-avatar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
-            </div>
-            <div class="message-content">
-                <div class="streaming-body">
-                    <div class="streaming-thinking"></div>
-                    <div class="streaming-final"><span class="streaming-cursor">▎</span></div>
-                </div>
-            </div>
-        `;
-        messagesWrapper.appendChild(currentStreamingAnswer);
-        currentThinkingSteps = [];
-    }
+    ensureStreamingAnswer(title || '正在思考');
 
     const thinkingEl = currentStreamingAnswer.querySelector('.streaming-thinking');
     if (!thinkingEl.querySelector('.thinking-process')) {
@@ -579,6 +910,7 @@ function handleStepUpdate(payload) {
     const badge = thinkingEl.querySelector('.thinking-badge');
 
     const cleanDesc = description ? cleanToolDescription(description) : '';
+    setStreamingStatus(title || '正在思考');
 
     const stepDiv = document.createElement('div');
     stepDiv.className = 'thinking-step is-new';
@@ -719,6 +1051,8 @@ async function sendMessage(text = null) {
         chatTitle.textContent = message.length > 20 ? message.substring(0, 20) + '...' : message;
     }
 
+    lastSubmittedMessage = message;
+
     if (attachedFiles.length > 0) {
         // 带附件上传
         try {
@@ -728,10 +1062,12 @@ async function sendMessage(text = null) {
             attachedFiles.forEach(file => formData.append('files', file));
 
             addMessage('user', message + (attachedFiles.length ? `\n\n📎 ${attachedFiles.map(f => f.name).join(', ')}` : ''));
+            ensureStreamingAnswer('正在处理附件');
 
             isProcessing = true;
-            sendButton.disabled = true;
+            currentProcessingMode = 'upload';
             messageInput.disabled = true;
+            updateComposerState();
 
             const token = localStorage.getItem('access_token');
             const response = await fetch(`${getApiUrl()}/chat/upload`, {
@@ -751,8 +1087,9 @@ async function sendMessage(text = null) {
                 handleDone(result.message);
             } else {
                 isProcessing = false;
-                sendButton.disabled = false;
+                currentProcessingMode = null;
                 messageInput.disabled = false;
+                updateComposerState();
             }
         } catch (error) {
             handleError('文件上传失败: ' + error.message);
@@ -760,25 +1097,31 @@ async function sendMessage(text = null) {
     } else {
         // 普通消息
         addMessage('user', message);
+        ensureStreamingAnswer('正在思考');
 
-        const payload = { message };
+        const payload = { action: 'message', message };
         if (currentSessionId) payload.session_id = currentSessionId;
-        ws.send(JSON.stringify(payload));
+        if (!sendWsPayload(payload)) {
+            return;
+        }
 
         isProcessing = true;
-        sendButton.disabled = true;
+        currentProcessingMode = 'ws';
         messageInput.disabled = true;
+        updateComposerState();
     }
 
     if (!text) {
         messageInput.value = '';
         messageInput.style.height = 'auto';
     }
+
+    shouldStickToBottom = true;
 }
 
-function scrollToBottom() {
+function scrollToBottom(force = false) {
     requestAnimationFrame(() => {
-        if (messagesContainer) {
+        if (messagesContainer && (force || shouldStickToBottom)) {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
     });
@@ -791,28 +1134,43 @@ function autoResizeTextarea() {
 
 function resetChatUI() {
     messagesWrapper.innerHTML = '';
+    cancelStreamingRender();
     currentStreamingAnswer = null;
     currentThinkingSteps = [];
+    lastSubmittedMessage = '';
+    streamingPendingText = '';
+    streamingRawText = '';
+    streamingAnswerPhaseStarted = false;
     isProcessing = false;
+    currentProcessingMode = null;
     attachedFiles = [];
     renderFileAttachments();
+    updateComposerState();
 }
 
 function startNewChat() {
     currentSessionId = null;
     currentThinkingSteps = [];
+    lastSubmittedMessage = '';
+    lastCompletedUserMessage = '';
     if (chatTitle) chatTitle.textContent = '新对话';
     messagesWrapper.innerHTML = '';
     messagesWrapper.appendChild(welcomeScreen);
     welcomeScreen.style.display = 'flex';
+    cancelStreamingRender();
     currentStreamingAnswer = null;
+    streamingPendingText = '';
+    streamingRawText = '';
+    streamingAnswerPhaseStarted = false;
     isProcessing = false;
+    currentProcessingMode = null;
     attachedFiles = [];
     renderFileAttachments();
     if (messageInput) {
         messageInput.value = '';
         messageInput.focus();
     }
+    updateComposerState();
     loadSavedHistory();
 }
 
@@ -837,9 +1195,26 @@ document.addEventListener('DOMContentLoaded', () => {
         sendButton.addEventListener('click', () => sendMessage());
     }
 
+    if (devModeButton) {
+        devModeButton.addEventListener('click', toggleDevMode);
+    }
+
+    if (stopButton) {
+        stopButton.addEventListener('click', stopGeneration);
+    }
+
+    if (regenerateButton) {
+        regenerateButton.addEventListener('click', regenerateLastResponse);
+    }
+
     if (messageInput) {
         messageInput.addEventListener('input', autoResizeTextarea);
         messageInput.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                toggleDevMode();
+                return;
+            }
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
@@ -888,6 +1263,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startNewChat = startNewChat;
 
     // 启动
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', updateScrollStickiness, { passive: true });
+        shouldStickToBottom = true;
+    }
+    updateComposerState();
+    refreshDevModeUI();
     connectWebSocket();
     loadSavedHistory();
 

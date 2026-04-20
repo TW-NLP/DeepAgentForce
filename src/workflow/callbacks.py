@@ -6,6 +6,7 @@ class EventType:
     STEP = "step"
     TOKEN = "token"
     ERROR = "error"
+    ANSWER_START = "answer_start"
 
 
 class StatusCallback:
@@ -61,6 +62,9 @@ class StatusCallback:
             "title": "正在生成答案",
             "description": ""
         })
+
+    async def on_answer_start(self, data: dict):
+        await self._emit(EventType.ANSWER_START, data or {})
 
     async def on_token(self, token: str):
         await self._emit(EventType.TOKEN, {"content": token})

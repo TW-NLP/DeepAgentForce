@@ -4,6 +4,7 @@ from typing import Optional, Any
 import json
 import subprocess
 import os
+import re
 
 from deepagents import create_deep_agent
 from deepagents.backends.filesystem import FilesystemBackend
@@ -20,6 +21,42 @@ from config.settings import get_settings
 from src.utils.setting_utils import load_config_from_file
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_agent_output(text: str) -> str:
+    """最小化清理内部内容，避免误删正常答案。"""
+    if not text:
+        return text
+
+    cleaned = str(text)
+
+    # 1. 去掉代码块和 YAML frontmatter
+    cleaned = re.sub(r"```[\w-]*\n?[\s\S]*?```", "", cleaned)
+    cleaned = re.sub(r"(?ms)^---\s*\n.*?\n---\s*", "", cleaned)
+
+    # 2. 去掉绝对路径和技能文件列表
+    cleaned = re.sub(r"\[[^\]]*?/[^]\n]*(?:SKILL\.md|\.py)[^\]]*\]", "", cleaned)
+    cleaned = re.sub(r"/(?:Users|home|app|tmp)[^\s,'\"\]]+", "", cleaned)
+
+    # 3. 仅删除非常明确的内部痕迹，避免误伤正常自然语言
+    cleaned = re.sub(r"(?im)^.*SKILL\.md.*$", "", cleaned)
+    cleaned = re.sub(r"(?im)^.*已调用\s*[\w\-]+\s*技能[^。]*[：:]?\s*$", "", cleaned)
+
+    # 4. 去掉常见工具原始 JSON 输出
+    cleaned = re.sub(
+        r'\{\s*"datetime"\s*:\s*".*?"\s*,\s*"date"\s*:\s*".*?"\s*,\s*"time"\s*:\s*".*?"[\s\S]*?"utc_offset"\s*:\s*".*?"\s*\}',
+        "",
+        cleaned,
+        flags=re.S,
+    )
+
+    # 5. 去掉非常明确的表格残留
+    cleaned = re.sub(r"(?im)^\s*\|.*\|\s*$", "", cleaned)
+
+    # 6. 合并多余空行
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+    return cleaned
 
 
 def get_tenant_settings(tenant_uuid: Optional[str] = None) -> Any:
@@ -247,6 +284,7 @@ class ConversationalAgent:
 - 工具执行后，用自己的话总结结果，不要复制工具输出
 - 如果工具没有返回有用结果，直接告诉用户"未找到相关信息"或给出建议
 - 回答应该像 ChatGPT 一样：干净、自然、直接
+- 即使用户追问你是否调用了 skill / 工具，也只需一句话简短回答，不得展示内部文件、路径、命令、SKILL.md 内容或原始 JSON
 
 ### 回答示例（对比）：
 
@@ -304,7 +342,26 @@ SKILL.md 内容...
     async def chat(self, user_input: str, thread_id: str = "default_thread") -> str:
         config = {"configurable": {"thread_id": thread_id}}
         agent_instance = self.get_instance()
-        token_buffer = ""
+        raw_token_buffer = ""
+        streamed_clean_buffer = ""
+        saw_tool_activity = False
+        answer_phase_started = False
+
+        async def emit_clean_delta():
+            nonlocal streamed_clean_buffer
+            if not self.status_callback:
+                return
+
+            cleaned = sanitize_agent_output(raw_token_buffer)
+            if not cleaned.strip():
+                cleaned = raw_token_buffer.strip()
+            if len(cleaned) < len(streamed_clean_buffer):
+                return
+
+            delta = cleaned[len(streamed_clean_buffer):]
+            if delta:
+                streamed_clean_buffer = cleaned
+                await self.status_callback.on_token(delta)
 
         try:
             if self.status_callback:
@@ -321,29 +378,45 @@ SKILL.md 内容...
                 chunk, metadata = event[0], event[1]
 
                 node = metadata.get("langgraph_node") if hasattr(metadata, "get") else None
+                has_tool_calls = hasattr(chunk, "tool_calls") and bool(chunk.tool_calls)
 
-                # 🆕 检测是否即将开始流式输出答案（Agent 节点 + 有内容 + token_buffer 刚开始）
                 has_content = hasattr(chunk, "content") and chunk.content
-                if node == "agent" and has_content and token_buffer == "":
+
+                # 工具阶段和最终答案阶段彻底分流：
+                # 1. 任何 tool_calls / tools 节点只更新状态，不进入用户可见 token 流
+                # 2. 任何非 tools 节点、且不包含 tool_calls 的自然语言内容，都视为候选最终答案
+                if has_tool_calls:
+                    saw_tool_activity = True
+
+                if node == "tools":
+                    saw_tool_activity = True
+
+                is_answer_candidate = node != "tools" and has_content and not has_tool_calls
+
+                if is_answer_candidate and not answer_phase_started:
+                    answer_phase_started = True
                     if self.status_callback:
                         await self.status_callback.on_agent_summarize({})
+                        await self.status_callback.on_answer_start({
+                            "mode": "post_tool" if saw_tool_activity else "direct"
+                        })
 
-                if has_content:
+                # 只允许 agent 节点的自然语言内容进入用户可见流。
+                # tools 节点可能包含原始工具输出、JSON、技能文档等内部内容，不应直接展示。
+                if is_answer_candidate and answer_phase_started:
                     token = chunk.content
                     if isinstance(token, str):
-                        token_buffer += token
-                        if self.status_callback:
-                            await self.status_callback.on_token(token)
+                        raw_token_buffer += token
+                        await emit_clean_delta()
                     elif isinstance(token, list):
                         for item in token:
                             if isinstance(item, dict) and item.get("type") == "text":
                                 text = item.get("text", "")
-                                token_buffer += text
-                                if self.status_callback:
-                                    await self.status_callback.on_token(text)
+                                raw_token_buffer += text
+                                await emit_clean_delta()
 
                 # 🆕 工具调用状态
-                if node == "agent" and hasattr(chunk, "tool_calls") and chunk.tool_calls:
+                if has_tool_calls:
                     for tc in chunk.tool_calls:
                         if self.status_callback:
                             await self.status_callback.on_tool_start(
@@ -354,10 +427,17 @@ SKILL.md 内容...
                         {"output": str(chunk.content)}
                     )
 
-            if self.status_callback:
-                await self.status_callback.on_agent_finish({"output": token_buffer})
+            final_output = sanitize_agent_output(raw_token_buffer)
+            if not final_output.strip() and raw_token_buffer.strip():
+                logger.warning(
+                    f"[{thread_id}] 净化结果为空，回退到原始最终答案。raw_len={len(raw_token_buffer)}"
+                )
+                final_output = raw_token_buffer.strip()
 
-            return token_buffer
+            if self.status_callback:
+                await self.status_callback.on_agent_finish({"output": final_output})
+
+            return final_output
 
         except Exception as e:
             logger.error(f"Chat 处理失败: {e}", exc_info=True)

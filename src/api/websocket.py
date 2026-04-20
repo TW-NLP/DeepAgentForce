@@ -7,6 +7,7 @@ WebSocket 处理模块
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 import json
 import logging
 from datetime import datetime
@@ -69,6 +70,85 @@ def setup_websocket_routes(app: FastAPI):
 
         # 🆕 用于收集当前对话的思考过程
         current_thinking_steps = []
+        token_buffer = ""
+        token_flush_task: Optional[asyncio.Task] = None
+        token_flush_interval = 0.03
+        current_response_task: Optional[asyncio.Task] = None
+
+        async def send_payload(event_type: str, data: Optional[dict] = None):
+            """统一发送 WebSocket 事件，避免各处重复拼装 payload。"""
+            if websocket.client_state != WebSocketState.CONNECTED:
+                logger.warning(f"WS已断开，跳过发送: {event_type}")
+                return
+
+            payload = {
+                "type": event_type,
+                "data": data or {},
+                "ts": datetime.now().isoformat(),
+                "tenant_uuid": tenant_uuid,
+            }
+            json_str = json.dumps(payload, default=safe_json_serializer)
+            await websocket.send_text(json_str)
+
+        async def flush_token_buffer(force: bool = False):
+            nonlocal token_buffer, token_flush_task
+            if not token_buffer:
+                if force:
+                    token_flush_task = None
+                return
+
+            content = token_buffer
+            token_buffer = ""
+            token_flush_task = None
+            await send_payload("token", {"content": content})
+
+        async def schedule_token_flush():
+            nonlocal token_flush_task
+            if token_flush_task and not token_flush_task.done():
+                return
+
+            async def _delayed_flush():
+                try:
+                    await asyncio.sleep(token_flush_interval)
+                    await flush_token_buffer(force=True)
+                except asyncio.CancelledError:
+                    return
+
+            token_flush_task = asyncio.create_task(_delayed_flush())
+
+        async def run_turn(message: str):
+            nonlocal current_thinking_steps, session_id, agent, token_flush_task, token_buffer
+
+            current_thinking_steps = []
+            agent.status_callback = status_callback
+            await send_payload("assistant_start", {"session_id": session_id})
+
+            try:
+                response = await agent.chat(message, thread_id=session_id)
+            except asyncio.CancelledError:
+                if token_flush_task and not token_flush_task.done():
+                    token_flush_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await token_flush_task
+                    token_flush_task = None
+                if token_buffer:
+                    await flush_token_buffer(force=True)
+                await send_payload("assistant_stopped", {
+                    "message": "已停止生成",
+                    "session_id": session_id,
+                })
+                raise
+
+            engine.history_manager.add_conversation(
+                session_id=session_id,
+                user_message=message,
+                ai_response=response,
+                thinking_steps=current_thinking_steps,
+                metadata={"source": "websocket"},
+                tenant_uuid=tenant_uuid
+            )
+
+            await ws_callback("done", {"message": response, "session_id": session_id})
 
         try:
             # 🆕 多租户：从 query_params 获取 token，验证并提取 tenant_uuid
@@ -83,6 +163,7 @@ def setup_websocket_routes(app: FastAPI):
             status_callback = StatusCallback()
             
             async def ws_callback(event_type: str, data: dict):
+                nonlocal token_buffer, token_flush_task
                 # 🆕 收集思考过程
                 if event_type == "step":
                     # 将每个 step 事件保存到当前对话的思考过程列表
@@ -92,26 +173,26 @@ def setup_websocket_routes(app: FastAPI):
                         "data": data
                     })
                 
-                # 关键检查：如果连接已关闭，不要尝试发送
-                if websocket.client_state != WebSocketState.CONNECTED:
-                    logger.warning(f"WS已断开，跳过发送: {event_type}")
-                    return
-
                 try:
-                    # 构造消息
-                    payload = {
-                        "type": event_type, 
-                        "data": data, 
-                        "ts": datetime.now().isoformat(),
-                        "tenant_uuid": tenant_uuid  # 🆕 前端可据此验证租户
-                    }
-                    
-                    # 使用自定义序列化，防止报错
-                    json_str = json.dumps(payload, default=safe_json_serializer)
-                    
-                    # 发送文本而不是 send_json，控制权更强
-                    await websocket.send_text(json_str)
-                    
+                    if event_type == "token":
+                        token_buffer += data.get("content", "")
+                        # 达到一定长度立即 flush，否则做极短时间聚合
+                        if len(token_buffer) >= 48:
+                            if token_flush_task and not token_flush_task.done():
+                                token_flush_task.cancel()
+                                token_flush_task = None
+                            await flush_token_buffer(force=True)
+                        else:
+                            await schedule_token_flush()
+                        return
+
+                    if token_buffer:
+                        if token_flush_task and not token_flush_task.done():
+                            token_flush_task.cancel()
+                            token_flush_task = None
+                        await flush_token_buffer(force=True)
+
+                    await send_payload(event_type, data)
                 except Exception as e:
                     # 捕获序列化错误，不要让它断开连接
                     logger.error(f"WS 发送失败 (序列化或网络问题): {str(e)}")
@@ -152,8 +233,7 @@ def setup_websocket_routes(app: FastAPI):
                         },
                         "ts": datetime.now().isoformat()
                     }
-                    json_str = json.dumps(session_list_payload, default=safe_json_serializer)
-                    await websocket.send_text(json_str)
+                    await send_payload("session_list", session_list_payload["data"])
                     logger.info(f"✅ 已发送会话列表到前端")
             except Exception as e:
                 logger.error(f"发送会话列表失败: {e}", exc_info=True)
@@ -166,10 +246,48 @@ def setup_websocket_routes(app: FastAPI):
 
             # 4. 循环接收消息
             while True:
-                data = await websocket.receive_json()
+                if current_response_task is None:
+                    data = await websocket.receive_json()
+                else:
+                    receive_task = asyncio.create_task(websocket.receive_json())
+                    done, pending = await asyncio.wait(
+                        {receive_task, current_response_task},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+
+                    if current_response_task in done:
+                        try:
+                            await current_response_task
+                        except asyncio.CancelledError:
+                            pass
+                        current_response_task = None
+
+                        if not receive_task.done():
+                            receive_task.cancel()
+                            with suppress(asyncio.CancelledError):
+                                await receive_task
+                        continue
+
+                    data = receive_task.result()
+
+                action = data.get("action", "message")
+
+                if action == "stop":
+                    if current_response_task is not None:
+                        current_response_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await current_response_task
+                        current_response_task = None
+                    continue
+
+                if current_response_task is not None:
+                    await send_payload("error", {"message": "当前回答尚未完成，请先停止生成或等待结束。"})
+                    continue
+
                 message = data.get("message", "")
-                if not message: continue
-                
+                if not message:
+                    continue
+
                 # 🆕 从请求体获取 session_id（前端在 JSON 中发送）
                 incoming_sid = data.get("session_id")
                 if incoming_sid and incoming_sid != session_id:
@@ -178,36 +296,16 @@ def setup_websocket_routes(app: FastAPI):
                     session_id, agent = engine.get_or_create_session(
                         session_id=session_id,
                         status_callback=status_callback,
-                        tenant_uuid=tenant_uuid,  # 🆕 保持 tenant_uuid
+                        tenant_uuid=tenant_uuid,
                     )
-                
-                # 🆕 重置思考过程列表（每次新对话开始时清空）
-                current_thinking_steps = []
-                
-                # 双重保险：确保 agent 里的 callback 是最新的
-                agent.status_callback = status_callback
-                
-                # 执行对话
-                # 注意："666" 这种闲聊不会触发 tool_start，所以没有思考框是正常的
-                # 要测试思考框，请问 "查询一下目前DeepSeek的消息"
-                response = await agent.chat(message, thread_id=session_id)
-                
-                # 🆕 保存历史（包含思考过程，按租户隔离）
-                engine.history_manager.add_conversation(
-                    session_id=session_id, 
-                    user_message=message, 
-                    ai_response=response,
-                    thinking_steps=current_thinking_steps,  # 传递思考过程
-                    metadata={"source": "websocket"},
-                    tenant_uuid=tenant_uuid  # 🆕 租户隔离
-                )
-                
-                # 🆕 发送结束信号（包含 session_id）
-                await ws_callback("done", {"message": response, "session_id": session_id})
+
+                current_response_task = asyncio.create_task(run_turn(message))
 
         except (WebSocketDisconnect, RuntimeError) as e:
             # 客户端主动断开或连接异常
             logger.info(f"WebSocket 连接结束: session={session_id}, tenant={tenant_uuid}, reason={type(e).__name__}")
+            if current_response_task is not None:
+                current_response_task.cancel()
             if session_id:
                 try:
                     asyncio.get_running_loop().run_in_executor(
@@ -219,8 +317,12 @@ def setup_websocket_routes(app: FastAPI):
             logger.error(f"WS 主循环异常: {e}", exc_info=True)
             # 尝试发送错误给前端
             try:
+                if current_response_task is not None:
+                    current_response_task.cancel()
+                if token_flush_task and not token_flush_task.done():
+                    token_flush_task.cancel()
                 if websocket.client_state == WebSocketState.CONNECTED:
-                    await websocket.send_json({"type": "error", "message": str(e)})
+                    await send_payload("error", {"message": str(e)})
             except:
                 pass
 
