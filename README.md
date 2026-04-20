@@ -460,7 +460,25 @@ docker compose down -v
 
 ## License
 
-本项目采用 MIT License。
+本项目采用 **MIT License**，可自由使用、修改和分发，商用无忧。
+
+---
+
+## Contact
+
+**微信：** NLP技术交流群
+
+<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/chat.png" width="200" />
+
+---
+
+## 致谢
+
+本项目基于以下优秀的开源项目构建：
+
+- [LangChain / LangGraph](https://github.com/langchain-ai/langchain) — Agent 开发框架
+- [FastAPI](https://github.com/tiangolo/fastapi) — 高性能 Web 框架
+- [Milvus](https://github.com/milvus-io/milvus) — 向量数据库
 
 ---
 
