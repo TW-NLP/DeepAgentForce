@@ -22,6 +22,7 @@ let lastStreamingMarkdownRenderAt = 0;
 const STREAMING_MARKDOWN_RENDER_INTERVAL = 140;
 let currentProcessingMode = null;
 let streamingAnswerPhaseStarted = false;
+let currentUploadAbortController = null;
 
 // DOM 元素引用
 let messagesWrapper, messagesContainer, welcomeScreen, messageInput, sendButton;
@@ -335,6 +336,10 @@ function sendWsPayload(payload) {
 
 function stopGeneration() {
     if (!isProcessing) return;
+    if (currentProcessingMode === 'upload') {
+        currentUploadAbortController?.abort();
+        return;
+    }
     sendWsPayload({ action: 'stop', session_id: currentSessionId });
 }
 
@@ -419,7 +424,7 @@ function updateComposerState() {
     }
 
     if (stopButton) {
-        const canStop = isProcessing && currentProcessingMode === 'ws';
+        const canStop = isProcessing && (currentProcessingMode === 'ws' || currentProcessingMode === 'upload');
         stopButton.style.display = canStop ? 'flex' : 'none';
         stopButton.disabled = !canStop;
     }
@@ -807,6 +812,7 @@ function handleDone(finalMessage) {
 
     isProcessing = false;
     currentProcessingMode = null;
+    currentUploadAbortController = null;
     lastCompletedUserMessage = lastSubmittedMessage || lastCompletedUserMessage;
     if (sendButton) sendButton.disabled = false;
     if (messageInput) { messageInput.disabled = false; messageInput.focus(); }
@@ -815,6 +821,7 @@ function handleDone(finalMessage) {
 }
 
 function handleStopped(message = '已停止生成') {
+    const hadStreamingAnswer = !!currentStreamingAnswer;
     if (currentStreamingAnswer) {
         cancelStreamingRender();
         if (streamingPendingText) {
@@ -850,6 +857,9 @@ function handleStopped(message = '已停止生成') {
 
         currentStreamingAnswer = null;
     }
+    if (!hadStreamingAnswer) {
+        addMessage('assistant', message);
+    }
 
     currentThinkingSteps = [];
     streamingPendingText = '';
@@ -858,6 +868,7 @@ function handleStopped(message = '已停止生成') {
     streamingAnswerPhaseStarted = false;
     isProcessing = false;
     currentProcessingMode = null;
+    currentUploadAbortController = null;
     lastCompletedUserMessage = lastSubmittedMessage || lastCompletedUserMessage;
     if (sendButton) sendButton.disabled = false;
     if (messageInput) {
@@ -880,6 +891,7 @@ function handleError(msg) {
     addMessage('assistant', `❌ 错误: ${escapeHtml(msg)}`);
     isProcessing = false;
     currentProcessingMode = null;
+    currentUploadAbortController = null;
     if (sendButton) sendButton.disabled = false;
     if (messageInput) messageInput.disabled = false;
     updateComposerState();
@@ -1014,6 +1026,91 @@ function getFileIcon(filename) {
     return icons[ext] || '📎';
 }
 
+async function readSseResponse(response, handlers = {}) {
+    if (!response.ok) {
+        let detail = '';
+        try {
+            detail = await response.text();
+        } catch (_) {
+            detail = '';
+        }
+        throw new Error(detail || `请求失败 (${response.status})`);
+    }
+
+    if (!response.body) {
+        throw new Error('服务器未返回流式内容');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const dispatchEvent = async (eventName, payload) => {
+        const handler = handlers[eventName] || handlers.default;
+        if (handler) {
+            return handler(payload, eventName);
+        }
+    };
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let separatorIndex = buffer.indexOf('\n\n');
+        while (separatorIndex !== -1) {
+            const rawEvent = buffer.slice(0, separatorIndex);
+            buffer = buffer.slice(separatorIndex + 2);
+
+            let eventName = 'message';
+            const dataLines = [];
+            for (const line of rawEvent.split(/\r?\n/)) {
+                if (line.startsWith('event:')) {
+                    eventName = line.slice(6).trim() || 'message';
+                } else if (line.startsWith('data:')) {
+                    dataLines.push(line.slice(5).trimStart());
+                }
+            }
+
+            if (dataLines.length > 0) {
+                let payload = {};
+                const dataText = dataLines.join('\n');
+                try {
+                    payload = JSON.parse(dataText);
+                } catch (_) {
+                    payload = { content: dataText };
+                }
+                await dispatchEvent(eventName, payload);
+            }
+
+            separatorIndex = buffer.indexOf('\n\n');
+        }
+    }
+
+    if (buffer.trim()) {
+        let eventName = 'message';
+        const dataLines = [];
+        for (const line of buffer.split(/\r?\n/)) {
+            if (line.startsWith('event:')) {
+                eventName = line.slice(6).trim() || 'message';
+            } else if (line.startsWith('data:')) {
+                dataLines.push(line.slice(5).trimStart());
+            }
+        }
+        if (dataLines.length > 0) {
+            let payload = {};
+            const dataText = dataLines.join('\n');
+            try {
+                payload = JSON.parse(dataText);
+            } catch (_) {
+                payload = { content: dataText };
+            }
+            await dispatchEvent(eventName, payload);
+        }
+    }
+}
+
 function renderFileAttachments() {
     if (!fileAttachmentsContainer) return;
 
@@ -1068,33 +1165,56 @@ async function sendMessage(text = null) {
 
             isProcessing = true;
             currentProcessingMode = 'upload';
+            currentUploadAbortController = new AbortController();
             messageInput.disabled = true;
             updateComposerState();
 
             const token = localStorage.getItem('access_token');
-            const response = await fetch(`${getApiUrl()}/chat/upload`, {
+            const response = await fetch(`${getApiUrl()}/chat/upload/stream`, {
                 method: 'POST',
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                body: formData
+                body: formData,
+                signal: currentUploadAbortController.signal
             });
 
-            const result = await response.json();
-            attachedFiles = [];
-            renderFileAttachments();
-
-            if (result.session_id) currentSessionId = result.session_id;
-            loadSavedHistory();
-
-            if (result.message) {
-                handleDone(result.message);
-            } else {
-                isProcessing = false;
-                currentProcessingMode = null;
-                messageInput.disabled = false;
-                updateComposerState();
-            }
+            await readSseResponse(response, {
+                start: (data) => {
+                    if (data?.session_id) {
+                        currentSessionId = data.session_id;
+                    }
+                },
+                step: (data) => {
+                    handleStepUpdate({ data });
+                },
+                answer_start: (data) => {
+                    handleAnswerStart(data);
+                },
+                token: (data) => {
+                    handleTokenUpdate(data?.content || '');
+                },
+                done: (data) => {
+                    attachedFiles = [];
+                    renderFileAttachments();
+                    if (data?.session_id) {
+                        currentSessionId = data.session_id;
+                    }
+                    handleDone(data?.message || streamingRawText || '');
+                },
+                assistant_stopped: (data) => {
+                    handleStopped(data?.message || '已停止生成');
+                },
+                error: (data) => {
+                    handleError(data?.message || data?.error || '文件上传失败');
+                }
+            });
         } catch (error) {
+            if (error?.name === 'AbortError') {
+                handleStopped('已停止生成');
+                return;
+            }
             handleError('文件上传失败: ' + error.message);
+        } finally {
+            currentUploadAbortController = null;
         }
     } else {
         // 普通消息
@@ -1145,6 +1265,7 @@ function resetChatUI() {
     streamingAnswerPhaseStarted = false;
     isProcessing = false;
     currentProcessingMode = null;
+    currentUploadAbortController = null;
     attachedFiles = [];
     renderFileAttachments();
     updateComposerState();
@@ -1166,6 +1287,7 @@ function startNewChat() {
     streamingAnswerPhaseStarted = false;
     isProcessing = false;
     currentProcessingMode = null;
+    currentUploadAbortController = null;
     attachedFiles = [];
     renderFileAttachments();
     if (messageInput) {

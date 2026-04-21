@@ -598,6 +598,92 @@
         }
         .message-text li { margin-bottom: 6px; }
 
+        .message-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .message-action-btn {
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-secondary);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .message-action-btn:hover {
+            border-color: rgba(25, 195, 125, 0.45);
+            color: var(--text-primary);
+            background: rgba(25, 195, 125, 0.10);
+        }
+
+        .message-action-btn.primary {
+            border-color: rgba(59, 130, 246, 0.28);
+        }
+
+        .message-action-btn.primary:hover {
+            border-color: rgba(59, 130, 246, 0.55);
+            background: rgba(59, 130, 246, 0.12);
+        }
+
+        .inline-editor {
+            margin-top: 10px;
+            border: 1px solid rgba(59, 130, 246, 0.22);
+            background: var(--bg-secondary);
+            border-radius: 14px;
+            padding: 12px;
+        }
+
+        .inline-edit-textarea {
+            width: 100%;
+            min-height: 96px;
+            max-height: 240px;
+            resize: vertical;
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font: inherit;
+            line-height: 1.6;
+            outline: none;
+        }
+
+        .inline-edit-textarea:focus {
+            border-color: rgba(59, 130, 246, 0.45);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+
+        .inline-edit-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            justify-content: flex-end;
+        }
+
+        .inline-edit-actions button {
+            border: none;
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .inline-edit-actions .save-btn {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        .inline-edit-actions .cancel-btn {
+            background: rgba(148, 163, 184, 0.12);
+            color: var(--text-secondary);
+        }
+
         .message-debug {
             margin-top: 12px;
             border: 1px dashed rgba(251, 191, 36, 0.25);
@@ -783,15 +869,6 @@
         .input-btn-stop:hover {
             background: rgba(239, 68, 68, 0.24);
             color: #fff;
-        }
-
-        #regenerateButton {
-            color: var(--accent-blue);
-        }
-
-        #regenerateButton:hover {
-            background: rgba(59, 130, 246, 0.12);
-            color: #93c5fd;
         }
 
         #sendButton {
@@ -4251,36 +4328,37 @@
 
         /* 确认删除弹窗 */
         .confirm-modal .modal {
-            max-width: 400px;
+            max-width: 340px;
         }
 
         .confirm-body {
             text-align: center;
-            padding: 32px 24px;
+            padding: 22px 20px;
         }
 
         .confirm-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
+            font-size: 34px;
+            margin-bottom: 10px;
         }
 
         .confirm-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             color: var(--text-primary);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .confirm-message {
-            font-size: 14px;
+            font-size: 13px;
+            line-height: 1.6;
             color: var(--text-secondary);
-            margin-bottom: 24px;
+            margin-bottom: 18px;
         }
 
         .confirm-actions {
             display: flex;
             justify-content: center;
-            gap: 12px;
+            gap: 10px;
         }
 
         /* Skill 卡片样式 */
@@ -6292,9 +6370,6 @@
                                 <div class="input-box">
                                     <textarea id="messageInput" placeholder="输入消息..." rows="1"></textarea>
                                     <div class="input-actions">
-                                        <button class="input-btn" id="regenerateButton" title="重新生成" style="display:none;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7L21 16"/></svg>
-                                        </button>
                                         <button class="input-btn" id="attachButton" title="上传文件">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                                         </button>
@@ -6906,8 +6981,14 @@
     let isProcessing = false;
     let currentStreamingAnswer = null;
     let currentThinkingSteps = [];  // 当前流式消息的思考步骤数组
-    let attachedFiles = [];
-    let currentSessionId = null;
+        let attachedFiles = [];
+        let currentSessionId = null;
+        let currentProcessingMode = null;
+        let currentUploadAbortController = null;
+        let lastSubmittedMessage = '';
+        let lastCompletedUserMessage = '';
+        let lastUserMessageEl = null;
+        let lastAssistantMessageEl = null;
 
     // DOM 元素
     const messagesWrapper = document.getElementById('messagesWrapper');
@@ -6915,6 +6996,7 @@
     const welcomeScreen = document.getElementById('welcomeScreen');
     const messageInput = document.getElementById('messageInput');
     const sendButton = document.getElementById('sendButton');
+    const stopButton = document.getElementById('stopButton');
     const attachButton = document.getElementById('attachButton');
     const chatFileInput = document.getElementById('chatFileInput');
     const fileAttachmentsContainer = document.getElementById('fileAttachments');
@@ -8109,6 +8191,7 @@
             isConnected = true;
             statusIndicator.classList.add('connected');
             statusText.textContent = '在线';
+            updateComposerState();
         };
         
         ws.onmessage = (event) => {
@@ -8120,6 +8203,7 @@
             isConnected = false;
             statusIndicator.classList.remove('connected');
             statusText.textContent = '连接中';
+            updateComposerState();
             setTimeout(connectWebSocket, 3000);
         };
         
@@ -8127,7 +8211,130 @@
             isConnected = false;
             statusIndicator.classList.remove('connected');
             statusText.textContent = '连接中';
+            updateComposerState();
         };
+    }
+
+    function sendWsPayload(payload) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            showToast('连接尚未就绪，请稍后重试', 'error');
+            return false;
+        }
+        ws.send(JSON.stringify(payload));
+        return true;
+    }
+
+    function stopGeneration() {
+        if (!isProcessing) return;
+        if (currentProcessingMode === 'upload') {
+            currentUploadAbortController?.abort();
+            return;
+        }
+        sendWsPayload({ action: 'stop', session_id: currentSessionId });
+    }
+
+    function updateComposerState() {
+        if (sendButton) {
+            sendButton.style.display = isProcessing ? 'none' : 'flex';
+            sendButton.disabled = !isConnected || isProcessing;
+        }
+
+        if (stopButton) {
+            const canStop = isProcessing && (currentProcessingMode === 'ws' || currentProcessingMode === 'upload');
+            stopButton.style.display = canStop ? 'flex' : 'none';
+            stopButton.disabled = !canStop;
+        }
+
+        if (attachButton) {
+            attachButton.disabled = isProcessing;
+            attachButton.style.opacity = isProcessing ? '0.5' : '1';
+            attachButton.style.pointerEvents = isProcessing ? 'none' : '';
+        }
+    }
+
+    async function readSseResponse(response, handlers = {}) {
+        if (!response.ok) {
+            let detail = '';
+            try {
+                detail = await response.text();
+            } catch (_) {
+                detail = '';
+            }
+            throw new Error(detail || `请求失败 (${response.status})`);
+        }
+
+        if (!response.body) {
+            throw new Error('服务器未返回流式内容');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        const dispatchEvent = async (eventName, payload) => {
+            const handler = handlers[eventName] || handlers.default;
+            if (handler) {
+                return handler(payload, eventName);
+            }
+        };
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            let separatorIndex = buffer.indexOf('\n\n');
+            while (separatorIndex !== -1) {
+                const rawEvent = buffer.slice(0, separatorIndex);
+                buffer = buffer.slice(separatorIndex + 2);
+
+                let eventName = 'message';
+                const dataLines = [];
+                for (const line of rawEvent.split(/\r?\n/)) {
+                    if (line.startsWith('event:')) {
+                        eventName = line.slice(6).trim() || 'message';
+                    } else if (line.startsWith('data:')) {
+                        dataLines.push(line.slice(5).trimStart());
+                    }
+                }
+
+                if (dataLines.length > 0) {
+                    let payload = {};
+                    const dataText = dataLines.join('\n');
+                    try {
+                        payload = JSON.parse(dataText);
+                    } catch (_) {
+                        payload = { content: dataText };
+                    }
+                    await dispatchEvent(eventName, payload);
+                }
+
+                separatorIndex = buffer.indexOf('\n\n');
+            }
+        }
+
+        if (buffer.trim()) {
+            let eventName = 'message';
+            const dataLines = [];
+            for (const line of buffer.split(/\r?\n/)) {
+                if (line.startsWith('event:')) {
+                    eventName = line.slice(6).trim() || 'message';
+                } else if (line.startsWith('data:')) {
+                    dataLines.push(line.slice(5).trimStart());
+                }
+            }
+            if (dataLines.length > 0) {
+                let payload = {};
+                const dataText = dataLines.join('\n');
+                try {
+                    payload = JSON.parse(dataText);
+                } catch (_) {
+                    payload = { content: dataText };
+                }
+                await dispatchEvent(eventName, payload);
+            }
+        }
     }
 
     function handleMessage(payload) {
@@ -8146,6 +8353,9 @@
             case 'error':
                 handleError(payload.data?.message || payload.message);
                 break;
+            case 'assistant_stopped':
+                handleStopped(payload.data?.message || '已停止生成');
+                break;
             case 'session_list':
                 // 处理会话列表
                 console.log('收到会话列表:', payload.data);
@@ -8158,9 +8368,9 @@
                 if (payload.data?.conversations?.length > 0) {
                     hideWelcomeScreen();
                     payload.data.conversations.forEach(conv => {
-                        if (conv.user_content) addMessage('user', conv.user_content);
+                        const userMessageEl = conv.user_content ? addMessage('user', conv.user_content) : null;
                         if (conv.thinking_steps?.length > 0) renderThinkingSteps(conv.thinking_steps);
-                        if (conv.ai_content) addMessage('assistant', conv.ai_content);
+                        if (conv.ai_content) addMessage('assistant', conv.ai_content, { userMessageEl });
                     });
                 }
                 break;
@@ -8183,17 +8393,189 @@
         }
         currentStreamingAnswer = null;
         currentThinkingSteps = [];
+        currentProcessingMode = null;
+        currentUploadAbortController = null;
+        lastSubmittedMessage = '';
+        lastUserMessageEl = null;
+        lastAssistantMessageEl = null;
     }
 
-    function addMessage(role, content) {
+    function getMessageText(messageEl) {
+        if (!messageEl) return '';
+        const textEl = messageEl.querySelector('.message-text');
+        if (!textEl) return '';
+
+        const editor = messageEl.querySelector('.inline-edit-textarea');
+        if (editor) return editor.value || '';
+
+        return textEl.dataset.rawText ?? '';
+    }
+
+    function findPreviousMessageEl(messageEl, role) {
+        let node = messageEl?.previousElementSibling || null;
+        while (node) {
+            if (node.classList?.contains('message') && node.classList.contains(`message-${role}`)) {
+                return node;
+            }
+            node = node.previousElementSibling;
+        }
+        return null;
+    }
+
+    function findLinkedUserMessageEl(messageEl) {
+        return messageEl?.__linkedUserEl || findPreviousMessageEl(messageEl, 'user');
+    }
+
+    function setMessageText(messageEl, text, role) {
+        if (!messageEl) return;
+        const textEl = messageEl.querySelector('.message-text');
+        if (!textEl) return;
+
+        const rawText = text || '';
+        textEl.dataset.rawText = rawText;
+
+        if (role === 'assistant' && typeof marked !== 'undefined') {
+            const parsed = marked.parse(filterAIResponse(rawText, false));
+            textEl.innerHTML = parsed;
+        } else {
+            textEl.innerHTML = escapeHtml(rawText).replace(/\n/g, '<br>');
+        }
+    }
+
+    function closeInlineEditor(messageEl, restoreText = null) {
+        if (!messageEl) return;
+        const textEl = messageEl.querySelector('.message-text');
+        const editor = messageEl.querySelector('.inline-editor');
+        if (!textEl || !editor) return;
+
+        const originalText = restoreText ?? editor.dataset.originalText ?? textEl.dataset.rawText ?? '';
+        editor.remove();
+        setMessageText(messageEl, originalText, 'user');
+    }
+
+    function commitInlineEditor(messageEl) {
+        if (!messageEl) return '';
+        const editor = messageEl.querySelector('.inline-edit-textarea');
+        if (!editor) return getMessageText(messageEl);
+
+        const newText = editor.value.replace(/\r\n/g, '\n');
+        const innerEditor = messageEl.querySelector('.inline-editor');
+        if (innerEditor) innerEditor.remove();
+        setMessageText(messageEl, newText, 'user');
+        return newText;
+    }
+
+    function startInlineEdit(userMessageEl) {
+        if (!userMessageEl) return;
+        const contentEl = userMessageEl.querySelector('.message-content');
+        const textEl = userMessageEl.querySelector('.message-text');
+        if (!contentEl || !textEl) return;
+
+        const existingEditor = userMessageEl.querySelector('.inline-edit-textarea');
+        if (existingEditor) {
+            existingEditor.focus();
+            existingEditor.select();
+            return;
+        }
+
+        const originalText = getMessageText(userMessageEl);
+        const editorWrap = document.createElement('div');
+        editorWrap.className = 'inline-editor';
+        editorWrap.dataset.originalText = originalText;
+        editorWrap.innerHTML = `
+            <textarea class="inline-edit-textarea" spellcheck="false"></textarea>
+            <div class="inline-edit-actions">
+                <button type="button" class="cancel-btn">取消</button>
+                <button type="button" class="save-btn">保存</button>
+            </div>
+        `;
+
+        const textarea = editorWrap.querySelector('.inline-edit-textarea');
+        textarea.value = originalText;
+
+        const cancelBtn = editorWrap.querySelector('.cancel-btn');
+        const saveBtn = editorWrap.querySelector('.save-btn');
+
+        cancelBtn.addEventListener('click', () => {
+            closeInlineEditor(userMessageEl, originalText);
+        });
+
+        saveBtn.addEventListener('click', () => {
+            commitInlineEditor(userMessageEl);
+            if (window.showToast) {
+                window.showToast('已更新对话中的问题', 'success');
+            }
+            regenerateQuestion(userMessageEl, userMessageEl.__linkedAssistantEl || null);
+        });
+
+        textarea.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                saveBtn.click();
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelBtn.click();
+            }
+        });
+
+        textEl.innerHTML = '';
+        textEl.appendChild(editorWrap);
+        textarea.focus();
+        textarea.select();
+    }
+
+    async function regenerateQuestion(userMessageEl, assistantMessageEl) {
+        if (isProcessing) return;
+        if (!userMessageEl) {
+            if (window.showToast) window.showToast('找不到可重新生成的问题', 'error');
+            return;
+        }
+
+        if (userMessageEl.querySelector('.inline-edit-textarea')) {
+            commitInlineEditor(userMessageEl);
+        }
+
+        const questionText = getMessageText(userMessageEl);
+        if (!questionText.trim()) return;
+
+        await sendMessage(null, {
+            regenerate: true,
+            userMessageEl,
+            assistantMessageEl
+        });
+    }
+
+    function attachQuestionActions(messageEl, userMessageEl) {
+        if (!messageEl || !userMessageEl) return;
+        const contentEl = messageEl.querySelector('.message-content');
+        if (!contentEl || contentEl.querySelector('.message-actions')) return;
+
+        messageEl.__linkedUserEl = userMessageEl;
+        userMessageEl.__linkedAssistantEl = messageEl;
+
+        const actions = document.createElement('div');
+        actions.className = 'message-actions';
+        actions.innerHTML = `
+            <button type="button" class="message-action-btn" data-action="edit">编辑问题</button>
+            <button type="button" class="message-action-btn primary" data-action="regen">重新生成</button>
+        `;
+
+        actions.querySelector('[data-action="edit"]')?.addEventListener('click', () => {
+            startInlineEdit(userMessageEl);
+        });
+        actions.querySelector('[data-action="regen"]')?.addEventListener('click', () => {
+            regenerateQuestion(userMessageEl, messageEl);
+        });
+
+        contentEl.appendChild(actions);
+    }
+
+    function addMessage(role, content, options = {}) {
         hideWelcomeScreen();
 
         const div = document.createElement('div');
         div.className = `message message-${role}`;
-
-        const parsed = role === 'assistant' && typeof marked !== 'undefined'
-            ? marked.parse(filterAIResponse(content, false))
-            : escapeHtml(content);
 
         div.innerHTML = `
             <div class="message-avatar">
@@ -8203,19 +8585,37 @@
                 }
             </div>
             <div class="message-content">
-                <div class="message-text">${parsed}</div>
+                <div class="message-text"></div>
             </div>
         `;
+        setMessageText(div, content, role);
         
         messagesWrapper.appendChild(div);
+        if (role === 'user') {
+            div.__messageRole = 'user';
+            lastUserMessageEl = div;
+        } else {
+            div.__messageRole = 'assistant';
+        }
+        if (role === 'assistant' && options.userMessageEl) {
+            lastAssistantMessageEl = div;
+            attachQuestionActions(div, options.userMessageEl);
+        } else if (role === 'assistant') {
+            lastAssistantMessageEl = div;
+        }
         scrollToBottom();
         return div;
+    }
+
+    function updateMessageContent(messageEl, text) {
+        setMessageText(messageEl, text, 'user');
     }
 
     function handleTokenUpdate(token) {
         if (!currentStreamingAnswer) {
             currentStreamingAnswer = document.createElement('div');
             currentStreamingAnswer.className = 'message message-streaming';
+            currentStreamingAnswer.__linkedUserEl = lastUserMessageEl || null;
             currentStreamingAnswer.innerHTML = `
                 <div class="message-avatar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
@@ -8229,6 +8629,7 @@
             `;
             messagesWrapper.appendChild(currentStreamingAnswer);
             currentThinkingSteps = [];
+            lastAssistantMessageEl = currentStreamingAnswer;
         }
 
         const finalEl = currentStreamingAnswer.querySelector('.streaming-final');
@@ -8292,13 +8693,22 @@
                 }
             }
 
+            const linkedUserEl = findLinkedUserMessageEl(currentStreamingAnswer);
+            if (linkedUserEl) {
+                attachQuestionActions(currentStreamingAnswer, linkedUserEl);
+            }
+
             currentStreamingAnswer = null;
             currentThinkingSteps = [];
         }
 
+        lastCompletedUserMessage = lastSubmittedMessage || lastCompletedUserMessage;
         isProcessing = false;
+        currentProcessingMode = null;
+        currentUploadAbortController = null;
         sendButton.disabled = false;
         messageInput.disabled = false;
+        updateComposerState();
         loadSavedHistory();
     }
 
@@ -8309,9 +8719,41 @@
             currentThinkingSteps = [];
         }
         addMessage('assistant', '❌ 错误: ' + escapeHtml(msg));
+        lastAssistantMessageEl = null;
+        lastCompletedUserMessage = lastSubmittedMessage || lastCompletedUserMessage;
         isProcessing = false;
+        currentProcessingMode = null;
+        currentUploadAbortController = null;
         sendButton.disabled = false;
         messageInput.disabled = false;
+        updateComposerState();
+    }
+
+    function handleStopped(message = '已停止生成') {
+        if (currentStreamingAnswer) {
+            const finalEl = currentStreamingAnswer.querySelector('.streaming-final');
+            if (finalEl && !finalEl.textContent.trim()) {
+                finalEl.innerHTML = `<span style="color: var(--text-tertiary);">${escapeHtml(message)}</span>`;
+            }
+            const linkedUserEl = findLinkedUserMessageEl(currentStreamingAnswer);
+            if (linkedUserEl) {
+                attachQuestionActions(currentStreamingAnswer, linkedUserEl);
+            }
+            currentStreamingAnswer.className = 'message message-final';
+            currentStreamingAnswer = null;
+            currentThinkingSteps = [];
+        } else {
+            addMessage('assistant', message);
+            lastAssistantMessageEl = null;
+        }
+
+        lastCompletedUserMessage = lastSubmittedMessage || lastCompletedUserMessage;
+        isProcessing = false;
+        currentProcessingMode = null;
+        currentUploadAbortController = null;
+        sendButton.disabled = false;
+        messageInput.disabled = false;
+        updateComposerState();
     }
 
     function handleStepUpdate(payload) {
@@ -8322,6 +8764,7 @@
         if (!currentStreamingAnswer) {
             currentStreamingAnswer = document.createElement('div');
             currentStreamingAnswer.className = 'message message-streaming';
+            currentStreamingAnswer.__linkedUserEl = lastUserMessageEl || null;
             currentStreamingAnswer.innerHTML = `
                 <div class="message-avatar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
@@ -8444,12 +8887,20 @@
     }
 
     // ============ 发送消息 ============
-    async function sendMessage(text = null) {
-        const message = text || messageInput.value.trim();
+    async function sendMessage(text = null, options = {}) {
+        const isRegeneration = !!options.regenerate;
+        const userMessageEl = options.userMessageEl || null;
+        const assistantMessageEl = options.assistantMessageEl || null;
+        const message = userMessageEl ? getMessageText(userMessageEl) : (text || messageInput.value.trim());
 
         if ((!message && attachedFiles.length === 0) || !isConnected || isProcessing) {
             if (!isConnected) showToast('未连接到服务器', 'error');
             return;
+        }
+
+        lastSubmittedMessage = message;
+        if (userMessageEl) {
+            lastUserMessageEl = userMessageEl;
         }
 
         if (attachedFiles.length > 0) {
@@ -8457,126 +8908,112 @@
             const formData = new FormData();
             formData.append('message', message);
             if (currentSessionId) formData.append('session_id', currentSessionId);
+            if (isRegeneration) formData.append('replace_last', 'true');
             attachedFiles.forEach(file => formData.append('files', file));
 
-            addMessage('user', message + `\n\n📎 ${attachedFiles.map(f => f.name).join(', ')}`);
+            const targetAssistantEl = assistantMessageEl || lastAssistantMessageEl;
+            if (isRegeneration && targetAssistantEl) {
+                targetAssistantEl.remove();
+                if (targetAssistantEl === lastAssistantMessageEl) {
+                    lastAssistantMessageEl = null;
+                }
+            }
+
+            if (!isRegeneration && !userMessageEl) {
+                addMessage('user', message + `\n\n📎 ${attachedFiles.map(f => f.name).join(', ')}`);
+            } else if (userMessageEl) {
+                updateMessageContent(userMessageEl, message + `\n\n📎 ${attachedFiles.map(f => f.name).join(', ')}`);
+            }
 
             isProcessing = true;
+            currentProcessingMode = 'upload';
+            currentUploadAbortController = new AbortController();
             sendButton.disabled = true;
             messageInput.disabled = true;
+            updateComposerState();
 
             try {
                 const token = localStorage.getItem('access_token');
                 hideWelcomeScreen();
 
-                // 创建流式响应元素
-                const responseDiv = addMessage('assistant', '');
-                currentStreamingAnswer = responseDiv;
-                const contentDiv = responseDiv.querySelector('.message-text');
-                contentDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
-
                 // 使用 SSE 流式接口
                 const response = await fetch(`${getApiUrl()}/chat/upload/stream`, {
                     method: 'POST',
                     headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                    body: formData
+                    body: formData,
+                    signal: currentUploadAbortController.signal
                 });
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                let fullContent = '';
-
-                let eventType = '';
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || '';
-
-                    for (const line of lines) {
-                        if (line.startsWith('event: ')) {
-                            eventType = line.slice(7).trim();
-                            continue;
+                await readSseResponse(response, {
+                    start: (data) => {
+                        if (data.session_id) {
+                            currentSessionId = data.session_id;
                         }
-                        if (line.startsWith('data: ')) {
-                            try {
-                                const data = JSON.parse(line.slice(6));
-
-                                if (eventType === 'start') {
-                                    if (data.session_id) {
-                                        currentSessionId = data.session_id;
-                                    }
-                                } else if (eventType === 'chunk') {
-                                    if (data.content !== undefined) {
-                                        fullContent = data.content;
-                                        contentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(fullContent) : escapeHtml(fullContent);
-                                        scrollToBottom();
-                                    }
-                                } else if (eventType === 'step') {
-                                    if (!responseDiv.querySelector('.thinking-process')) {
-                                        const thinkingDiv = document.createElement('div');
-                                        thinkingDiv.className = 'thinking-process';
-                                        responseDiv.querySelector('.message-content').appendChild(thinkingDiv);
-                                    }
-                                } else if (eventType === 'done') {
-                                    attachedFiles = [];
-                                    renderFileAttachments();
-                                    currentStreamingAnswer = null;
-                                    isProcessing = false;
-                                    sendButton.disabled = false;
-                                    messageInput.disabled = false;
-                                    handleDone(data.message || fullContent);
-                                    loadSavedHistory();
-                                    return;
-                                } else if (eventType === 'error') {
-                                    handleError(data.error || '未知错误');
-                                    return;
-                                } else {
-                                    // 兼容：无 eventType 时按 legacy 方式处理
-                                    if (data.content !== undefined) {
-                                        fullContent = data.content;
-                                        contentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(fullContent) : escapeHtml(fullContent);
-                                        scrollToBottom();
-                                    }
-                                    if (data.session_id) {
-                                        currentSessionId = data.session_id;
-                                        loadSavedHistory();
-                                    }
-                                    if (data.error) {
-                                        handleError(data.error);
-                                        return;
-                                    }
-                                }
-                            } catch (e) {
-                                console.warn('SSE 解析错误:', e);
-                            }
+                    },
+                    step: (data) => {
+                        handleStepUpdate({ data });
+                    },
+                    answer_start: () => {
+                        if (!currentStreamingAnswer) {
+                            handleStepUpdate({ data: { step: 'summarize', title: '正在生成答案', description: '' } });
                         }
+                    },
+                    token: (data) => {
+                        handleTokenUpdate(data.content || '');
+                    },
+                    done: (data) => {
+                        attachedFiles = [];
+                        renderFileAttachments();
+                        if (data.session_id) {
+                            currentSessionId = data.session_id;
+                        }
+                        handleDone(data.message || '');
+                    },
+                    assistant_stopped: (data) => {
+                        handleStopped(data.message || '已停止生成');
+                    },
+                    error: (data) => {
+                        handleError(data.message || data.error || '未知错误');
                     }
-                    eventType = '';
-                }
-
-                // 流结束但没收到 done 事件的兜底
-                if (fullContent) {
-                    attachedFiles = [];
-                    renderFileAttachments();
-                    handleDone(fullContent);
-                }
+                });
             } catch (error) {
+                if (error && error.name === 'AbortError') {
+                    handleStopped('已停止生成');
+                    return;
+                }
                 handleError('文件上传失败: ' + error.message);
+            } finally {
+                currentUploadAbortController = null;
             }
         } else {
-            addMessage('user', message);
+            if (!isRegeneration && !userMessageEl) {
+                addMessage('user', message);
+            } else if (userMessageEl) {
+                updateMessageContent(userMessageEl, message);
+            }
 
             const payload = { message };
             if (currentSessionId) payload.session_id = currentSessionId;
-            ws.send(JSON.stringify(payload));
+            if (isRegeneration) payload.replace_last = true;
+            if (!sendWsPayload(payload)) {
+                return;
+            }
+
+            const targetAssistantEl = assistantMessageEl || lastAssistantMessageEl;
+            if (isRegeneration && targetAssistantEl) {
+                targetAssistantEl.remove();
+                if (targetAssistantEl === lastAssistantMessageEl) {
+                    lastAssistantMessageEl = null;
+                }
+                currentStreamingAnswer = null;
+                currentThinkingSteps = [];
+            }
 
             isProcessing = true;
+            currentProcessingMode = 'ws';
             sendButton.disabled = true;
             messageInput.disabled = true;
+            updateComposerState();
         }
 
         if (!text) {
@@ -8668,6 +9105,10 @@
     function startNewChat() {
         currentSessionId = null;
         currentThinkingSteps = [];
+        currentProcessingMode = null;
+        currentUploadAbortController = null;
+        lastSubmittedMessage = '';
+        lastCompletedUserMessage = '';
         clearMessages();
         showWelcomeScreen();
         loadSavedHistory();
@@ -8688,7 +9129,11 @@
 
             if (data.messages && data.messages.length > 0) {
                 data.messages.forEach(msg => {
-                    addMessage(msg.role, msg.content);
+                    if (msg.role === 'user') {
+                        addMessage('user', msg.content);
+                    } else {
+                        addMessage('assistant', msg.content, { userMessageEl: lastUserMessageEl });
+                    }
                 });
             } else {
                 showWelcomeScreen();
@@ -8702,7 +9147,13 @@
     }
 
     async function deleteSession(sessionId) {
-        if (!confirm('确定要删除这个会话吗？')) return;
+        const confirmed = await showConfirmDialog({
+            title: '删除会话',
+            message: '确定要删除这个会话吗？删除后无法恢复。',
+            confirmText: '删除',
+            danger: true
+        });
+        if (!confirmed) return;
 
         try {
             const token = localStorage.getItem('access_token');
@@ -8760,8 +9211,46 @@
         }, 3000);
     }
 
+    let confirmDialogResolver = null;
+
+    function showConfirmDialog({ title = '确认操作', message = '', confirmText = '确定', danger = false } = {}) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('confirmModal');
+            const titleEl = document.getElementById('confirmTitle');
+            const messageEl = document.getElementById('confirmMessage');
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+
+            if (!modal || !titleEl || !messageEl || !confirmBtn) {
+                resolve(window.confirm(message));
+                return;
+            }
+
+            confirmDialogResolver = resolve;
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            confirmBtn.textContent = confirmText;
+            confirmBtn.classList.toggle('btn-danger', danger);
+            confirmBtn.classList.toggle('btn-primary', !danger);
+
+            confirmBtn.onclick = () => closeConfirmModal(true);
+            modal.classList.add('active');
+        });
+    }
+
+    function closeConfirmModal(result = false) {
+        const modal = document.getElementById('confirmModal');
+        if (modal) modal.classList.remove('active');
+        if (confirmDialogResolver) {
+            const resolve = confirmDialogResolver;
+            confirmDialogResolver = null;
+            resolve(result);
+        }
+    }
+
     // 暴露到全局，让其他脚本可以使用
     window.showToast = showToast;
+    window.closeConfirmModal = closeConfirmModal;
+    window.showConfirmDialog = showConfirmDialog;
 
     // ============ 下载管理（使用 output 目录） ============
     async function loadDownloadsList() {
@@ -8922,6 +9411,9 @@
 
         // 发送按钮
         sendButton.addEventListener('click', () => sendMessage());
+        if (stopButton) {
+            stopButton.addEventListener('click', stopGeneration);
+        }
 
         // 输入框
         messageInput.addEventListener('input', autoResizeTextarea);
@@ -8960,6 +9452,7 @@
         // 启动
         connectWebSocket();
         messageInput.focus();
+        updateComposerState();
 
         console.log('✅ DeepAgentForce 已加载');
     });
@@ -9067,13 +9560,13 @@ Use this skill when the user wants to..."></textarea>
         <div class="modal">
             <div class="modal-body confirm-body">
                 <div class="confirm-icon">⚠️</div>
-                <div class="confirm-title">确认删除</div>
+                <div class="confirm-title" id="confirmTitle">确认删除</div>
                 <div class="confirm-message" id="confirmMessage">确定要删除这个技能吗？此操作不可恢复。</div>
                 <div class="confirm-actions">
                     <button class="btn btn-secondary" onclick="closeConfirmModal()">取消</button>
                     <button class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+                </div>
             </div>
-        </div>
         </div>
     `;
     document.body.appendChild(confirmModal);
@@ -9121,7 +9614,11 @@ Use this skill when the user wants to..."></textarea>
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
-                overlay.classList.remove('active');
+                if (overlay.id === 'confirmModal') {
+                    closeConfirmModal(false);
+                } else {
+                    overlay.classList.remove('active');
+                }
             }
         });
     });

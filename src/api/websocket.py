@@ -116,7 +116,7 @@ def setup_websocket_routes(app: FastAPI):
 
             token_flush_task = asyncio.create_task(_delayed_flush())
 
-        async def run_turn(message: str):
+        async def run_turn(message: str, replace_last: bool = False):
             nonlocal current_thinking_steps, session_id, agent, token_flush_task, token_buffer
 
             current_thinking_steps = []
@@ -145,7 +145,8 @@ def setup_websocket_routes(app: FastAPI):
                 ai_response=response,
                 thinking_steps=current_thinking_steps,
                 metadata={"source": "websocket"},
-                tenant_uuid=tenant_uuid
+                tenant_uuid=tenant_uuid,
+                replace_last=replace_last,
             )
 
             await ws_callback("done", {"message": response, "session_id": session_id})
@@ -287,6 +288,7 @@ def setup_websocket_routes(app: FastAPI):
                 message = data.get("message", "")
                 if not message:
                     continue
+                replace_last = bool(data.get("replace_last", False))
 
                 # 🆕 从请求体获取 session_id（前端在 JSON 中发送）
                 incoming_sid = data.get("session_id")
@@ -299,7 +301,7 @@ def setup_websocket_routes(app: FastAPI):
                         tenant_uuid=tenant_uuid,
                     )
 
-                current_response_task = asyncio.create_task(run_turn(message))
+                current_response_task = asyncio.create_task(run_turn(message, replace_last=replace_last))
 
         except (WebSocketDisconnect, RuntimeError) as e:
             # 客户端主动断开或连接异常
@@ -391,7 +393,8 @@ class ConversationHistoryManager:
         ai_response: str,
         thinking_steps: Optional[list] = None,  # 🆕 新增参数
         metadata: Optional[dict] = None,
-        tenant_uuid: Optional[str] = None  # 🆕 多租户
+        tenant_uuid: Optional[str] = None,  # 🆕 多租户
+        replace_last: bool = False,
     ):
         """
         添加对话记录，包含思考过程
@@ -425,7 +428,10 @@ class ConversationHistoryManager:
         if metadata:
             conversation["metadata"] = metadata
 
-        session_data["conversations"].append(conversation)
+        if replace_last and session_data.get("conversations"):
+            session_data["conversations"][-1] = conversation
+        else:
+            session_data["conversations"].append(conversation)
         session_data["updated_at"] = datetime.now().isoformat()
 
         # 🆕 如果是第一条用户消息，更新会话标题

@@ -1,9 +1,11 @@
+import asyncio
 import logging
 import uuid
 import shutil
 import json
 import math
 from collections import Counter
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Dict, List
@@ -13,6 +15,7 @@ from pydantic import BaseModel, Field
 from src.utils.content_parse import parse_uploaded_file
 from src.utils.setting_utils import save_config_to_file
 from src.services.auth_service import auth_service
+from src.workflow.callbacks import StatusCallback
 
 logger = logging.getLogger(__name__)
 
@@ -349,48 +352,97 @@ async def chat_with_upload(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def generate_upload_chat_stream(agent, session_id, full_prompt, message, files, tenant_id=None):
+async def generate_upload_chat_stream(agent, engine, session_id, full_prompt, message, files, tenant_id=None, replace_last: bool = False):
     """生成上传文件对话的流式响应"""
+    queue: asyncio.Queue = asyncio.Queue()
+    previous_callback = getattr(agent, "status_callback", None)
+    temp_callback = StatusCallback()
+    current_thinking_steps = []
+
+    async def queue_event(event_type: str, data: dict):
+        if event_type == "step":
+            current_thinking_steps.append({
+                "timestamp": datetime.now().isoformat(),
+                "event_type": event_type,
+                "data": data or {},
+            })
+        await queue.put({
+            "type": event_type,
+            "data": data or {},
+        })
+
+    temp_callback.add_callback(queue_event)
+    agent.status_callback = temp_callback
+
+    async def run_chat():
+        try:
+            final_message = await agent.chat(full_prompt, thread_id=session_id)
+            engine.history_manager.add_conversation(
+                session_id=session_id,
+                user_message=message,
+                ai_response=final_message,
+                thinking_steps=current_thinking_steps,
+                metadata={"source": "upload"},
+                tenant_uuid=tenant_id,
+                replace_last=replace_last,
+            )
+            await queue.put({
+                "type": "__done__",
+                "data": {
+                    "message": final_message,
+                    "session_id": session_id,
+                }
+            })
+        except asyncio.CancelledError:
+            await queue.put({
+                "type": "assistant_stopped",
+                "data": {
+                    "message": "已停止生成",
+                    "session_id": session_id,
+                }
+            })
+            raise
+        except Exception as exc:
+            logger.error(f"流式附件对话失败: {exc}", exc_info=True)
+            await queue.put({
+                "type": "error",
+                "data": {
+                    "message": str(exc),
+                    "session_id": session_id,
+                }
+            })
+
+    chat_task = asyncio.create_task(run_chat())
+
     try:
         # 发送开始消息
         yield f"event: start\ndata: {json.dumps({'session_id': session_id})}\n\n"
+        while True:
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=0.5)
+            except asyncio.TimeoutError:
+                if chat_task.done():
+                    break
+                continue
 
-        # 获取 agent 的流式响应
-        response_content = await agent.chat(full_prompt)
+            event_type = event.get("type", "")
+            data = event.get("data", {}) or {}
 
-        full_answer = ""
-        step_count = 0
+            if event_type == "__done__":
+                yield f"event: done\ndata: {json.dumps(data)}\n\n"
+                break
 
-        if hasattr(response_content, '__aiter__'):
-            async for chunk in response_content:
-                if isinstance(chunk, str):
-                    full_answer += chunk
-                elif hasattr(chunk, 'content'):
-                    full_answer += chunk.content or ""
-                elif isinstance(chunk, dict):
-                    # 处理事件类型的数据
-                    chunk_type = chunk.get('type', '')
-                    if chunk_type == 'step':
-                        step_count += 1
-                        step_data = chunk.get('data', {})
-                        yield f"event: step\ndata: {json.dumps({'step': step_count, 'title': step_data.get('title', ''), 'description': step_data.get('description', '')})}\n\n"
-                    elif chunk_type == 'tool':
-                        yield f"event: tool\ndata: {json.dumps(chunk.get('data', {}))}\n\n"
-                    else:
-                        full_answer += str(chunk)
-                else:
-                    full_answer += str(chunk)
-
-                # 定期发送部分答案
-                if len(full_answer) > 0 and len(full_answer) % 50 == 0:
-                    yield f"event: chunk\ndata: {json.dumps({'content': full_answer})}\n\n"
-
-        # 发送最终答案
-        yield f"event: done\ndata: {json.dumps({'message': full_answer, 'session_id': session_id})}\n\n"
+            yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
     except Exception as e:
         logger.error(f"流式对话失败: {e}", exc_info=True)
         yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+    finally:
+        agent.status_callback = previous_callback
+        if not chat_task.done():
+            chat_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await chat_task
 
 
 @router.post("/chat/upload/stream")
@@ -398,7 +450,8 @@ async def chat_with_upload_stream(
     request: Request,
     message: str = Form(...),
     session_id: Optional[str] = Form(None),
-    files: List[UploadFile] = File(...)
+    files: List[UploadFile] = File(...),
+    replace_last: bool = Form(False)
 ):
     """
     支持附件上传的对话接口（流式版本）
@@ -426,7 +479,7 @@ async def chat_with_upload_stream(
 
         # 4. 返回流式响应
         return StreamingResponse(
-            generate_upload_chat_stream(agent, session_id, full_prompt, message, files, tenant_id),
+            generate_upload_chat_stream(agent, engine, session_id, full_prompt, message, files, tenant_id, replace_last=replace_last),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
