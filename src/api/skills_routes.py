@@ -9,6 +9,8 @@ Skill 管理 API 路由
 
 import logging
 import json
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
@@ -78,6 +80,7 @@ class SkillDetailResponse(BaseModel):
 class SkillContentResponse(BaseModel):
     """Skill 内容响应"""
     success: bool
+    skill: Optional[SkillInfo] = None
     skill_md: Optional[str] = None
     scripts: Optional[Dict[str, str]] = None
 
@@ -200,9 +203,11 @@ async def get_skill_content(skill_id: str, request: Request):
         # 提取内容
         skill_md = content.get('SKILL.md', '')
         scripts = content.get('scripts', {})
+        skill = skill_manager.get_skill(skill_id, tenant_uuid=tenant_uuid)
 
         return SkillContentResponse(
             success=True,
+            skill=skill,
             skill_md=skill_md,
             scripts=scripts
         )
@@ -297,6 +302,52 @@ async def install_skill(
             message=str(e),
             errors=[str(e)]
         )
+
+
+@router.post("/skills/import-package", response_model=SkillInstallResponse, tags=["Skill 管理"])
+async def import_skill_package(
+    package: UploadFile = File(...),
+    force: bool = Form(False),
+    request: Request = None
+):
+    """
+    从 ZIP 压缩包导入 Skill
+    """
+    temp_path = None
+    try:
+        skill_manager = get_skill_manager(request)
+        tenant_uuid = get_tenant_uuid_from_request(request)
+
+        if tenant_uuid is None:
+            raise HTTPException(status_code=401, detail="需要登录才能导入 Skill")
+
+        suffix = Path(package.filename or '').suffix or '.zip'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+            shutil.copyfileobj(package.file, tmp_file)
+            temp_path = Path(tmp_file.name)
+
+        result = skill_manager.import_skill_package(
+            archive_path=temp_path,
+            tenant_uuid=tenant_uuid,
+            force=force
+        )
+
+        return SkillInstallResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"导入 Skill 包失败: {e}")
+        return SkillInstallResponse(
+            success=False,
+            message=str(e),
+            errors=[str(e)]
+        )
+    finally:
+        if temp_path and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
 
 
 @router.delete("/skills/{skill_id}", response_model=SkillDeleteResponse, tags=["Skill 管理"])

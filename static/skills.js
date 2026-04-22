@@ -67,6 +67,7 @@ let skillSearchKeyword = '';
 let currentDrawerSkillId = null;
 let currentDrawerContent = null;
 let currentDrawerLoading = false;
+let currentDrawerMode = 'overview';
 
 // ==================== 初始化 ====================
 
@@ -310,6 +311,9 @@ function getDrawerElements() {
         drawer: document.getElementById('skillDetailDrawer'),
         empty: document.getElementById('skillDrawerEmpty'),
         shell: document.getElementById('skillDrawerShell'),
+        scroll: document.getElementById('skillDrawerScroll'),
+        tabs: document.getElementById('skillDrawerTabs'),
+        overview: document.getElementById('skillDrawerOverview'),
         title: document.getElementById('skillDrawerTitle'),
         subtitle: document.getElementById('skillDrawerSubtitle'),
         icon: document.getElementById('skillDrawerIcon'),
@@ -330,6 +334,91 @@ function hasSkillViewModal() {
     return !!document.getElementById('viewModal');
 }
 
+function mergeSkillDrawerData(baseSkill, contentSkill) {
+    var fallback = baseSkill || {};
+    var payload = contentSkill || {};
+    return {
+        id: payload.id || fallback.id || '',
+        name: payload.name || fallback.name || fallback.id || '',
+        description: payload.description || fallback.description || fallback.summary || '',
+        version: payload.version || fallback.version || '1.0.0',
+        author: payload.author || fallback.author || 'Unknown',
+        tags: Array.isArray(payload.tags) && payload.tags.length ? payload.tags : (Array.isArray(fallback.tags) ? fallback.tags : []),
+        path: payload.path || fallback.path || '',
+        scripts: Array.isArray(payload.scripts) && payload.scripts.length ? payload.scripts : (Array.isArray(fallback.scripts) ? fallback.scripts : []),
+        script_count: typeof payload.script_count === 'number' ? payload.script_count : (fallback.script_count || 0),
+        script_names: Array.isArray(payload.script_names) && payload.script_names.length ? payload.script_names : (Array.isArray(fallback.script_names) ? fallback.script_names : []),
+        size_bytes: typeof payload.size_bytes === 'number' ? payload.size_bytes : (fallback.size_bytes || 0),
+        file_count: typeof payload.file_count === 'number' ? payload.file_count : (fallback.file_count || 0),
+        summary: payload.summary || fallback.summary || fallback.description || '',
+        is_builtin: typeof payload.is_builtin === 'boolean' ? payload.is_builtin : !!fallback.is_builtin,
+        is_custom: typeof payload.is_custom === 'boolean' ? payload.is_custom : !!fallback.is_custom,
+        created_at: payload.created_at || fallback.created_at || '',
+        modified_at: payload.modified_at || fallback.modified_at || ''
+    };
+}
+
+function escapeHtmlText(value) {
+    return escapeHtml(value == null ? '' : String(value));
+}
+
+function buildSkillOverviewHtml(skill, content, loading) {
+    var tags = (skill.tags || []).map(function(tag) {
+        return '<span class="skill-chip">' + escapeHtmlText(tag) + '</span>';
+    }).join('');
+    var scriptNames = (skill.script_names || []).map(function(name) {
+        return '<span class="skill-chip muted">' + escapeHtmlText(name) + '</span>';
+    }).join('');
+    var statusText = loading ? '加载中' : (isBuiltInSkill(skill) ? '内置技能' : '自定义技能');
+
+    var overviewMeta = [
+        '<div class="skill-meta-item"><span class="skill-meta-label">技能 ID</span><span class="skill-meta-value mono">' + escapeHtmlText(skill.id) + '</span></div>',
+        '<div class="skill-meta-item"><span class="skill-meta-label">版本</span><span class="skill-meta-value">' + escapeHtmlText(skill.version || '1.0.0') + '</span></div>',
+        '<div class="skill-meta-item"><span class="skill-meta-label">作者</span><span class="skill-meta-value">' + escapeHtmlText(skill.author || 'Unknown') + '</span></div>',
+        '<div class="skill-meta-item"><span class="skill-meta-label">脚本数量</span><span class="skill-meta-value">' + (skill.script_count || 0) + '</span></div>',
+        '<div class="skill-meta-item"><span class="skill-meta-label">更新时间</span><span class="skill-meta-value">' + escapeHtmlText(formatRelativeTime(skill.modified_at || skill.created_at)) + '</span></div>',
+        '<div class="skill-meta-item"><span class="skill-meta-label">大小</span><span class="skill-meta-value">' + escapeHtmlText(formatFileSize(skill.size_bytes || 0)) + '</span></div>'
+    ].join('');
+
+    return [
+        '<div class="skill-drawer-section">',
+            '<div class="skill-drawer-section-title">状态</div>',
+            '<div class="skill-drawer-card-body">',
+                '<div class="skill-badge">' + escapeHtmlText(statusText) + '</div>',
+                '<div class="skill-drawer-text" style="margin-top:10px;">' + escapeHtmlText(skill.summary || skill.description || '暂无描述') + '</div>',
+            '</div>',
+        '</div>',
+        '<div class="skill-drawer-section">',
+            '<div class="skill-drawer-section-title">基本信息</div>',
+            '<div class="skill-drawer-card-body">',
+                '<div class="skill-drawer-meta-grid">' + overviewMeta + '</div>',
+            '</div>',
+        '</div>',
+        tags ? '<div class="skill-drawer-section"><div class="skill-drawer-section-title">标签</div><div class="skill-drawer-card-body"><div class="sp-filter-btns" style="margin-top:0;">' + tags + '</div></div></div>' : '',
+        scriptNames ? '<div class="skill-drawer-section"><div class="skill-drawer-section-title">脚本索引</div><div class="skill-drawer-card-body"><div class="sp-filter-btns" style="margin-top:0;">' + scriptNames + '</div></div></div>' : ''
+    ].join('');
+}
+
+function setDrawerMode(mode) {
+    currentDrawerMode = mode || 'overview';
+    var els = getDrawerElements();
+    if (els.tabs) {
+        els.tabs.querySelectorAll('[data-drawer-mode]').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-drawer-mode') === currentDrawerMode);
+        });
+    }
+    if (els.scroll) {
+        els.scroll.querySelectorAll('[data-drawer-view]').forEach(function(view) {
+            view.classList.toggle('active', view.getAttribute('data-drawer-view') === currentDrawerMode);
+        });
+        els.scroll.scrollTop = 0;
+    }
+    if (currentDrawerSkillId && currentDrawerContent !== null) {
+        var baseSkill = skills.find(function(item) { return item.id === currentDrawerSkillId; });
+        renderDrawer(baseSkill, currentDrawerContent, currentDrawerLoading);
+    }
+}
+
 function renderDrawer(skill, content, loading) {
     var els = getDrawerElements();
     if (!els.drawer || !els.empty || !els.shell) return;
@@ -347,44 +436,27 @@ function renderDrawer(skill, content, loading) {
     els.shell.style.display = 'flex';
     els.drawer.classList.add('has-selection');
 
-    var builtin = isBuiltInSkill(skill);
-    if (els.title) els.title.textContent = skill.name || skill.id;
+    var mergedSkill = mergeSkillDrawerData(skill, content && content.skill ? content.skill : null);
+    var builtin = isBuiltInSkill(mergedSkill);
+    if (els.title) els.title.textContent = mergedSkill.name || mergedSkill.id;
     if (els.subtitle) {
-        els.subtitle.textContent = (skill.description || skill.summary || '暂无描述') +
-            ' · ' + (skill.author || '未知作者');
+        els.subtitle.textContent = (mergedSkill.description || mergedSkill.summary || '暂无描述') +
+            ' · ' + (mergedSkill.author || '未知作者');
     }
     if (els.icon) {
-        els.icon.textContent = getSkillIcon(skill.id);
-        els.icon.className = 'skill-drawer-icon ' + getIconClass(skill.id);
+        els.icon.textContent = getSkillIcon(mergedSkill.id);
+        els.icon.className = 'skill-drawer-icon ' + getIconClass(mergedSkill.id);
     }
     if (els.status) {
         els.status.textContent = loading ? '加载中' : (builtin ? '内置技能' : '自定义技能');
     }
-
-    if (els.meta) {
-        var tags = (skill.tags || []).map(function(tag) {
-            return '<span class="skill-chip">' + escapeHtml(tag) + '</span>';
-        }).join('');
-        els.meta.innerHTML = [
-            '<div class="skill-meta-item"><span class="skill-meta-label">技能 ID</span><span class="skill-meta-value mono">' + escapeHtml(skill.id) + '</span></div>',
-            '<div class="skill-meta-item"><span class="skill-meta-label">版本</span><span class="skill-meta-value">' + escapeHtml(skill.version || '1.0.0') + '</span></div>',
-            '<div class="skill-meta-item"><span class="skill-meta-label">作者</span><span class="skill-meta-value">' + escapeHtml(skill.author || 'Unknown') + '</span></div>',
-            '<div class="skill-meta-item"><span class="skill-meta-label">脚本数量</span><span class="skill-meta-value">' + (skill.script_count || 0) + '</span></div>',
-            '<div class="skill-meta-item"><span class="skill-meta-label">更新时间</span><span class="skill-meta-value">' + escapeHtml(formatRelativeTime(skill.modified_at || skill.created_at)) + '</span></div>',
-            '<div class="skill-meta-item"><span class="skill-meta-label">大小</span><span class="skill-meta-value">' + escapeHtml(formatFileSize(skill.size_bytes || 0)) + '</span></div>'
-        ].join('');
-        if (tags) {
-            els.meta.innerHTML += '<div class="skill-meta-item" style="grid-column: 1 / -1;"><span class="skill-meta-label">标签</span><div class="sp-filter-btns" style="margin-top: 0;">' + tags + '</div></div>';
-        }
-    }
-
-    if (els.description) {
-        els.description.textContent = skill.summary || skill.description || '暂无描述';
+    if (els.overview) {
+        els.overview.innerHTML = buildSkillOverviewHtml(mergedSkill, content, loading);
     }
 
     if (els.markdown) {
         if (loading || !content) {
-            els.markdown.textContent = loading ? '正在加载 SKILL.md ...' : '点击“查看”或“预览内容”加载 Markdown。';
+            els.markdown.textContent = loading ? '正在加载 SKILL.md ...' : '点击“SKILL.md”标签查看完整文档。';
         } else {
             els.markdown.textContent = content.skill_md || '暂无 SKILL.md 内容';
         }
@@ -400,18 +472,25 @@ function renderDrawer(skill, content, loading) {
                 var name = entry[0];
                 var scriptContent = entry[1] || '';
                 return '<div class="skill-drawer-script">' +
-                    '<div class="skill-drawer-script-name">' + escapeHtml(name) + '</div>' +
-                    '<div class="skill-drawer-script-path">' + escapeHtml(scriptContent.substring(0, 220) || '空脚本') + '</div>' +
+                    '<div class="skill-drawer-script-name">' + escapeHtmlText(name) + '</div>' +
+                    '<pre class="skill-drawer-script-code">' + escapeHtmlText(scriptContent || '空脚本') + '</pre>' +
                 '</div>';
             }).join('') : '<div class="skill-drawer-script">暂无脚本文件</div>';
         }
     }
 
+    if (els.scroll) {
+        els.scroll.querySelectorAll('[data-drawer-view]').forEach(function(view) {
+            view.classList.toggle('active', view.getAttribute('data-drawer-view') === currentDrawerMode);
+        });
+        els.scroll.scrollTop = 0;
+    }
+
     if (els.actions) {
         var exportBtn = '<button class="skill-drawer-btn secondary" type="button" onclick="exportCurrentSkill()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 21h14"/></svg>导出</button>';
-        var editBtn = builtin ? '' : '<button class="skill-drawer-btn secondary" type="button" onclick="editSkill(\'' + skill.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>编辑</button>';
-        var deleteBtn = builtin ? '' : '<button class="skill-drawer-btn danger" type="button" onclick="confirmDelete(\'' + skill.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>删除</button>';
-        els.actions.innerHTML = '<button class="skill-drawer-btn" type="button" onclick="viewSkill(\'' + skill.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>查看内容</button>' + editBtn + exportBtn + deleteBtn;
+        var editBtn = builtin ? '' : '<button class="skill-drawer-btn secondary" type="button" onclick="editSkill(\'' + mergedSkill.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>编辑</button>';
+        var deleteBtn = builtin ? '' : '<button class="skill-drawer-btn danger" type="button" onclick="confirmDelete(\'' + mergedSkill.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>删除</button>';
+        els.actions.innerHTML = '<button class="skill-drawer-btn" type="button" onclick="viewSkill(\'' + mergedSkill.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>查看内容</button>' + editBtn + exportBtn + deleteBtn;
     }
 }
 
@@ -425,6 +504,7 @@ function openSkillDrawer(skillId, options) {
     currentSkillId = skillId;
     currentDrawerSkillId = skillId;
     currentDrawerLoading = options && options.loading;
+    currentDrawerMode = 'overview';
     renderDrawer(skill, null, true);
     document.querySelectorAll('.skill-row').forEach(function(row) {
         row.classList.toggle('active', row.getAttribute('data-skill-id') === skillId);
@@ -436,7 +516,10 @@ function closeSkillDrawer() {
     currentDrawerSkillId = null;
     currentDrawerContent = null;
     currentDrawerLoading = false;
+    currentDrawerMode = 'overview';
     renderDrawer(null);
+    var els = getDrawerElements();
+    if (els.scroll) els.scroll.scrollTop = 0;
     document.querySelectorAll('.skill-row').forEach(function(row) {
         row.classList.remove('active');
     });
@@ -455,7 +538,9 @@ async function loadSkillDrawerContent(skillId) {
         const data = await response.json();
         if (data.success && currentDrawerSkillId === skillId) {
             currentDrawerContent = data;
-            renderDrawer(skill, data, false);
+            renderDrawer(mergeSkillDrawerData(skill, data.skill), data, false);
+            var els = getDrawerElements();
+            if (els.scroll) els.scroll.scrollTop = 0;
         }
     } catch (error) {
         if (currentDrawerSkillId === skillId) {
@@ -514,6 +599,28 @@ function setupSkillPageControls() {
             closeSkillDrawer();
         });
     }
+
+    var tabs = document.getElementById('skillDrawerTabs');
+    if (tabs && !tabs.dataset.bound) {
+        tabs.dataset.bound = '1';
+        tabs.addEventListener('click', function(event) {
+            var target = event.target.closest('[data-drawer-mode]');
+            if (!target) return;
+            setDrawerMode(target.getAttribute('data-drawer-mode'));
+        });
+    }
+
+    var drawer = document.getElementById('skillDetailDrawer');
+    var scrollRegion = document.getElementById('skillDrawerScroll');
+    if (drawer && scrollRegion && !drawer.dataset.wheelBound) {
+        drawer.dataset.wheelBound = '1';
+        drawer.addEventListener('wheel', function(event) {
+            if (!scrollRegion || !scrollRegion.offsetParent) return;
+            if (Math.abs(event.deltaY) < 1 && Math.abs(event.deltaX) < 1) return;
+            scrollRegion.scrollTop += event.deltaY || event.deltaX || 0;
+            event.preventDefault();
+        }, { passive: false });
+    }
 }
 
 // ==================== Modal 操作 ====================
@@ -522,6 +629,11 @@ function openSkillModal(skillId = null) {
     const modal = document.getElementById('skillModal');
     const title = document.getElementById('modalTitle');
     const form = document.getElementById('skillForm');
+    const packageSection = document.getElementById('skillPackageSection');
+    const packageInput = document.getElementById('skillPackageInput');
+    const packageDropzone = document.getElementById('skillPackageDropzone');
+    const packageBrowseBtn = document.getElementById('skillPackageBrowseBtn');
+    const packageFileName = document.getElementById('skillPackageFileName');
 
     if (!modal) {
         console.error('skillModal not found');
@@ -536,12 +648,15 @@ function openSkillModal(skillId = null) {
     const validationResultsEl = document.getElementById('validationResults');
     if (scriptListEl) scriptListEl.innerHTML = '';
     if (validationResultsEl) validationResultsEl.classList.remove('show');
+    if (packageInput) packageInput.value = '';
+    if (packageFileName) packageFileName.textContent = '支持包含 `SKILL.md` 的技能包';
 
     if (skillId) {
         // 编辑模式
         isEditMode = true;
         currentSkillId = skillId;
         if (title) title.textContent = '编辑 Skill';
+        if (packageSection) packageSection.style.display = 'none';
 
         const skill = skills.find(s => s.id === skillId);
         if (skill) {
@@ -552,12 +667,14 @@ function openSkillModal(skillId = null) {
         isEditMode = false;
         currentSkillId = null;
         if (title) title.textContent = '添加新 Skill';
+        if (packageSection) packageSection.style.display = 'block';
 
         // 添加默认脚本字段
         addScriptField();
     }
 
     modal.classList.add('active');
+    setupSkillPackageDropzone();
 }
 
 function closeSkillModal() {
@@ -565,6 +682,151 @@ function closeSkillModal() {
     if (modal) modal.classList.remove('active');
     isEditMode = false;
     currentSkillId = null;
+}
+
+async function importSkillPackage(fileOverride = null) {
+    const packageInput = document.getElementById('skillPackageInput');
+    const packageFile = fileOverride || packageInput?.files?.[0];
+    const importBtn = document.getElementById('importSkillPackageBtn');
+
+    if (!packageFile) {
+        showToast('请选择一个 ZIP 压缩包', 'warning');
+        return;
+    }
+
+    if (!packageFile.name.toLowerCase().endsWith('.zip')) {
+        showToast('仅支持 ZIP 压缩包', 'warning');
+        return;
+    }
+
+    try {
+        if (importBtn) importBtn.disabled = true;
+        showToast('正在导入技能包，请稍候...', 'info');
+
+        const formData = new FormData();
+        formData.append('package', packageFile);
+        formData.append('force', 'false');
+
+        const response = await authSkillFetch(`${getSkillApiUrl()}/skills/import-package`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response) return;
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(result.message || '技能包导入成功', 'success');
+            closeSkillModal();
+            await loadSkills();
+        } else {
+            const message = result.message || '导入失败';
+            showToast(message, 'error');
+            if (result.errors?.length) {
+                console.error('技能包导入失败:', result.errors);
+            }
+        }
+    } catch (error) {
+        console.error('导入技能包失败:', error);
+        showToast('导入请求失败', 'error');
+    } finally {
+        if (importBtn) importBtn.disabled = false;
+    }
+}
+
+function updateSkillPackageFileName(file) {
+    const fileNameEl = document.getElementById('skillPackageFileName');
+    if (!fileNameEl) return;
+    fileNameEl.textContent = file ? `已选择：${file.name}` : '支持包含 `SKILL.md` 的技能包';
+}
+
+function setSkillPackageInputFile(file) {
+    const packageInput = document.getElementById('skillPackageInput');
+    if (!packageInput || !file) return;
+
+    try {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        packageInput.files = dataTransfer.files;
+    } catch (error) {
+        console.warn('无法设置文件输入:', error);
+    }
+
+    updateSkillPackageFileName(file);
+}
+
+function setupSkillPackageDropzone() {
+    const packageDropzone = document.getElementById('skillPackageDropzone');
+    const packageInput = document.getElementById('skillPackageInput');
+    const packageBrowseBtn = document.getElementById('skillPackageBrowseBtn');
+
+    if (!packageDropzone || !packageInput) return;
+
+    if (!packageDropzone.dataset.bound) {
+        packageDropzone.dataset.bound = '1';
+
+        const openPicker = function(event) {
+            if (event) event.preventDefault();
+            packageInput.click();
+        };
+
+        packageDropzone.addEventListener('click', function(event) {
+            const target = event.target.closest('button, input');
+            if (target) return;
+            openPicker(event);
+        });
+
+        packageDropzone.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openPicker(event);
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(function(eventName) {
+            packageDropzone.addEventListener(eventName, function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                packageDropzone.classList.add('dragging');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function(eventName) {
+            packageDropzone.addEventListener(eventName, function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (eventName === 'drop') {
+                    const files = Array.from(event.dataTransfer?.files || []);
+                    const zipFile = files.find(function(file) {
+                        return file.name && file.name.toLowerCase().endsWith('.zip');
+                    });
+                    if (!zipFile) {
+                        showToast('请拖入 ZIP 压缩包', 'warning');
+                    } else {
+                        setSkillPackageInputFile(zipFile);
+                        importSkillPackage(zipFile);
+                    }
+                }
+                packageDropzone.classList.remove('dragging');
+            });
+        });
+    }
+
+    if (packageBrowseBtn && !packageBrowseBtn.dataset.bound) {
+        packageBrowseBtn.dataset.bound = '1';
+        packageBrowseBtn.addEventListener('click', function(event) {
+            event.stopPropagation();
+            packageInput.click();
+        });
+    }
+
+    if (!packageInput.dataset.bound) {
+        packageInput.dataset.bound = '1';
+        packageInput.addEventListener('change', function() {
+            const file = packageInput.files && packageInput.files[0];
+            updateSkillPackageFileName(file || null);
+        });
+    }
 }
 
 async function loadSkillForEdit(skill) {
@@ -786,7 +1048,7 @@ async function viewSkill(skillId) {
             if (hasSkillDrawer()) {
                 openSkillDrawer(skillId, { loading: false });
                 currentDrawerContent = data;
-                renderDrawer(data.skill || skills.find(function(item) { return item.id === skillId; }), data, false);
+                renderDrawer(mergeSkillDrawerData(skills.find(function(item) { return item.id === skillId; }), data.skill), data, false);
             } else {
                 openViewModal(skillId, data);
             }
@@ -801,7 +1063,7 @@ async function viewSkill(skillId) {
 
 function openViewModal(skillId, data) {
     if (hasSkillDrawer()) {
-        var skill = data?.skill || skills.find(function(s) { return s.id === skillId; });
+        var skill = mergeSkillDrawerData(skills.find(function(s) { return s.id === skillId; }), data && data.skill);
         if (skill) {
             currentSkillId = skillId;
             currentDrawerSkillId = skillId;
@@ -1004,6 +1266,7 @@ window.addScriptField = addScriptField;
 window.removeScriptField = removeScriptField;
 window.validateSkill = validateSkill;
 window.installSkill = installSkill;
+window.importSkillPackage = importSkillPackage;
 window.confirmDelete = confirmDelete;
 window.closeConfirmModal = closeConfirmModal;
 window.deleteCurrentSkill = deleteSkill;

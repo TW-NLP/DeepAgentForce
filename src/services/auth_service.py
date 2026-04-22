@@ -174,6 +174,8 @@ class AuthService:
                     "tenant_id": user.tenant_id,
                     "tenant_uuid": tenant.uuid,
                     "tenant_name": tenant.name,
+                    "avatar_url": user.avatar_url,
+                    "department": user.department,
                 },
                 "access_token": access_token,
                 "refresh_token": refresh_token,
@@ -249,6 +251,7 @@ class AuthService:
                     "tenant_uuid": tenant_uuid,  # 🆕 返回 tenant_uuid
                     "tenant_name": tenant_name,
                     "avatar_url": user.avatar_url,
+                    "department": user.department,
                 },
                 "access_token": access_token,
                 "refresh_token": refresh_token,
@@ -288,7 +291,12 @@ class AuthService:
                     "role": user.role.value,
                     "tenant_id": user.tenant_id,
                     "tenant_uuid": tenant_uuid or user.tenant_uuid,  # 🆕 返回 tenant_uuid
+                    "tenant_name": user.tenant.name if user.tenant else None,
                     "is_superuser": user.is_superuser,
+                    "avatar_url": user.avatar_url,
+                    "department": user.department,
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
+                    "updated_at": user.updated_at.isoformat() if user.updated_at else None,
                 }
             finally:
                 db.close()

@@ -156,6 +156,10 @@ def setup_websocket_routes(app: FastAPI):
             token = websocket.query_params.get("token")
             if token:
                 tenant_uuid = extract_tenant_from_token(token)
+                if tenant_uuid is None:
+                    logger.warning("WebSocket token 无效或已过期，主动关闭连接")
+                    await websocket.close(code=4401, reason="token expired or invalid")
+                    return
                 logger.info(f"WebSocket 连接，tenant_uuid: {tenant_uuid}")
             else:
                 logger.warning("WebSocket 连接未携带 token，视为匿名会话")

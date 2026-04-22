@@ -277,6 +277,33 @@ async function loadSessionMessages(sessionId) {
 }
 
 // ============ 3. WebSocket ============
+function getJwtExp(token) {
+    if (!token) return null;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1] || ''));
+        return typeof payload.exp === 'number' ? payload.exp : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+async function ensureValidWsToken() {
+    const token = localStorage.getItem('access_token');
+    if (!token) return '';
+
+    const exp = getJwtExp(token);
+    const isExpired = exp ? (Date.now() / 1000) >= (exp - 30) : false;
+    if (!isExpired) return token;
+
+    const refreshed = await window.auth?.refreshAccessToken?.();
+    if (refreshed) {
+        return localStorage.getItem('access_token') || '';
+    }
+
+    window.auth?.logout?.();
+    return '';
+}
+
 function getWsUrl() {
     if (CONFIG?._wsBase) {
         const token = localStorage.getItem('access_token');
@@ -290,13 +317,27 @@ function getWsUrl() {
     return token ? `${url}?token=${encodeURIComponent(token)}` : url;
 }
 
-function connectWebSocket() {
+async function connectWebSocket() {
     if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
 
     // 🆕 重连时重置会话列表加载标志，确保能接收新的会话列表
     sessionListLoadedViaWebSocket = false;
 
-    const wsUrl = getWsUrl();
+    const token = await ensureValidWsToken();
+    const wsUrl = CONFIG?._wsBase
+        ? (token ? `${CONFIG._wsBase}${CONFIG._wsBase.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : CONFIG._wsBase)
+        : (() => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname;
+            const url = `${protocol}//${host}:8000/ws/stream`;
+            return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+        })();
+
+    if (!token && localStorage.getItem('access_token')) {
+        updateStatus(false);
+        return;
+    }
+
     console.log('WebSocket 连接 URL:', wsUrl);
     ws = new WebSocket(wsUrl);
 
@@ -315,10 +356,17 @@ function connectWebSocket() {
 
     ws.onerror = () => updateStatus(false);
 
-    ws.onclose = () => {
+    ws.onclose = async (event) => {
         isConnected = false;
         updateStatus(false);
-        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        if (event?.code === 4401) {
+            const refreshed = await window.auth?.refreshAccessToken?.();
+            if (refreshed) {
+                setTimeout(connectWebSocket, 300);
+            }
+            return;
+        }
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && localStorage.getItem('access_token')) {
             reconnectAttempts++;
             setTimeout(connectWebSocket, Math.min(1000 * Math.pow(2, reconnectAttempts), 30000));
         }
@@ -582,7 +630,7 @@ function addMessage(role, content) {
         <div class="message-avatar">
             ${role === 'user'
                 ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
-                : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>`
             }
         </div>
         <div class="message-content">
@@ -847,11 +895,13 @@ function handleStopped(message = '已停止生成') {
         } else {
             finalEl.innerHTML = `<span style="color: var(--text-tertiary);">${escapeHtml(message)}</span>`;
         }
+        finalEl.querySelectorAll('.streaming-cursor').forEach((cursor) => cursor.remove());
         updateMessageDebugPanel(currentStreamingAnswer, streamingRawText || '', partial || message, 'stopped');
 
         if (statusEl) {
             statusEl.classList.remove('is-hidden');
         }
+        currentStreamingAnswer.classList.add('message-stopped');
         setStreamingStatus('已停止生成', 'complete');
         setTimeout(() => statusEl?.classList.add('is-hidden'), 1200);
 

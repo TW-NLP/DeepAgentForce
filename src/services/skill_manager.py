@@ -12,6 +12,8 @@ import logging
 import shutil
 import uuid
 import json
+import tempfile
+import zipfile
 import yaml  # 🆕 用于正确解析 YAML frontmatter
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -151,6 +153,19 @@ class SkillManager:
         skills.sort(key=lambda x: (x.get('source', '') != 'builtin', x.get('name', '')))
         return skills
 
+    def _collect_scripts(self, skill_path: Path) -> Dict[str, str]:
+        """收集 Skill 中 scripts 目录下的 Python 脚本"""
+        scripts: Dict[str, str] = {}
+        scripts_dir = skill_path / "scripts"
+        if not scripts_dir.exists():
+            return scripts
+
+        for script_file in scripts_dir.iterdir():
+            if script_file.is_file() and script_file.suffix == '.py':
+                scripts[script_file.name] = script_file.read_text(encoding='utf-8')
+
+        return scripts
+
     def _parse_skill_info(self, skill_path: Path) -> Optional[Dict[str, Any]]:
         """解析 Skill 目录，提取元信息"""
         skill_md = skill_path / "SKILL.md"
@@ -164,14 +179,13 @@ class SkillManager:
             metadata = self._extract_frontmatter(content)
 
             # 获取 scripts 目录信息
-            scripts_dir = skill_path / "scripts"
             scripts = []
             script_names = []
+            scripts_dir = skill_path / "scripts"
             if scripts_dir.exists():
                 for script_file in scripts_dir.iterdir():
                     if script_file.is_file() and script_file.suffix == '.py':
                         script_names.append(script_file.name)
-                        # 使用 skill_path 作为基准，避免跨目录计算相对路径
                         scripts.append({
                             'name': script_file.stem,
                             'file': script_file.name,
@@ -342,12 +356,7 @@ class SkillManager:
             result['SKILL.md'] = skill_md.read_text(encoding='utf-8')
 
         # 读取 scripts
-        scripts_dir = skill_path / "scripts"
-        if scripts_dir.exists():
-            result['scripts'] = {}
-            for script_file in scripts_dir.iterdir():
-                if script_file.is_file():
-                    result['scripts'][script_file.name] = script_file.read_text(encoding='utf-8')
+        result['scripts'] = self._collect_scripts(skill_path)
 
         return result
 
@@ -394,7 +403,8 @@ class SkillManager:
         skill_md_content: str,
         scripts: Dict[str, str],
         tenant_uuid: int,
-        force: bool = False
+        force: bool = False,
+        source_path: Optional[Path] = None
     ) -> Dict[str, Any]:
         """
         安装/更新用户自定义 Skill
@@ -448,17 +458,21 @@ class SkillManager:
             if skill_path.exists():
                 shutil.rmtree(skill_path)
 
-            skill_path.mkdir(parents=True, exist_ok=True)
-            scripts_dir = skill_path / "scripts"
-            scripts_dir.mkdir(parents=True, exist_ok=True)
+            if source_path is not None:
+                shutil.copytree(source_path, skill_path)
+            else:
+                skill_path.mkdir(parents=True, exist_ok=True)
+                scripts_dir = skill_path / "scripts"
+                scripts_dir.mkdir(parents=True, exist_ok=True)
 
-            # 写入 SKILL.md
-            (skill_path / "SKILL.md").write_text(skill_md_content, encoding='utf-8')
+                # 写入 SKILL.md
+                (skill_path / "SKILL.md").write_text(skill_md_content, encoding='utf-8')
 
-            # 写入 scripts
-            for script_name, content in scripts.items():
-                script_path = scripts_dir / script_name
-                script_path.write_text(content, encoding='utf-8')
+                # 写入 scripts
+                for script_name, content in scripts.items():
+                    script_path = scripts_dir / script_name
+                    script_path.parent.mkdir(parents=True, exist_ok=True)
+                    script_path.write_text(content, encoding='utf-8')
 
             # 清除缓存
             self._skills_cache.clear()
@@ -536,6 +550,140 @@ class SkillManager:
             return {
                 'success': False,
                 'message': f"卸载失败: {str(e)}"
+            }
+
+    def _extract_zip_package(self, archive_path: Path, extract_root: Path) -> None:
+        """安全解压 ZIP 包到临时目录"""
+        with zipfile.ZipFile(archive_path) as zf:
+            for member in zf.infolist():
+                member_path = Path(member.filename)
+                if member_path.is_absolute() or '..' in member_path.parts:
+                    raise ValueError("压缩包包含非法路径")
+
+                target_path = extract_root / member_path
+                if member.is_dir():
+                    target_path.mkdir(parents=True, exist_ok=True)
+                    continue
+
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(member) as src, target_path.open('wb') as dst:
+                    shutil.copyfileobj(src, dst)
+
+    def _locate_skill_package_root(self, extract_root: Path) -> Optional[Path]:
+        """定位压缩包中的 Skill 根目录"""
+        skill_md_files = [p for p in extract_root.rglob('SKILL.md') if p.is_file()]
+        if not skill_md_files:
+            return None
+
+        roots = {p.parent.resolve() for p in skill_md_files}
+        if len(roots) != 1:
+            raise ValueError("压缩包中只能包含一个 Skill 目录")
+
+        return skill_md_files[0].parent
+
+    def _normalize_skill_md(self, skill_md_content: str, skill_name: str) -> str:
+        """确保 SKILL.md 至少包含 name 字段"""
+        metadata = self._extract_frontmatter(skill_md_content)
+        if metadata.get('name'):
+            return skill_md_content
+
+        body = skill_md_content
+        if skill_md_content.startswith('---'):
+            lines = skill_md_content.splitlines()
+            end_idx = None
+            for i, line in enumerate(lines[1:], 1):
+                if line.strip() == '---':
+                    end_idx = i
+                    break
+
+            if end_idx is not None:
+                body = '\n'.join(lines[end_idx + 1:]).lstrip('\n')
+
+        metadata['name'] = skill_name
+        frontmatter = yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True).strip()
+        return f"---\n{frontmatter}\n---\n\n{body}".rstrip() + "\n"
+
+    def import_skill_package(
+        self,
+        archive_path: Path,
+        tenant_uuid: int,
+        force: bool = False
+    ) -> Dict[str, Any]:
+        """
+        从 ZIP 压缩包导入 Skill
+        """
+        if not archive_path.exists():
+            return {
+                'success': False,
+                'message': '压缩包不存在'
+            }
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                extract_root = Path(tmpdir) / 'skill_package'
+                extract_root.mkdir(parents=True, exist_ok=True)
+
+                self._extract_zip_package(archive_path, extract_root)
+                skill_root = self._locate_skill_package_root(extract_root)
+                if not skill_root:
+                    return {
+                        'success': False,
+                        'message': '压缩包中未找到 SKILL.md'
+                    }
+
+                skill_md_path = skill_root / 'SKILL.md'
+                if not skill_md_path.exists():
+                    return {
+                        'success': False,
+                        'message': '压缩包中未找到 SKILL.md'
+                    }
+
+                skill_md_content = skill_md_path.read_text(encoding='utf-8')
+                metadata = self._extract_frontmatter(skill_md_content)
+                skill_name = (metadata.get('name') or skill_root.name or archive_path.stem).strip()
+                skill_md_content = self._normalize_skill_md(skill_md_content, skill_name)
+
+                scripts = self._collect_scripts(skill_root)
+                validation = self.validate_skill(skill_md_content, scripts)
+                if not validation['valid']:
+                    return {
+                        'success': False,
+                        'message': '验证失败',
+                        'errors': validation['errors'],
+                        'warnings': validation['warnings']
+                    }
+
+                result = self.install_skill(
+                    skill_name=skill_name,
+                    skill_md_content=skill_md_content,
+                    scripts=scripts,
+                    tenant_uuid=tenant_uuid,
+                    force=force,
+                    source_path=skill_root
+                )
+
+                if result.get('success'):
+                    result['message'] = f"Skill '{skill_name}' 导入成功"
+                    existing_warnings = result.get('warnings', [])
+                    result['warnings'] = list(dict.fromkeys(existing_warnings + validation['warnings']))
+                return result
+        except zipfile.BadZipFile:
+            return {
+                'success': False,
+                'message': '压缩包格式无效，请上传 ZIP 文件'
+            }
+        except ValueError as e:
+            return {
+                'success': False,
+                'message': str(e),
+                'errors': [str(e)]
+            }
+        except Exception as e:
+            logger.error(f"导入 Skill 包失败: {e}")
+            return {
+                'success': False,
+                'message': f"导入失败: {str(e)}",
+                'errors': [str(e)]
             }
 
     def export_skill(self, skill_id: str, tenant_uuid: Optional[int] = None) -> Optional[Dict[str, Any]]:
