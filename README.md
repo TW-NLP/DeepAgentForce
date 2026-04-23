@@ -32,22 +32,30 @@
 
 围绕这些问题，DeepAgentForce 做成了一个前后端一体化的智能体运行框架与工作台。
 
-如果这个项目对您有帮助，欢迎 Star ✨ , 在线体验与帮助页面：
-
-- 注册入口：http://47.90.136.218:8000/login.html
-- 使用文档：http://47.90.136.218:8000/help.html
-
+如果这个项目对您有帮助，欢迎 Star ✨ 。
 ---
 
-## News
+## 📰 News
 
-- 2026-04-21 发布 `V1.2.0`
-- 新增 Claude 官网 20 个 Skills
-- 优化智能对话交互，新增重新生成与编辑功能
-- 2026-04-20 发布 `V1.1.0`
-- 本次版本集成了文本校对能力
-- 优化了知识库管理 UI
-- 优化了 Skill 管理 UI
+- **2026-04-23** 发布 `V1.4.0` ✨
+  - 🎯 优化 Docker 构建流程与容器配置
+  - 📦 支持 macOS DMG 和 Windows EXE 打包
+  - 🔧 改进跨平台构建脚本
+  - 📚 完善部署文档
+  - ✅ 统一 SQLite 作为默认数据库
+
+- **2026-04-22** 发布 `V1.3.0`
+  - 支持 Skill 的 zip 上传
+  - 持续迭代智能对话交互
+
+- **2026-04-21** 发布 `V1.2.0`
+  - 新增 Claude 官网 20 个 Skills
+  - 优化智能对话交互，新增重新生成与编辑功能
+
+- **2026-04-20** 发布 `V1.1.0`
+  - 本次版本集成了文本校对能力
+  - 优化了知识库管理 UI
+  - 优化了 Skill 管理 UI
 
 ---
 
@@ -159,7 +167,7 @@ RAG 模块支持分阶段增强：
 2. 接口层：FastAPI 路由、认证、WebSocket、文件上传下载
 3. 智能体层：`ConversationalAgent` 负责模型接入、技能工作空间和对话流程
 4. 能力层：Skill Manager、RAG Pipeline、用户画像、校对服务
-5. 存储层：MySQL、Milvus Lite、本地 data 目录
+5. 存储层：SQLite（内置）、Milvus Lite、本地 data 目录
 
 如果从 Harness 的角度看，这 5 层分别对应：
 
@@ -186,19 +194,26 @@ docker compose up -d
 - 首页：http://localhost:8000
 - Swagger：http://localhost:8000/docs
 
-`docker-compose.yml` 会启动：
+**特点**：
 
-- `mysql`：MySQL 8.4
-- `app`：DeepAgentForce 应用
+- 🗄️ **开箱即用**：无需配置外部数据库，使用内置 SQLite
+- 📦 **数据持久化**：所有数据通过 `./data:/app/data` 卷挂载
+- 🔄 **容器重启无忧**：数据完全保留
 
-注意：容器启动成功后，你仍需要在前端配置页补充模型与 embedding 参数，系统才能正常调用大模型。
+**启动后访问**：
+
+- 应用首页：http://localhost:8000
+- API 文档：http://localhost:8000/docs
+- 登录页面：http://localhost:8000/login.html
+
+注意：启动成功后，仍需在前端配置页补充 **LLM 和 Embedding 模型**参数，系统才能正常调用大模型。
 
 ### 方式二：本地运行
 
 环境要求：
 
 - Python 3.12+
-- MySQL 8.0+
+- 无需外部数据库（使用内置 SQLite）
 
 安装步骤：
 
@@ -212,43 +227,41 @@ conda activate agent
 pip install -r requirements.txt
 ```
 
-国内网络可使用镜像：
+国内用户可使用镜像加速：
 
 ```bash
-pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+pip install -r requirements.txt \
+  -i https://mirrors.aliyun.com/pypi/simple/ \
+  --trusted-host=mirrors.aliyun.com
 ```
 
-创建数据库：
-
-```sql
-CREATE DATABASE deepagentforce CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'agent'@'%' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON deepagentforce.* TO 'agent'@'%';
-FLUSH PRIVILEGES;
-```
-
-然后准备 `.env`：
+配置 `.env`：
 
 ```bash
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=deepagentforce
-DB_USERNAME=agent
-DB_PASSWORD=your_password
+# 数据库（自动使用 SQLite）
+SQLITE_DB_PATH=data/deepagentforce.db
+
+# JWT 安全
 JWT_SECRET_KEY=your-secret-key-change-in-production
+
+# 服务器
+HOST=127.0.0.1
+PORT=8000
 ```
 
-启动：
+启动服务：
 
 ```bash
 python main.py
 ```
 
+访问：http://localhost:8000
+
 ---
 
-## 上手路径
+## 📖 上手路径
 
-### 1. 注册并登录
+### 1️⃣ 注册并登录
 
 访问 `http://localhost:8000/login.html`，注册后系统会为当前用户分配独立工作空间。
 
@@ -261,49 +274,51 @@ python main.py
 
 进入“配置”页面，至少填写以下字段：
 
-| 配置项 | 说明 |
-|--------|------|
-| `LLM_URL` | 对话模型 API 地址 |
-| `LLM_API_KEY` | 对话模型 Key |
-| `LLM_MODEL` | 对话模型名称 |
-| `EMBEDDING_URL` | 向量模型 API 地址 |
-| `EMBEDDING_API_KEY` | 向量模型 Key |
-| `EMBEDDING_MODEL` | 向量模型名称 |
+| 配置项 | 说明 | 示例 |
+|--------|------|------|
+| `LLM_URL` | 对话模型 API 地址 | `https://api.openai.com/v1` |
+| `LLM_API_KEY` | 对话模型 Key | `sk-xxxxxxxx` |
+| `LLM_MODEL` | 对话模型名称 | `gpt-4o` |
+| `EMBEDDING_URL` | 向量模型 API 地址 | `https://api.openai.com/v1` |
+| `EMBEDDING_API_KEY` | 向量模型 Key | `sk-xxxxxxxx` |
+| `EMBEDDING_MODEL` | 向量模型名称 | `text-embedding-3-small` |
 
-说明：
+**提示**：
 
-- `LLM_URL` 和 `EMBEDDING_URL` 填 base URL 即可
-- 系统会自动处理 `/chat/completions`、`/embeddings` 等后缀
-- 也支持给校对服务单独配置模型
+- 系统会自动处理 `/chat/completions`、`/embeddings` 等 API 路径后缀
+- 支持 OpenAI、Azure、阿里云等兼容接口
+- 校对服务可单独配置模型
 
 <div align="center">
   <img src="images/config.png" alt="模型配置" width="82%"/>
 </div>
 
-### 3. 上传知识文档
+### 3️⃣ 上传知识文档
 
-知识库模块支持常见格式：
+知识库模块支持多种格式，系统会自动解析、切分、向量化：
 
-- PDF
-- DOC / DOCX
-- TXT
-- CSV
-- Markdown
+| 格式 | 支持 |
+|------|------|
+| PDF | ✅ 支持文本、表格、图片提取 |
+| DOC / DOCX | ✅ 支持格式化文本 |
+| TXT | ✅ 纯文本 |
+| CSV | ✅ 表格数据 |
+| Markdown | ✅ 结构化文本 |
 
-文档会被解析、切分、向量化，并写入租户专属索引。
+所有文档会写入**租户专属索引**，数据完全隔离。
 
 <div align="center">
   <img src="images/rag.png" alt="知识库管理" width="88%"/>
 </div>
 
-### 4. 开始对话
+### 4️⃣ 开始对话
 
-在聊天页中，系统会根据问题自动决定是否：
+在聊天页中，Agent 会根据问题自动决定：
 
-- 直接回答
-- 调用 Skill
-- 查询知识库
-- 结合历史与用户偏好生成回复
+- 📝 **直接回答**：基于模型和历史
+- 🔧 **调用 Skill**：执行已安装的工具
+- 🔍 **查询知识库**：检索私有文档
+- 🧠 **结合用户画像**：参考个性化偏好
 
 <div align="center">
   <img src="images/chat.png" alt="智能对话界面" width="88%"/>

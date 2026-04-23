@@ -318,21 +318,11 @@ async function loadKnowledgeBaseStats() {
             const statDocs = document.getElementById('statDocs');
             const statChunks = document.getElementById('statChunks');
             const statSize = document.getElementById('statSize');
-            const statLastUpdate = document.getElementById('statLastUpdate');
-            const kbHealthText = document.getElementById('kbHealthText');
-            const kbHealthValue = document.getElementById('kbHealthValue');
             const kbTypeBreakdown = document.getElementById('kbTypeBreakdown');
 
             if (statDocs) statDocs.textContent = data.document_count;
             if (statChunks) statChunks.textContent = data.chunks_count || 0;
             if (statSize) statSize.textContent = data.total_size || '0 KB';
-            if (statLastUpdate) statLastUpdate.textContent = data.last_updated ? formatDate(data.last_updated) : '暂无';
-            if (kbHealthText) {
-                kbHealthText.textContent = data.document_count > 0 ? '索引已就绪' : '等待上传文档';
-            }
-            if (kbHealthValue) {
-                kbHealthValue.textContent = data.document_count > 0 ? 'Ready' : 'Empty';
-            }
             if (kbTypeBreakdown) {
                 const breakdown = data.file_type_counts || {};
                 const entries = Object.entries(breakdown)

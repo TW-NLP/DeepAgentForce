@@ -16,11 +16,25 @@ from src.api.skills_routes import router as skills_router
 from src.api.auth_routes import router as auth_router
 from src.database.connection import init_database
 import os
+import sys
+import time
+from pathlib import Path
+import threading
+import urllib.request
 
 logger = logging.getLogger(__name__)
 
 # 获取配置实例
 settings = get_settings()
+
+def _resource_root() -> Path:
+    """获取静态资源根目录，兼容打包运行模式"""
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    return Path(__file__).resolve().parent
+
+RESOURCE_ROOT = _resource_root()
+_BROWSER_OPENED = False
 
 app = FastAPI()
 
@@ -34,8 +48,8 @@ app.add_middleware(
 )
 
 # 挂载静态文件目录
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-IMAGES_DIR = os.path.join(os.path.dirname(__file__), "images")
+STATIC_DIR = os.path.join(str(RESOURCE_ROOT), "static")
+IMAGES_DIR = os.path.join(str(RESOURCE_ROOT), "images")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
@@ -68,6 +82,85 @@ async def help_page():
 @app.get("/index.html")
 async def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+def _auto_open_browser() -> None:
+    """在桌面打包模式下自动打开首页，避免双击 app 后看起来没有反应。"""
+    global _BROWSER_OPENED
+
+    if _BROWSER_OPENED:
+        return
+    if not getattr(sys, "frozen", False):
+        return
+
+    auto_open = os.getenv("AUTO_OPEN_BROWSER", "true").strip().lower()
+    if auto_open in {"0", "false", "no", "off"}:
+        return
+
+    url = f"http://127.0.0.1:{settings.PORT}/"
+    _BROWSER_OPENED = True
+
+    def _open() -> None:
+        try:
+            import webbrowser
+
+            webbrowser.open(url)
+            logger.info("Opened browser for packaged app: %s", url)
+        except Exception as exc:
+            logger.warning("Failed to open browser automatically: %s", exc)
+
+    threading.Timer(1.0, _open).start()
+
+
+def _wait_for_http_server(url: str, timeout: float = 30.0) -> None:
+    """等待本地服务启动完成，再显示桌面窗口。"""
+    deadline = time.monotonic() + timeout
+    last_error: Exception | None = None
+
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=1.0) as response:
+                if response.status < 500:
+                    return
+        except Exception as exc:
+            last_error = exc
+            time.sleep(0.25)
+
+    raise RuntimeError(f"Timed out waiting for local server at {url}") from last_error
+
+
+def _launch_desktop_window(url: str) -> None:
+    """在打包后的桌面应用中打开原生窗口。"""
+    try:
+        import webview
+    except Exception as exc:
+        raise RuntimeError(
+            "pywebview is required for the packaged desktop app"
+        ) from exc
+
+    window = webview.create_window(
+        "DeepAgentForce",
+        url=url,
+        width=1440,
+        height=960,
+        min_size=(1200, 800),
+        background_color="#ffffff",
+    )
+    logger.info("Launching native desktop window: %s", url)
+
+    def _maximize_window() -> None:
+        try:
+            window.maximize()
+        except Exception as exc:
+            logger.debug("Failed to maximize desktop window: %s", exc)
+
+    webview.start(_maximize_window, debug=settings.DEBUG)
+
+
+@app.on_event("startup")
+async def _on_startup() -> None:
+    if not getattr(sys, "frozen", False):
+        _auto_open_browser()
 
 class DeepAgentForce:
     def __init__(self):
@@ -158,7 +251,7 @@ setup_websocket_routes(app) # 挂载 WebSocket
 try:
     init_database()
 except Exception as e:
-    print(f"⚠️ 数据库初始化失败，请检查 MySQL 配置: {e}")
+    print(f"⚠️ 数据库初始化失败，请检查 SQLite 配置: {e}")
 
 
 if __name__ == "__main__":
@@ -171,9 +264,25 @@ if __name__ == "__main__":
     parser.add_argument('--reload', action='store_true', default=settings.DEBUG, help='Enable auto-reload')
     args = parser.parse_args()
 
-    uvicorn.run(
-        app,
-        host=args.host,
-        port=args.port,
-        reload=args.reload
-    )
+    if getattr(sys, "frozen", False):
+        config = uvicorn.Config(
+            app,
+            host=args.host,
+            port=args.port,
+            reload=False,
+            log_level="info",
+        )
+        server = uvicorn.Server(config)
+        server_thread = threading.Thread(target=server.run, daemon=True)
+        server_thread.start()
+
+        local_url = f"http://127.0.0.1:{args.port}/"
+        _wait_for_http_server(local_url)
+        _launch_desktop_window(local_url)
+    else:
+        uvicorn.run(
+            app,
+            host=args.host,
+            port=args.port,
+            reload=args.reload
+        )

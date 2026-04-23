@@ -8,6 +8,10 @@
 - API 地址配置 (API_BASE, WS_BASE)
 """
 
+import os
+import logging
+import sys
+import tempfile
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
@@ -33,6 +37,83 @@ def _get_local_ip() -> str:
 
 # 启动时自动检测本机 IP，避免硬编码 127.0.0.1
 _LOCAL_IP = _get_local_ip()
+_SOURCE_ROOT = Path(__file__).resolve().parent.parent
+_BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", _SOURCE_ROOT))
+_EXECUTABLE_ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else _SOURCE_ROOT
+
+
+def _get_frozen_data_dir() -> Path:
+    """为打包后的桌面应用选择可写的数据目录。"""
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "DeepAgentForce"
+    if os.name == "nt":
+        appdata = os.getenv("APPDATA")
+        if appdata:
+            return Path(appdata) / "DeepAgentForce"
+        return Path.home() / "AppData" / "Roaming" / "DeepAgentForce"
+    return Path.home() / ".local" / "share" / "DeepAgentForce"
+
+
+_DEFAULT_DATA_DIR = _get_frozen_data_dir() if getattr(sys, "frozen", False) else (_SOURCE_ROOT / "data")
+_APP_DATA_DIR = Path(os.getenv("DEEPAGENTFORCE_DATA_DIR", str(_DEFAULT_DATA_DIR))).expanduser()
+_APP_LOG_DIR = _APP_DATA_DIR / "logs"
+_APP_LOG_FILE = _APP_LOG_DIR / "startup.log"
+_BUNDLE_ENV_FILE = _EXECUTABLE_ROOT / ".env"
+_APP_ENV_FILE = os.getenv(
+    "DEEPAGENTFORCE_ENV_FILE",
+    str(_BUNDLE_ENV_FILE if _BUNDLE_ENV_FILE.exists() else (_APP_DATA_DIR / ".env"))
+)
+
+
+def _setup_bootstrap_logging() -> None:
+    """尽早把启动日志写入文件，方便 GUI 包静默退出时排查问题。"""
+    log_dir = _APP_LOG_DIR
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        # 某些受限环境下用户目录不可写，回退到临时目录保证不会影响启动。
+        log_dir = Path(tempfile.gettempdir()) / "DeepAgentForce" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    has_file_handler = False
+    for handler in root_logger.handlers:
+        if isinstance(handler, logging.FileHandler) and Path(handler.baseFilename).parent == log_dir:
+            has_file_handler = True
+            break
+
+    if not has_file_handler:
+        try:
+            file_handler = logging.FileHandler(log_dir / "startup.log", encoding="utf-8")
+            file_handler.setFormatter(formatter)
+            file_handler.setLevel(logging.INFO)
+            root_logger.addHandler(file_handler)
+        except Exception:
+            # 文件日志不可用时，至少别影响程序启动。
+            pass
+
+    def _log_uncaught_exception(exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        root_logger.exception(
+            "Uncaught exception",
+            exc_info=(exc_type, exc_value, exc_traceback),
+        )
+        for handler in root_logger.handlers:
+            try:
+                handler.flush()
+            except Exception:
+                pass
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+    sys.excepthook = _log_uncaught_exception
+
+
+_setup_bootstrap_logging()
 
 
 class ServerConfig(BaseSettings):
@@ -89,26 +170,26 @@ class Settings(ServerConfig):
     """应用完整配置"""
 
     # ==================== 基础路径配置 ====================
-    PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
+    PROJECT_ROOT: Path = _SOURCE_ROOT if not getattr(sys, "frozen", False) else _BUNDLE_ROOT
 
     # ==================== 数据目录 ====================
-    DATA_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data")
-    HISTORY_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "history")
-    UPLOAD_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "uploads")
-    MILVUS_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "rag_storage")
-    SKILL_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "src" / "services" / "skills")
-    USER_SKILL_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "skill")
-    OUTPUT_DIR: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "outputs")
+    DATA_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR)
+    HISTORY_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "history")
+    UPLOAD_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "uploads")
+    MILVUS_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "rag_storage")
+    SKILL_DIR: Path = Field(default_factory=lambda: _BUNDLE_ROOT / "src" / "services" / "skills")
+    USER_SKILL_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "skill")
+    OUTPUT_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "outputs")
 
     # ==================== 配置文件 ====================
-    CONFIG_FILE: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "saved_config.json")
-    PERSON_LIKE_FILE: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "person_like.json")
-    MILVUS_DB_PATH: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent / "data" / "milvus.db")
+    CONFIG_FILE: Path = Field(default_factory=lambda: _APP_DATA_DIR / "saved_config.json")
+    PERSON_LIKE_FILE: Path = Field(default_factory=lambda: _APP_DATA_DIR / "person_like.json")
+    MILVUS_DB_PATH: Path = Field(default_factory=lambda: _APP_DATA_DIR / "milvus.db")
 
     @property
     def DB_URL(self) -> str:
         """数据库连接 URL"""
-        return f"mysql+pymysql://{self.DB_USERNAME}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        return f"sqlite:///{self.SQLITE_DB_PATH}"
 
     @property
     def MILVUS_URL(self) -> str:
@@ -119,6 +200,18 @@ class Settings(ServerConfig):
     APP_NAME: str = "DeepAgentForce"
     APP_VERSION: str = "2.0.0"
     DEBUG: bool = False
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def _coerce_debug_flag(cls, value):
+        """允许把常见的字符串调试标志映射为布尔值，避免启动时因环境变量崩溃。"""
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on", "dev", "development"}:
+                return True
+            if normalized in {"0", "false", "no", "off", "prod", "production", "release", ""}:
+                return False
+        return value
 
     # ==================== LLM 配置 ====================
     LLM_MODEL: str = ""
@@ -170,7 +263,7 @@ class Settings(ServerConfig):
 
     # ==================== RAG 高级配置 ====================
     # Stage1: 关键词召回（BM25）
-    ENABLE_KEYWORD_SEARCH: bool = Field(default=False, description="启用关键词召回（BM25）")
+    ENABLE_KEYWORD_SEARCH: bool = Field(default=True, description="启用关键词召回（BM25）")
     KEYWORD_TOP_K: int = Field(default=10, description="关键词召回返回数量")
 
     # Stage2: Rerank 重排
@@ -217,11 +310,7 @@ class Settings(ServerConfig):
     MAX_SESSIONS: int = Field(default=1000, description="最大 Session 数量")
 
     # ==================== 数据库配置 ====================
-    DB_HOST: str = Field(default="localhost", description="MySQL 数据库主机")
-    DB_PORT: int = Field(default=3306, ge=1, le=65535, description="MySQL 数据库端口")
-    DB_NAME: str = Field(default="deepagentforce", description="MySQL 数据库名称")
-    DB_USERNAME: str = Field(default="root", description="MySQL 数据库用户名")
-    DB_PASSWORD: str = Field(default="", description="MySQL 数据库密码")
+    SQLITE_DB_PATH: Path = Field(default_factory=lambda: _APP_DATA_DIR / "deepagentforce.db")
 
     # ==================== JWT 配置 ====================
     JWT_SECRET_KEY: str = Field(default="your-secret-key-change-in-production", description="JWT 密钥")
@@ -256,8 +345,13 @@ class Settings(ServerConfig):
                     config_data = json.load(f)
 
                 # 更新配置项
+                immutable_keys = {
+                    'PROJECT_ROOT', 'DATA_DIR', 'HISTORY_DIR', 'UPLOAD_DIR', 'MILVUS_DIR',
+                    'SKILL_DIR', 'USER_SKILL_DIR', 'OUTPUT_DIR', 'CONFIG_FILE', 'PERSON_LIKE_FILE',
+                    'MILVUS_DB_PATH', 'SQLITE_DB_PATH'
+                }
                 for key, value in config_data.items():
-                    if hasattr(self, key) and key not in ['HOST', 'PORT', 'FRONTEND_HOST', 'FRONTEND_PORT']:
+                    if hasattr(self, key) and key not in ['HOST', 'PORT', 'FRONTEND_HOST', 'FRONTEND_PORT'] and key not in immutable_keys:
                         setattr(self, key, value)
 
                 print(f"✅ 成功从 {self.CONFIG_FILE} 加载配置")
@@ -292,7 +386,8 @@ class Settings(ServerConfig):
             'SKILL_DIR', 'USER_SKILL_DIR', 'CONFIG_FILE', 'PERSON_LIKE_FILE', 'MILVUS_DB_PATH',
             'MILVUS_URL', 'API_BASE', 'WS_BASE', 'FRONTEND_BASE', 'server_info',
             'config_hash', 'RAG_API_URL', 'APP_NAME', 'APP_VERSION', 'DEBUG',
-            'LOG_LEVEL', 'LOG_FORMAT', 'CORS_ORIGINS', 'SESSION_TIMEOUT', 'MAX_SESSIONS'
+            'LOG_LEVEL', 'LOG_FORMAT', 'CORS_ORIGINS', 'SESSION_TIMEOUT', 'MAX_SESSIONS',
+            'SQLITE_DB_PATH'
         }
 
         filtered_config = {k: v for k, v in config_data.items() if k not in excluded_keys}
@@ -348,10 +443,25 @@ class Settings(ServerConfig):
         return self.SKILL_DIR
 
     class Config:
-        env_file = ".env"
+        env_file = _APP_ENV_FILE
         env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "allow"
+
+    @field_validator("SQLITE_DB_PATH", mode="before")
+    @classmethod
+    def _resolve_sqlite_db_path(cls, value):
+        """允许在 .env 中写相对路径，并按项目/应用根目录解析。"""
+        if value is None or str(value).strip() == "":
+            return _APP_DATA_DIR / "deepagentforce.db"
+
+        path = Path(str(value)).expanduser()
+        if getattr(sys, "frozen", False):
+            # 桌面打包版统一使用可写的应用数据目录，避免把 SQLite 指到只读的 app bundle 内。
+            return _APP_DATA_DIR / path.name
+
+        base_dir = _APP_DATA_DIR if getattr(sys, "frozen", False) else _SOURCE_ROOT
+        return (base_dir / path).resolve()
 
 
 @lru_cache()
@@ -396,4 +506,3 @@ def get_search_config() -> dict:
 
 # ==================== 导出配置实例 ====================
 settings = get_settings()
-

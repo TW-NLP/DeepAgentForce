@@ -9,3 +9,5 @@
 .env
 /pdfs/
 *.DS_Store
+/build/
+/dist/

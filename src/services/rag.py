@@ -20,7 +20,11 @@ from docx import Document as DocxDocument
 import pandas as pd
 import tiktoken
 from openai import AsyncOpenAI
-from pymilvus import MilvusClient, DataType
+try:
+    from pymilvus import MilvusClient, DataType
+except Exception:  # pragma: no cover - optional backend
+    MilvusClient = None
+    DataType = None
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MilvusRAG")
@@ -211,15 +215,25 @@ class MilvusRAGPipeline():
     def __init__(self, settings):
         self.settings = settings
         logger.info(f"📌 RAG 初始化 - EMBEDDING_URL: {self.settings.EMBEDDING_URL}")
-        self.client_rag = AsyncOpenAI(
-            api_key=self.settings.EMBEDDING_API_KEY,
-            base_url=self.settings.EMBEDDING_BASE_URL
-        )
-        self.client_llm = AsyncOpenAI(
-            api_key=self.settings.LLM_API_KEY,
-            base_url=self.settings.LLM_BASE_URL
-        )
-        self.milvus = MilvusClient(uri=self.settings.MILVUS_URL)
+        self._last_query_rewrite_info: List[Dict[str, Any]] = []
+        self.client_rag = None
+        if self.settings.EMBEDDING_URL and self.settings.EMBEDDING_MODEL:
+            self.client_rag = AsyncOpenAI(
+                api_key=self.settings.EMBEDDING_API_KEY,
+                base_url=self.settings.EMBEDDING_BASE_URL
+            )
+        self.client_llm = None
+        if self.settings.LLM_URL and self.settings.LLM_MODEL:
+            self.client_llm = AsyncOpenAI(
+                api_key=self.settings.LLM_API_KEY,
+                base_url=self.settings.LLM_BASE_URL
+            )
+        self.milvus = None
+        if MilvusClient is not None:
+            try:
+                self.milvus = MilvusClient(uri=self.settings.MILVUS_URL)
+            except Exception as exc:
+                logger.warning(f"Milvus 初始化失败，切换为轻量模式: {exc}")
 
         # 多租户：维护每个租户的元数据
         self._tenant_documents: dict[str, Dict] = {}
@@ -227,6 +241,9 @@ class MilvusRAGPipeline():
         self._tenant_bm25: dict[str, BM25] = {}
         # 多租户：全量文本缓存 {tenant_uuid: List[str]}
         self._tenant_texts: dict[str, List[str]] = {}
+        # 多租户：与文本缓存对齐的稳定 chunk 标识
+        self._tenant_chunk_ids: dict[str, List[str]] = {}
+        self._last_query_rewrite_info: List[Dict[str, Any]] = []
 
 
     def _get_tenant_collection(self, tenant_uuid: Optional[str] = None) -> str:
@@ -241,6 +258,8 @@ class MilvusRAGPipeline():
 
     def _init_tenant_collection(self, tenant_uuid: Optional[str] = None):
         """初始化租户专属的 Milvus 集合"""
+        if self.milvus is None:
+            return
         collection_name = self._get_tenant_collection(tenant_uuid)
         if not self.milvus.has_collection(collection_name):
             # 1. 创建集合
@@ -309,10 +328,19 @@ class MilvusRAGPipeline():
         key = tenant_uuid or "default"
         return self._tenant_documents.get(key, {})
 
+    def _build_chunk_uid(self, doc_uuid: str, chunk_index: int) -> str:
+        return f"{doc_uuid}:{chunk_index}"
+
+    def _get_hit_key(self, hit: Dict[str, Any]) -> Any:
+        """返回用于 RRF / 投票的稳定 key。"""
+        return hit.get("chunk_uid") or hit.get("doc_id") or hit.get("chunk_idx")
+
 
     async def _get_embedding(self, texts: List[str]) -> List[List[float]]:
         """批量获取 Embedding"""
         if not texts: return []
+        if self.client_rag is None:
+            return []
 
         resp = await self.client_rag.embeddings.create(input=texts, model=self.settings.EMBEDDING_MODEL)
         return [d.embedding for d in resp.data]
@@ -334,20 +362,27 @@ class MilvusRAGPipeline():
 
         logger.info(f"📄 处理文档 [{tenant_uuid}]: {metadata['title']} ({len(chunks)} chunks)")
 
-        embeddings = await self._get_embedding(chunks)
+        if self.milvus is not None and self.client_rag is not None and self.settings.EMBEDDING_MODEL:
+            try:
+                embeddings = await self._get_embedding(chunks)
+                milvus_data = []
+                chunk_uids = [self._build_chunk_uid(doc_uuid, idx) for idx in range(len(chunks))]
+                for idx, (chunk_text, vector) in enumerate(zip(chunks, embeddings)):
+                    milvus_data.append({
+                        "vector": vector,
+                        "text": chunk_text,
+                        "doc_id": doc_uuid,
+                        "chunk_uid": chunk_uids[idx],
+                        "chunk_index": idx,
+                        "source": metadata['original_filename'],
+                        "tenant_uuid": tenant_uuid
+                    })
 
-        milvus_data = []
-        for chunk_text, vector in zip(chunks, embeddings):
-            milvus_data.append({
-                "vector": vector,
-                "text": chunk_text,
-                "doc_id": doc_uuid,
-                "source": metadata['original_filename'],
-                "tenant_uuid": tenant_uuid
-            })
-
-        collection_name = self._get_tenant_collection(tenant_uuid)
-        self.milvus.insert(collection_name=collection_name, data=milvus_data)
+                collection_name = self._get_tenant_collection(tenant_uuid)
+                if milvus_data:
+                    self.milvus.insert(collection_name=collection_name, data=milvus_data)
+            except Exception as exc:
+                logger.warning(f"向量索引写入失败，已降级为轻量模式: {exc}")
 
         key = tenant_uuid or "default"
         metadata.update({
@@ -356,11 +391,12 @@ class MilvusRAGPipeline():
             "chunks_count": len(chunks),
             "added_at": datetime.now().isoformat()
         })
+        metadata["chunks"] = chunks
+        metadata["chunk_uids"] = [self._build_chunk_uid(doc_uuid, idx) for idx in range(len(chunks))]
         self._tenant_documents[key][doc_uuid] = metadata
         self._save_tenant_metadata(tenant_uuid)
 
-        if self.settings.ENABLE_KEYWORD_SEARCH:
-            await self._rebuild_bm25(tenant_uuid)
+        await self._rebuild_bm25(tenant_uuid)
 
         return doc_uuid
 
@@ -372,9 +408,10 @@ class MilvusRAGPipeline():
         if doc_id not in documents:
             raise ValueError(f"文档 ID 不存在: {doc_id}")
 
-        collection_name = self._get_tenant_collection(tenant_uuid)
-        delete_expr = f'doc_id == "{doc_id}"'
-        self.milvus.delete(collection_name=collection_name, filter=delete_expr)
+        if self.milvus is not None:
+            collection_name = self._get_tenant_collection(tenant_uuid)
+            delete_expr = f'doc_id == "{doc_id}"'
+            self.milvus.delete(collection_name=collection_name, filter=delete_expr)
 
         doc_info = documents.pop(doc_id)
         self._save_tenant_metadata(tenant_uuid)
@@ -383,8 +420,7 @@ class MilvusRAGPipeline():
         if path.exists():
             path.unlink()
 
-        if self.settings.ENABLE_KEYWORD_SEARCH:
-            asyncio.create_task(self._rebuild_bm25(tenant_uuid))
+        asyncio.create_task(self._rebuild_bm25(tenant_uuid))
 
         logger.info(f"🗑️ 文档已删除: {doc_id} (tenant={tenant_uuid})")
 
@@ -406,15 +442,27 @@ class MilvusRAGPipeline():
         key = tenant_uuid or "default"
         documents = self._tenant_documents.get(key, {})
         total_docs = len(documents)
-        
-        # Milvus 统计行数
-        collection_name = self._get_tenant_collection(tenant_uuid)
-        res = self.milvus.query(
-            collection_name=collection_name,
-            filter="",
-            output_fields=["count(*)"]
-        )
-        total_chunks = res[0]["count(*)"] if res else 0
+
+        def _chunk_count(doc: Dict[str, Any]) -> int:
+            chunks = doc.get("chunks", 0)
+            if isinstance(chunks, list):
+                return len(chunks)
+            if isinstance(chunks, int):
+                return chunks
+            return int(doc.get("chunks_count", 0) or 0)
+
+        total_chunks = sum(_chunk_count(doc) for doc in documents.values())
+        if self.milvus is not None:
+            try:
+                collection_name = self._get_tenant_collection(tenant_uuid)
+                res = self.milvus.query(
+                    collection_name=collection_name,
+                    filter="",
+                    output_fields=["count(*)"]
+                )
+                total_chunks = res[0]["count(*)"] if res else total_chunks
+            except Exception as exc:
+                logger.warning(f"Milvus 统计失败，使用本地元数据统计: {exc}")
         return {
             "index_status": "Indexed" if total_chunks > 0 else "Empty",
             "total_documents": total_docs,
@@ -426,35 +474,112 @@ class MilvusRAGPipeline():
     async def _rebuild_bm25(self, tenant_uuid: Optional[int] = None):
         """从 Milvus 全量拉取文本，重建 BM25 索引"""
         key = tenant_uuid or "default"
-        collection_name = self._get_tenant_collection(tenant_uuid)
         try:
-            res = self.milvus.query(
-                collection_name=collection_name,
-                filter="",
-                output_fields=["text"]
-            )
-            texts = [hit["text"] for hit in res]
+            texts = []
+            chunk_ids: List[str] = []
+            if self.milvus is not None:
+                collection_name = self._get_tenant_collection(tenant_uuid)
+                res = self.milvus.query(
+                    collection_name=collection_name,
+                    filter="",
+                    output_fields=["text", "doc_id", "chunk_uid", "chunk_index"]
+                )
+                texts = [hit["text"] for hit in res]
+                for hit in res:
+                    chunk_uid = hit.get("chunk_uid")
+                    if not chunk_uid:
+                        doc_id = str(hit.get("doc_id", "unknown"))
+                        chunk_index = int(hit.get("chunk_index", hit.get("id", 0)) or 0)
+                        chunk_uid = self._build_chunk_uid(doc_id, chunk_index)
+                    chunk_ids.append(str(chunk_uid))
+            if not texts:
+                for doc in self._tenant_documents.get(key, {}).values():
+                    doc_uuid = str(doc.get("uuid", "unknown"))
+                    doc_chunks = list(doc.get("chunks", []))
+                    doc_chunk_uids = doc.get("chunk_uids") or [
+                        self._build_chunk_uid(doc_uuid, idx) for idx in range(len(doc_chunks))
+                    ]
+                    texts.extend(doc_chunks)
+                    chunk_ids.extend([str(uid) for uid in doc_chunk_uids])
             if texts:
                 bm25 = BM25()
                 bm25.fit(texts)
                 self._tenant_bm25[key] = bm25
                 self._tenant_texts[key] = texts
+                self._tenant_chunk_ids[key] = chunk_ids
                 logger.info(f"📦 BM25 索引重建完成 ({key}): {len(texts)} 条")
         except Exception as e:
             logger.warning(f"BM25 索引重建失败: {e}")
 
     def _reciprocal_rank_fusion(
         self,
-        ranked_lists: List[List[Tuple[int, float]]],
+        ranked_lists: List[List[Tuple[Any, float]]],
         k: int = 60
-    ) -> List[Tuple[int, float]]:
+    ) -> List[Tuple[Any, float]]:
         """Reciprocal Rank Fusion — 融合多条有序召回结果"""
-        scores: Dict[int, float] = defaultdict(float)
+        scores: Dict[Any, float] = defaultdict(float)
         for ranked_list in ranked_lists:
-            for rank, (_, score) in enumerate(ranked_list):
-                scores[rank] += 1.0 / (k + rank + 1)
+            for rank, (chunk_idx, _score) in enumerate(ranked_list):
+                scores[chunk_idx] += 1.0 / (k + rank + 1)
         sorted_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         return [(idx, s) for idx, s in sorted_items]
+
+    def _has_vector_search(self) -> bool:
+        return bool(self.client_rag and self.settings.EMBEDDING_MODEL)
+
+    def _has_rerank_model(self) -> bool:
+        return bool(self.settings.RERANK_API_URL and self.settings.RERANK_MODEL)
+
+    def _has_query_rewrite_model(self) -> bool:
+        return self.client_llm is not None
+
+    def _get_keyword_top_k(self, top_k: int) -> int:
+        return max(top_k, self.settings.KEYWORD_TOP_K, self.settings.RERANK_BATCH_SIZE)
+
+    async def _retrieve_once(
+        self,
+        question: str,
+        top_k: int,
+        tenant_uuid: Optional[int] = None,
+        *,
+        allow_rerank: bool = False
+    ) -> Tuple[List[Dict], Dict[str, Any]]:
+        """执行一次完整检索：BM25 基线 + 可选向量召回 + 可选 Rerank。"""
+        stage_info: Dict[str, Any] = {
+            "bm25_enabled": True,
+            "vector_enabled": self._has_vector_search(),
+            "rerank_enabled": allow_rerank and self._has_rerank_model(),
+        }
+
+        bm25_top_k = self._get_keyword_top_k(top_k)
+        bm25_hits = await self._stage1_bm25_search(question, bm25_top_k, tenant_uuid)
+        stage_info["bm25_hits"] = len(bm25_hits)
+
+        vector_hits: List[Dict] = []
+        fused_hits: List[Dict] = bm25_hits
+        if self._has_vector_search():
+            vector_hits = await self._stage1_vector_search(question, top_k, tenant_uuid)
+            stage_info["vector_hits"] = len(vector_hits)
+            fused_hits = self._fuse_stage1(vector_hits, bm25_hits, tenant_uuid)
+            stage_info["fusion_mode"] = "bm25+embedding+rrf"
+            stage_info["fused_hits"] = len(fused_hits)
+        else:
+            stage_info["vector_hits"] = 0
+            stage_info["fusion_mode"] = "bm25"
+
+        if stage_info["rerank_enabled"] and fused_hits:
+            rerank_batch = fused_hits[:self.settings.RERANK_BATCH_SIZE]
+            reranked = await self._stage2_rerank(question, rerank_batch, tenant_uuid)
+            stage_info["rerank_hits"] = len(reranked)
+            stage_info["stage2"] = "rerank"
+            final_hits = reranked[:top_k]
+        else:
+            stage_info["rerank_hits"] = 0
+            stage_info["stage2"] = "none"
+            final_hits = fused_hits[:top_k]
+
+        stage_info["final_hits"] = len(final_hits)
+        return final_hits, stage_info
 
     async def _stage1_vector_search(
         self,
@@ -463,20 +588,29 @@ class MilvusRAGPipeline():
         tenant_uuid: Optional[int] = None
     ) -> List[Dict]:
         """Stage 1a: 向量 ANN 召回"""
+        if not self._has_vector_search() or self.milvus is None:
+            return []
         q_vec = (await self._get_embedding([question]))[0]
         collection_name = self._get_tenant_collection(tenant_uuid)
         results = self.milvus.search(
             collection_name=collection_name,
             data=[q_vec],
             limit=top_k,
-            output_fields=["text", "source"]
+            output_fields=["text", "source", "doc_id", "chunk_uid", "chunk_index"]
         )
         hits = []
         for hit in (results[0] if results else []):
+            entity = hit["entity"]
+            chunk_uid = entity.get("chunk_uid")
+            if not chunk_uid:
+                doc_id = str(entity.get("doc_id", "unknown"))
+                chunk_index = int(entity.get("chunk_index", hit.get("id", 0)) or 0)
+                chunk_uid = self._build_chunk_uid(doc_id, chunk_index)
             hits.append({
                 "chunk_idx": hit.get("id"),
-                "text": hit["entity"]["text"],
-                "source": hit["entity"]["source"],
+                "chunk_uid": str(chunk_uid),
+                "text": entity["text"],
+                "source": entity.get("source", ""),
                 "vector_score": hit.get("distance", 0)
             })
         return hits
@@ -493,13 +627,18 @@ class MilvusRAGPipeline():
             await self._rebuild_bm25(tenant_uuid)
         bm25 = self._tenant_bm25.get(key)
         texts = self._tenant_texts.get(key, [])
+        if not texts:
+            for doc in self._tenant_documents.get(key, {}).values():
+                texts.extend(doc.get("chunks", []))
         if not bm25 or not texts:
             return []
         ranked = bm25.search(question, top_k)
         hits = []
+        chunk_ids = self._tenant_chunk_ids.get(key, [])
         for chunk_idx, bm25_score in ranked:
             hits.append({
                 "chunk_idx": chunk_idx,
+                "chunk_uid": str(chunk_ids[chunk_idx]) if chunk_idx < len(chunk_ids) else str(chunk_idx),
                 "text": texts[chunk_idx],
                 "source": "",
                 "bm25_score": bm25_score
@@ -516,8 +655,8 @@ class MilvusRAGPipeline():
         key = tenant_uuid or "default"
         texts = self._tenant_texts.get(key, [])
 
-        vector_ranked = [(h["chunk_idx"], h["vector_score"]) for h in vector_hits]
-        bm25_ranked = [(h["chunk_idx"], h["bm25_score"]) for h in bm25_hits]
+        vector_ranked = [(self._get_hit_key(h), h["vector_score"]) for h in vector_hits]
+        bm25_ranked = [(self._get_hit_key(h), h["bm25_score"]) for h in bm25_hits]
 
         if not vector_ranked and not bm25_ranked:
             return []
@@ -529,14 +668,15 @@ class MilvusRAGPipeline():
         fused_ranks = self._reciprocal_rank_fusion(
             [vector_ranked, bm25_ranked]
         )
-        chunk_to_text = {h["chunk_idx"]: h["text"] for h in vector_hits + bm25_hits}
-        chunk_to_source = {h["chunk_idx"]: h["source"] for h in vector_hits if "source" in h}
+        chunk_to_text = {self._get_hit_key(h): h["text"] for h in vector_hits + bm25_hits}
+        chunk_to_source = {self._get_hit_key(h): h["source"] for h in vector_hits if "source" in h}
 
         fused_hits = []
         for chunk_idx, rrf_score in fused_ranks:
-            text = chunk_to_text.get(chunk_idx, texts[chunk_idx] if chunk_idx < len(texts) else "")
+            text = chunk_to_text.get(chunk_idx, "")
             fused_hits.append({
                 "chunk_idx": chunk_idx,
+                "chunk_uid": chunk_idx,
                 "text": text,
                 "source": chunk_to_source.get(chunk_idx, ""),
                 "rrf_score": rrf_score
@@ -552,7 +692,7 @@ class MilvusRAGPipeline():
         """Stage 2: Cross-Encoder Rerank（对候选 chunk 重排）"""
         if not candidates:
             return []
-        if not self.settings.RERANK_API_URL or not self.settings.RERANK_MODEL:
+        if not self._has_rerank_model():
             return candidates
 
         texts = [h["text"] for h in candidates]
@@ -600,49 +740,70 @@ class MilvusRAGPipeline():
         self,
         question: str,
         top_k: int,
-        tenant_uuid: Optional[int] = None
+        tenant_uuid: Optional[int] = None,
+        allow_rerank: bool = False
     ) -> List[Dict]:
         """Stage 3: Query Rewrite 多路投票
-        1. LLM 生成 N 个子问题
-        2. 并行向量检索每个子问题
-        3. RRF 融合多路结果
+        1. LLM 生成多个子问题
+        2. 每个子问题都走同一条检索链路（BM25 基线 + 可选向量 + 可选 Rerank）
+        3. 对各子问题的最终排序结果做 RRF 投票
         """
+        if not self._has_query_rewrite_model():
+            hits, _ = await self._retrieve_once(
+                question,
+                top_k,
+                tenant_uuid,
+                allow_rerank=allow_rerank,
+            )
+            self._last_query_rewrite_info = []
+            return hits
+
         n = self.settings.QUERY_REWRITE_NUM
         sub_questions = await self._generate_sub_questions(question, n)
-        logger.info(f"🔄 Query Rewrite: {len(sub_questions)} 个子问题 -> {sub_questions}")
-
-        sub_results = []
+        variants: List[str] = [question]
         for sq in sub_questions:
-            hits = await self._stage1_vector_search(sq, top_k, tenant_uuid)
-            sub_results.append(hits)
+            if sq and sq not in variants:
+                variants.append(sq)
 
-        if not sub_results:
+        logger.info(f"🔄 Query Rewrite: {len(variants)} 个检索视角 -> {variants}")
+
+        ranked_lists: List[List[Tuple[int, float]]] = []
+        hit_bank: Dict[Any, Dict[str, Any]] = {}
+        aggregate_info: List[Dict[str, Any]] = []
+
+        for variant in variants:
+            hits, variant_info = await self._retrieve_once(
+                variant,
+                top_k,
+                tenant_uuid,
+                allow_rerank=allow_rerank,
+            )
+            aggregate_info.append({
+                "question": variant,
+                "final_hits": len(hits),
+                "mode": variant_info.get("fusion_mode", "bm25"),
+                "reranked": variant_info.get("stage2") == "rerank",
+            })
+            ranked_lists.append([(self._get_hit_key(hit), 0.0) for hit in hits])
+            for hit in hits:
+                chunk_key = self._get_hit_key(hit)
+                if chunk_key not in hit_bank:
+                    hit_bank[chunk_key] = dict(hit)
+
+        if not ranked_lists:
             return []
 
-        all_ranked = []
-        for hits in sub_results:
-            ranked = [(h["chunk_idx"], h.get("vector_score", 0)) for h in hits]
-            all_ranked.append(ranked)
-
-        fused_ranks = self._reciprocal_rank_fusion(all_ranked)
-        chunk_scores: Dict[int, float] = defaultdict(float)
-        for chunk_idx, rrf_score in fused_ranks:
-            chunk_scores[chunk_idx] += rrf_score
-
+        fused_ranks = self._reciprocal_rank_fusion(ranked_lists)
         key = tenant_uuid or "default"
         texts = self._tenant_texts.get(key, [])
-        all_hits = {}
-        for hits in sub_results:
-            for h in hits:
-                idx = h["chunk_idx"]
-                if idx not in all_hits:
-                    all_hits[idx] = {**h, "rewrite_score": 0}
-                all_hits[idx]["rewrite_score"] += chunk_scores.get(idx, 0)
 
-        result = sorted(all_hits.values(), key=lambda x: x["rewrite_score"], reverse=True)[:top_k]
-        for h in result:
-            if h["chunk_idx"] < len(texts):
-                h["text"] = texts[h["chunk_idx"]]
+        result: List[Dict[str, Any]] = []
+        for chunk_idx, vote_score in fused_ranks[:top_k]:
+            hit = dict(hit_bank.get(chunk_idx, {}))
+            hit["rewrite_score"] = vote_score
+            result.append(hit)
+
+        self._last_query_rewrite_info = aggregate_info  # debug / stage_info usage
         return result
 
     async def _generate_sub_questions(self, question: str, n: int) -> List[str]:
@@ -700,64 +861,35 @@ class MilvusRAGPipeline():
         self._ensure_tenant_ready(tenant_uuid)
         stage_info: Dict[str, Any] = {}
         t0 = time.time()
-
-        # Stage 1a: 向量召回（始终执行）
         t1 = time.time()
-        vector_hits = await self._stage1_vector_search(question, top_k, tenant_uuid)
-        stage_info["vector_hits"] = len(vector_hits)
+        stage_info["keyword_baseline"] = "bm25"
+        stage_info["vector_available"] = self._has_vector_search()
+        stage_info["rerank_available"] = self._has_rerank_model()
 
-        # Stage 1b: BM25 关键词召回（可选）
-        if self.settings.ENABLE_KEYWORD_SEARCH:
-            bm25_hits = await self._stage1_bm25_search(
+        if enable_query_rewrite and self.settings.ENABLE_QUERY_REWRITE and self._has_query_rewrite_model():
+            allow_rerank = enable_rerank or self.settings.ENABLE_RERANK or self._has_rerank_model()
+            final_hits = await self._stage3_query_rewrite(
                 question,
-                self.settings.KEYWORD_TOP_K,
-                tenant_uuid
+                top_k,
+                tenant_uuid,
+                allow_rerank=allow_rerank,
             )
-            stage_info["bm25_hits"] = len(bm25_hits)
-            fused_hits = self._fuse_stage1(vector_hits, bm25_hits, tenant_uuid)
-            stage_info["fused_hits"] = len(fused_hits)
+            stage_info["stage3"] = "query_rewrite_vote"
+            stage_info["rewrite_enabled"] = True
+            stage_info["rewrite_variants"] = getattr(self, "_last_query_rewrite_info", [])
         else:
-            fused_hits = vector_hits
-            stage_info["bm25_hits"] = 0
+            rerank_enabled = enable_rerank or self.settings.ENABLE_RERANK or self._has_rerank_model()
+            final_hits, retrieval_info = await self._retrieve_once(
+                question,
+                top_k,
+                tenant_uuid,
+                allow_rerank=rerank_enabled,
+            )
+            stage_info.update(retrieval_info)
+            stage_info["stage3"] = "none"
+            stage_info["rewrite_enabled"] = False
 
         stage_info["stage1_ms"] = round((time.time() - t1) * 1000, 1)
-
-        # Stage 2: Rerank 重排（可选）
-        if enable_rerank and self.settings.ENABLE_RERANK:
-            t2 = time.time()
-            reranked = await self._stage2_rerank(question, fused_hits[:self.settings.RERANK_BATCH_SIZE], tenant_uuid)
-            stage_info["reranked_hits"] = len(reranked)
-            stage_info["rerank_ms"] = round((time.time() - t2) * 1000, 1)
-            final_hits = reranked[:top_k]
-            stage_info["stage2"] = "rerank"
-        else:
-            final_hits = fused_hits[:top_k]
-            stage_info["stage2"] = "none"
-            stage_info["reranked_hits"] = 0
-
-        # Stage 3: Query Rewrite 多路投票（可选）
-        if enable_query_rewrite and self.settings.ENABLE_QUERY_REWRITE:
-            t3 = time.time()
-            rewrite_hits = await self._stage3_query_rewrite(question, top_k, tenant_uuid)
-            stage_info["rewrite_hits"] = len(rewrite_hits)
-            stage_info["rewrite_ms"] = round((time.time() - t3) * 1000, 1)
-            # 融合 rewrite 结果与前面的结果
-            if rewrite_hits:
-                rewrite_ranked = [(h["chunk_idx"], h.get("rewrite_score", 0)) for h in rewrite_hits]
-                final_ranked = [(h["chunk_idx"], h.get("vector_score", h.get("rrf_score", 0))) for h in final_hits]
-                fused = self._reciprocal_rank_fusion([rewrite_ranked, final_ranked])
-                key = tenant_uuid or "default"
-                texts = self._tenant_texts.get(key, [])
-                chunk_map = {h["chunk_idx"]: h for h in rewrite_hits + final_hits}
-                final_hits = []
-                for chunk_idx, score in fused[:top_k]:
-                    hit = chunk_map.get(chunk_idx, {})
-                    hit["text"] = texts[chunk_idx] if chunk_idx < len(texts) else hit.get("text", "")
-                    final_hits.append(hit)
-            stage_info["stage3"] = "query_rewrite"
-        else:
-            stage_info["stage3"] = "none"
-
         stage_info["total_ms"] = round((time.time() - t0) * 1000, 1)
 
         if not final_hits:

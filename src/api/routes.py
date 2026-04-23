@@ -855,16 +855,21 @@ async def get_document_content(request: Request, document_id: str):
 
         # 从 Milvus 获取文档的所有 chunks
         try:
-            collection_name = pipeline._get_tenant_collection(tenant_id)
-            milvus_results = pipeline.milvus.query(
-                collection_name=collection_name,
-                filter=f'doc_id == "{document_id}"',
-                output_fields=["text"]
-            )
-            content_chunks = [{'content': item.get('text', '')} for item in milvus_results if item.get('text')]
+            content_chunks = []
+            if pipeline.milvus is not None:
+                collection_name = pipeline._get_tenant_collection(tenant_id)
+                milvus_results = pipeline.milvus.query(
+                    collection_name=collection_name,
+                    filter=f'doc_id == "{document_id}"',
+                    output_fields=["text"]
+                )
+                content_chunks = [{'content': item.get('text', '')} for item in milvus_results if item.get('text')]
+
+            if not content_chunks:
+                content_chunks = [{'content': chunk} for chunk in (doc.get('chunks') or []) if chunk]
         except Exception as e:
             logger.warning(f"从 Milvus 获取 chunks 失败: {e}")
-            content_chunks = []
+            content_chunks = [{'content': chunk} for chunk in (doc.get('chunks') or []) if chunk]
 
         return {
             "success": True,
@@ -918,7 +923,17 @@ async def get_index_status(request: Request):
         pipeline = engine.get_rag_engine(tenant_id)
         docs = pipeline.list_documents(tenant_uuid=tenant_id)  # 🆕
 
-        total_chunks = sum(doc.get('chunks', 0) for doc in docs)
+        def _doc_chunk_count(doc: Dict[str, Any]) -> int:
+            chunks = doc.get('chunks', 0)
+            if isinstance(chunks, list):
+                return len(chunks)
+            if isinstance(chunks, int):
+                return chunks
+            if isinstance(doc.get('chunks_count'), int):
+                return int(doc.get('chunks_count', 0))
+            return 0
+
+        total_chunks = sum(_doc_chunk_count(doc) for doc in docs)
         total_size_bytes = sum(doc.get('size_bytes', doc.get('size', 0)) for doc in docs)
         file_type_counts = Counter(
             (doc.get('file_extension') or Path(doc.get('path', '')).suffix.lower() or 'unknown').lstrip('.').upper()
@@ -941,7 +956,7 @@ async def get_index_status(request: Request):
                 "document_id": doc.get("uuid"),
                 "name": doc.get("title"),
                 "uploaded_at": doc.get("uploaded_at", ""),
-                "chunks": doc.get("chunks", doc.get("chunks_count", 0)),
+                "chunks": _doc_chunk_count(doc),
                 "size_bytes": doc.get("size_bytes", doc.get("size", 0)),
                 "file_extension": doc.get("file_extension"),
             }

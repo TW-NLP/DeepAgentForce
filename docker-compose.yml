@@ -1,42 +1,78 @@
-# docker-compose.yml
-services:
-  mysql:
-    image: mysql:8.4
-    container_name: deepagentforce-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: deepagentforce
-      MYSQL_USER: agent
-      MYSQL_PASSWORD: DeepAgentForce2024!
-    ports:
-      - "3306:3306"   # ✅ 新增：暴露给本机
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uagent", "-pDeepAgentForce2024!"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+version: '3.9'
 
+services:
   app:
-    image: twnlp/deepagentforce:latest
+    image: twnlp/deepagentforce:v1.4.0
     container_name: deepagentforce-app
     restart: unless-stopped
+    
+    # Port mapping
     ports:
-      - "8000:8000"   # ✅ 原本就有，生产部署时用
+      - "8000:8000"
+    
+    # Environment configuration
     environment:
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: deepagentforce
-      DB_USERNAME: agent
-      DB_PASSWORD: DeepAgentForce2024!
-      JWT_SECRET_KEY: deepagentforce-secret-key
+      # Database: SQLite (embedded, no external DB needed)
+      SQLITE_DB_PATH: ${SQLITE_DB_PATH:-data/deepagentforce.db}
+      
+      # Server Configuration
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-8000}
+      WORKERS: ${WORKERS:-4}
+      
+      # JWT & Security
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production-12345}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      
+      # Application Settings
+      DEEPAGENTFORCE_DATA_DIR: ${DEEPAGENTFORCE_DATA_DIR:-/app/data}
+      DEEPAGENTFORCE_ENV_FILE: ${DEEPAGENTFORCE_ENV_FILE:-/app/.env}
+      
+      # CORS Configuration
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    
+    # Volume mounts for data persistence
     volumes:
-      - ./data:/app/data
-    depends_on:
-      mysql:
-        condition: service_healthy
+      - ./data:/app/data                              # Application data
+      - ./logs:/app/logs                              # Application logs
+      - /etc/timezone:/etc/timezone:ro                # Timezone sync
+      - /etc/localtime:/etc/localtime:ro              # Timezone sync
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: ${CPU_LIMIT:-2}
+          memory: ${MEMORY_LIMIT:-4G}
+        reservations:
+          cpus: ${CPU_RESERVE:-1}
+          memory: ${MEMORY_RESERVE:-2G}
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    
+    # Networks
+    networks:
+      - deepagentforce-network
+    
+    # Dependencies
+    depends_on: []
 
-volumes:
-  mysql_data:
+networks:
+  deepagentforce-network:
+    driver: bridge

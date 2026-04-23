@@ -107,6 +107,9 @@ class AuthService:
         """注册新用户 - 每个用户自动拥有独立的私有租户"""
         db = SyncSessionLocal()
         try:
+            username = username.strip()
+            email = email.strip().lower()
+
             # 验证用户名格式（基本校验）
             if len(username) < 3:
                 return {"success": False, "error": "用户名至少需要3个字符"}
@@ -145,7 +148,7 @@ class AuthService:
                 full_name=full_name,
                 tenant_id=tenant.id,
                 tenant_uuid=tenant.uuid,
-                role=UserRole.ADMIN,
+                role=UserRole.USER,
             )
             db.add(user)
             db.commit()
@@ -187,10 +190,14 @@ class AuthService:
             error_msg = str(e)
             logger.warning(f"注册时发生数据完整性错误: {error_msg}")
 
-            if "users.username" in error_msg:
+            if "users.username" in error_msg or "UNIQUE constraint failed: users.username" in error_msg:
                 return {"success": False, "error": "用户名已存在，请使用其他用户名"}
-            elif "users.email" in error_msg:
+            elif "users.email" in error_msg or "UNIQUE constraint failed: users.email" in error_msg:
                 return {"success": False, "error": "该邮箱已被注册，请使用其他邮箱或尝试登录"}
+            elif "tenants.name" in error_msg or "UNIQUE constraint failed: tenants.name" in error_msg:
+                return {"success": False, "error": "租户名称已存在，请使用其他用户名重试"}
+            elif "tenants.code" in error_msg or "UNIQUE constraint failed: tenants.code" in error_msg:
+                return {"success": False, "error": "租户代码已存在，请使用其他用户名重试"}
             else:
                 return {"success": False, "error": "注册失败，可能是数据冲突，请稍后重试"}
 

@@ -5244,18 +5244,28 @@
             width: 38px;
             height: 38px;
             border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            background: #fff;
-            color: #334155;
+            border: 1px solid #fecaca;
+            background: #fff5f5;
+            color: #ef4444;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
 
         .skill-drawer-close svg {
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .skill-drawer-close:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #dc2626;
         }
 
         .skill-drawer-status {
@@ -6851,23 +6861,9 @@
                                     <div class="stat-value" id="statSize">0 KB</div>
                                 </div>
                             </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                </div>
-                                <div class="stat-info">
-                                    <div class="stat-label">最后更新</div>
-                                    <div class="stat-value" id="statLastUpdate">暂无</div>
-                                </div>
-                            </div>
                         </div>
 
                         <div class="kb-insight-grid">
-                            <div class="kb-insight-card">
-                                <div class="kb-insight-label">索引状态</div>
-                                <div class="kb-insight-value" id="kbHealthValue">Ready</div>
-                                <div class="kb-insight-text" id="kbHealthText">索引已就绪</div>
-                            </div>
                             <div class="kb-insight-card">
                                 <div class="kb-insight-label">文件分布</div>
                                 <div class="kb-type-breakdown" id="kbTypeBreakdown">
@@ -7000,7 +6996,6 @@
                             </div>
                             <div class="sp-header-actions">
                                 <button class="sp-ghost-btn" id="refreshSkillsBtn" type="button">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                                     刷新
                                 </button>
                                 <button class="sp-add-btn" id="addSkillBtn" type="button">
@@ -7105,7 +7100,10 @@
                                             </div>
                                         </div>
                                         <button class="skill-drawer-close" id="skillDrawerCloseBtn" type="button" onclick="closeSkillDrawer()" title="关闭详情">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" aria-hidden="true">
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
                                         </button>
                                     </div>
                                     <div class="skill-drawer-status" id="skillDrawerStatus">已选中技能</div>
@@ -7284,17 +7282,17 @@
                             </div>
                             <div class="config-tip">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                                多阶段检索流程：Stage1 双路召回（向量+BM25）→ Stage2 Rerank 重排（可选）→ Stage3 Query Rewrite 多路投票（可选）
+                                多阶段检索流程：Stage1 默认 BM25 基线，配置向量模型后叠加 embedding 并用 RRF 融合 → Stage2 Rerank 重排（可选）→ Stage3 Query Rewrite 多路投票（可选）
                             </div>
 
                             <!-- Stage1: 关键词召回 -->
                             <div class="config-subsection">
                                 <div class="form-group">
                                     <label class="form-label">
-                                        <input type="checkbox" id="enableKeywordSearch" style="margin-right: 8px;">
-                                        启用关键词召回（BM25）
+                                        <input type="checkbox" id="enableKeywordSearch" checked style="margin-right: 8px;">
+                                        启用关键词召回（BM25，默认）
                                     </label>
-                                    <div class="form-hint">在向量检索基础上叠加 BM25 关键词召回，通过 RRF 融合两条链路结果</div>
+                                    <div class="form-hint">BM25 是基础召回；如果配置了向量模型，会自动叠加向量检索并通过 RRF 融合</div>
                                 </div>
                             </div>
 

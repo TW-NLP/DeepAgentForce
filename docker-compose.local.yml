@@ -1,0 +1,39 @@
+version: '3.9'
+
+# Local development override for docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+
+services:
+  app:
+    # Use local build instead of pre-built image
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    # Environment overrides for local development
+    environment:
+      # Disable JWT requirement for development
+      JWT_SECRET_KEY: dev-secret-key-unsafe-for-development
+      
+      # Local database
+      SQLITE_DB_PATH: data/deepagentforce.db
+      
+      # Verbose logging
+      LOG_LEVEL: DEBUG
+      
+      # Auto-open browser on startup (if enabled)
+      AUTO_OPEN_BROWSER: "false"
+    
+    # Additional volumes for live development
+    volumes:
+      - ./src:/app/src:rw
+      - ./config:/app/config:rw
+      - ./static:/app/static:rw
+      - ./data:/app/data:rw
+    
+    # Reduced resource limits for local testing
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
