@@ -7,7 +7,7 @@ from config.settings import get_settings
 from fastapi.middleware.cors import CORSMiddleware
 from src.services.conversational_agent import ConversationalAgent, get_tenant_settings
 from src.services.person_like_service import UserPreferenceMining
-from src.services.rag import MilvusRAGPipeline
+from src.services.rag import ChromaRAGPipeline
 from src.services.skill_manager import SkillManager
 from src.services.proofread_service import ProofreadService
 from src.api.websocket import ConversationHistoryManager, setup_websocket_routes
@@ -176,10 +176,10 @@ class DeepAgentForce:
         self.proofread_service = ProofreadService(self.settings)
         # 🆕 多租户会话管理：key = f"{tenant_id}_{session_id}"
         self.sessions: dict[str, ConversationalAgent] = {}
-        # 🆕 多租户 RAG pipeline 映射：tenant_uuid -> MilvusRAGPipeline
-        self._rag_engines: dict[str, MilvusRAGPipeline] = {}
+        # 🆕 多租户 RAG pipeline 映射：tenant_uuid -> ChromaRAGPipeline
+        self._rag_engines: dict[str, ChromaRAGPipeline] = {}
 
-    def get_rag_engine(self, tenant_uuid: Optional[str] = None) -> MilvusRAGPipeline:
+    def get_rag_engine(self, tenant_uuid: Optional[str] = None) -> ChromaRAGPipeline:
         """获取租户专属的 RAG pipeline（按需创建）"""
         key = tenant_uuid or "default"
         if key not in self._rag_engines:
@@ -188,7 +188,7 @@ class DeepAgentForce:
                 tenant_settings = get_tenant_settings(tenant_uuid)
             else:
                 tenant_settings = self.settings
-            self._rag_engines[key] = MilvusRAGPipeline(tenant_settings)
+            self._rag_engines[key] = ChromaRAGPipeline(tenant_settings)
             logger.info(f"📌 创建租户 RAG engine - tenant: {key}, EMBEDDING_URL: {tenant_settings.EMBEDDING_URL}")
         return self._rag_engines[key]
 

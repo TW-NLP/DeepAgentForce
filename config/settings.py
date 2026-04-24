@@ -176,7 +176,7 @@ class Settings(ServerConfig):
     DATA_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR)
     HISTORY_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "history")
     UPLOAD_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "uploads")
-    MILVUS_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "rag_storage")
+    CHROMA_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "rag_storage")
     SKILL_DIR: Path = Field(default_factory=lambda: _BUNDLE_ROOT / "src" / "services" / "skills")
     USER_SKILL_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "skill")
     OUTPUT_DIR: Path = Field(default_factory=lambda: _APP_DATA_DIR / "outputs")
@@ -184,17 +184,14 @@ class Settings(ServerConfig):
     # ==================== 配置文件 ====================
     CONFIG_FILE: Path = Field(default_factory=lambda: _APP_DATA_DIR / "saved_config.json")
     PERSON_LIKE_FILE: Path = Field(default_factory=lambda: _APP_DATA_DIR / "person_like.json")
-    MILVUS_DB_PATH: Path = Field(default_factory=lambda: _APP_DATA_DIR / "milvus.db")
+    CHROMA_COLLECTION: str = Field(default="rag_chunks")
 
     @property
     def DB_URL(self) -> str:
         """数据库连接 URL"""
         return f"sqlite:///{self.SQLITE_DB_PATH}"
 
-    @property
-    def MILVUS_URL(self) -> str:
-        """Milvus 数据库连接路径"""
-        return str(self.MILVUS_DB_PATH)
+    # Milvus removed; use CHROMA_DIR / CHROMA_COLLECTION for vector storage
 
     # ==================== 应用信息 ====================
     APP_NAME: str = "DeepAgentForce"
@@ -259,7 +256,6 @@ class Settings(ServerConfig):
     SIMPLE_RAG: bool = True
     T_SCORE: float = Field(default=0.3, description="RAG 检索阈值")
     RAG_URL: str = ""  # 动态生成
-    MILVUS_COLLECTION: str = "rag_chunks"
 
     # ==================== RAG 高级配置 ====================
     # Stage1: 关键词召回（BM25）
@@ -330,7 +326,7 @@ class Settings(ServerConfig):
             self.DATA_DIR,
             self.HISTORY_DIR,
             self.UPLOAD_DIR,
-            self.MILVUS_DIR,
+            self.CHROMA_DIR,
             self.OUTPUT_DIR,
         ]
         for directory in directories:
@@ -346,9 +342,9 @@ class Settings(ServerConfig):
 
                 # 更新配置项
                 immutable_keys = {
-                    'PROJECT_ROOT', 'DATA_DIR', 'HISTORY_DIR', 'UPLOAD_DIR', 'MILVUS_DIR',
+                    'PROJECT_ROOT', 'DATA_DIR', 'HISTORY_DIR', 'UPLOAD_DIR', 'CHROMA_DIR',
                     'SKILL_DIR', 'USER_SKILL_DIR', 'OUTPUT_DIR', 'CONFIG_FILE', 'PERSON_LIKE_FILE',
-                    'MILVUS_DB_PATH', 'SQLITE_DB_PATH'
+                    'SQLITE_DB_PATH'
                 }
                 for key, value in config_data.items():
                     if hasattr(self, key) and key not in ['HOST', 'PORT', 'FRONTEND_HOST', 'FRONTEND_PORT'] and key not in immutable_keys:
@@ -382,9 +378,9 @@ class Settings(ServerConfig):
         """保存配置到文件"""
         # 过滤掉服务器配置和路径配置
         excluded_keys = {
-            'PROJECT_ROOT', 'DATA_DIR', 'HISTORY_DIR', 'UPLOAD_DIR', 'MILVUS_DIR',
-            'SKILL_DIR', 'USER_SKILL_DIR', 'CONFIG_FILE', 'PERSON_LIKE_FILE', 'MILVUS_DB_PATH',
-            'MILVUS_URL', 'API_BASE', 'WS_BASE', 'FRONTEND_BASE', 'server_info',
+            'PROJECT_ROOT', 'DATA_DIR', 'HISTORY_DIR', 'UPLOAD_DIR', 'CHROMA_DIR',
+            'SKILL_DIR', 'USER_SKILL_DIR', 'CONFIG_FILE', 'PERSON_LIKE_FILE',
+            'API_BASE', 'WS_BASE', 'FRONTEND_BASE', 'server_info',
             'config_hash', 'RAG_API_URL', 'APP_NAME', 'APP_VERSION', 'DEBUG',
             'LOG_LEVEL', 'LOG_FORMAT', 'CORS_ORIGINS', 'SESSION_TIMEOUT', 'MAX_SESSIONS',
             'SQLITE_DB_PATH'

@@ -853,22 +853,30 @@ async def get_document_content(request: Request, document_id: str):
         if not doc:
             raise HTTPException(status_code=404, detail="文档不存在")
 
-        # 从 Milvus 获取文档的所有 chunks
+        # 获取文档的所有 chunks（优先从 Chroma）
         try:
             content_chunks = []
-            if pipeline.milvus is not None:
-                collection_name = pipeline._get_tenant_collection(tenant_id)
-                milvus_results = pipeline.milvus.query(
-                    collection_name=collection_name,
-                    filter=f'doc_id == "{document_id}"',
-                    output_fields=["text"]
-                )
-                content_chunks = [{'content': item.get('text', '')} for item in milvus_results if item.get('text')]
+            # 优先使用 Chroma（若已初始化），否则退回到本地元数据
+            if getattr(pipeline, 'chroma_client', None) is not None:
+                coll_name = pipeline._get_tenant_collection(tenant_id)
+                pipeline._init_tenant_collection(tenant_id)
+                coll = pipeline._chroma_collections.get(coll_name)
+                if coll is not None:
+                    try:
+                        results = coll.get(include=["documents", "metadatas", "ids"]) or {}
+                        docs = results.get('documents', [[]])[0]
+                        metadatas = results.get('metadatas', [[]])[0]
+                        ids = results.get('ids', [[]])[0]
+                        for d, m in zip(docs, metadatas):
+                            if m and str(m.get('doc_id')) == str(document_id):
+                                content_chunks.append({'content': d})
+                    except Exception as e:
+                        logger.warning(f"从 Chroma 获取 chunks 失败: {e}")
 
             if not content_chunks:
                 content_chunks = [{'content': chunk} for chunk in (doc.get('chunks') or []) if chunk]
         except Exception as e:
-            logger.warning(f"从 Milvus 获取 chunks 失败: {e}")
+            logger.warning(f"获取 chunks 出错: {e}")
             content_chunks = [{'content': chunk} for chunk in (doc.get('chunks') or []) if chunk]
 
         return {

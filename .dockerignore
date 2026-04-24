@@ -88,7 +88,6 @@ logs/
 # =============================================================================
 # macOS 隐藏文件
 data/.DS_Store
-data/.milvus.db.lock
 # 用户上传的文档
 data/uploads/
 # 会话历史记录
@@ -97,7 +96,8 @@ data/history/
 data/outputs/
 # RAG 向量索引数据库
 data/rag_storage/
-data/milvus.db
+# Chroma 持久化目录（duckdb + parquet）
+data/rag_storage/
 # 用户配置（每个租户独立）
 data/saved_config.json
 data/saved_config_*.json

@@ -20,14 +20,16 @@ from docx import Document as DocxDocument
 import pandas as pd
 import tiktoken
 from openai import AsyncOpenAI
+# Milvus removed: use Chroma as the single vector store implementation.
 try:
-    from pymilvus import MilvusClient, DataType
-except Exception:  # pragma: no cover - optional backend
-    MilvusClient = None
-    DataType = None
+    import chromadb
+    from chromadb.config import Settings as ChromaSettings
+except Exception:
+    chromadb = None
+    ChromaSettings = None
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("MilvusRAG")
+logger = logging.getLogger("RAG")
 
 # ==================== BM25 实现（纯 Python，无额外依赖）====================
 
@@ -190,7 +192,7 @@ class TextChunker:
         return chunks
 
 
-class MilvusRAGPipeline():
+class RAGPipeline():
     """
     多阶段增强 RAG Pipeline
     多租户支持：每个租户有独立的 collection 和元数据存储
@@ -198,7 +200,7 @@ class MilvusRAGPipeline():
     检索路线：
     ┌─────────────────────────────────────────────────────────────┐
     │  Stage 1: 双路召回（并行）                                  │
-    │    ├─ 向量召回：Milvus ANN 检索                            │
+    │    ├─ 向量召回：向量检索（Chroma）                        │
     │    └─ 关键词召回：BM25（可选）                             │
     │  → Reciprocal Rank Fusion 融合                            │
     │                                                             │
@@ -228,12 +230,6 @@ class MilvusRAGPipeline():
                 api_key=self.settings.LLM_API_KEY,
                 base_url=self.settings.LLM_BASE_URL
             )
-        self.milvus = None
-        if MilvusClient is not None:
-            try:
-                self.milvus = MilvusClient(uri=self.settings.MILVUS_URL)
-            except Exception as exc:
-                logger.warning(f"Milvus 初始化失败，切换为轻量模式: {exc}")
 
         # 多租户：维护每个租户的元数据
         self._tenant_documents: dict[str, Dict] = {}
@@ -248,7 +244,7 @@ class MilvusRAGPipeline():
 
     def _get_tenant_collection(self, tenant_uuid: Optional[str] = None) -> str:
         """获取租户专属的 collection 名称（使用 tenant_uuid）"""
-        base = self.settings.MILVUS_COLLECTION
+        base = getattr(self.settings, 'CHROMA_COLLECTION', 'rag_chunks')
         if tenant_uuid:
             # UUID 可能包含连字符，替换为下划线以符合 Milvus collection 命名规范
             safe_uuid = tenant_uuid.replace('-', '_')
@@ -257,44 +253,15 @@ class MilvusRAGPipeline():
 
 
     def _init_tenant_collection(self, tenant_uuid: Optional[str] = None):
-        """初始化租户专属的 Milvus 集合"""
-        if self.milvus is None:
-            return
-        collection_name = self._get_tenant_collection(tenant_uuid)
-        if not self.milvus.has_collection(collection_name):
-            # 1. 创建集合
-            self.milvus.create_collection(
-                collection_name=collection_name,
-                dimension=self.settings.EMBEDDING_DIM,
-                metric_type="COSINE",
-                auto_id=True, 
-                enable_dynamic_field=True
-            )
-            
-            # 2. 准备索引参数
-            index_params = self.milvus.prepare_index_params()
-
-            # 3. 为向量字段创建索引
-            index_params.add_index(
-                field_name="vector",
-                index_type="AUTOINDEX",
-                metric_type="COSINE"
-            )
-
-            # 4. 执行创建索引
-            self.milvus.create_index(
-                collection_name=collection_name,
-                index_params=index_params
-            )
-            
-            logger.info(f"✅ 创建租户 Milvus 集合: {collection_name}")
+        """Base: no-op. Vector store collections are managed by concrete implementations."""
+        return
 
 
     def _get_tenant_meta_file(self, tenant_uuid: Optional[int] = None) -> Path:
         """获取租户专属的元数据文件路径"""
         if tenant_uuid is None:
             tenant_uuid = "default"
-        return self.settings.MILVUS_DIR / f"doc_metadata_{tenant_uuid}.json"
+        return getattr(self.settings, 'CHROMA_DIR', self.settings.DATA_DIR / 'rag_storage') / f"doc_metadata_{tenant_uuid}.json"
 
 
     def _load_tenant_metadata(self, tenant_uuid: Optional[int] = None) -> Dict:
@@ -362,27 +329,7 @@ class MilvusRAGPipeline():
 
         logger.info(f"📄 处理文档 [{tenant_uuid}]: {metadata['title']} ({len(chunks)} chunks)")
 
-        if self.milvus is not None and self.client_rag is not None and self.settings.EMBEDDING_MODEL:
-            try:
-                embeddings = await self._get_embedding(chunks)
-                milvus_data = []
-                chunk_uids = [self._build_chunk_uid(doc_uuid, idx) for idx in range(len(chunks))]
-                for idx, (chunk_text, vector) in enumerate(zip(chunks, embeddings)):
-                    milvus_data.append({
-                        "vector": vector,
-                        "text": chunk_text,
-                        "doc_id": doc_uuid,
-                        "chunk_uid": chunk_uids[idx],
-                        "chunk_index": idx,
-                        "source": metadata['original_filename'],
-                        "tenant_uuid": tenant_uuid
-                    })
-
-                collection_name = self._get_tenant_collection(tenant_uuid)
-                if milvus_data:
-                    self.milvus.insert(collection_name=collection_name, data=milvus_data)
-            except Exception as exc:
-                logger.warning(f"向量索引写入失败，已降级为轻量模式: {exc}")
+        # Base implementation does not write vectors; concrete pipeline may override to persist embeddings.
 
         key = tenant_uuid or "default"
         metadata.update({
@@ -398,6 +345,95 @@ class MilvusRAGPipeline():
 
         await self._rebuild_bm25(tenant_uuid)
 
+
+class ChromaRAGPipeline(RAGPipeline):
+    """使用 Chroma 替代 Milvus 的 RAG Pipeline 适配器
+    仅改写与向量存储相关的方法，保留 BM25 / rerank / query rewrite 等功能。
+    """
+    def __init__(self, settings):
+        super().__init__(settings)
+        self.chroma_client = None
+        self._chroma_collections: dict[str, Any] = {}
+        if chromadb is not None:
+            try:
+                # 本地持久化使用 settings.CHROMA_DIR 目录
+                persist_dir = str(getattr(self.settings, 'CHROMA_DIR', self.settings.DATA_DIR / 'rag_storage'))
+                if ChromaSettings is not None:
+                    self.chroma_client = chromadb.Client(ChromaSettings(chroma_db_impl="duckdb+parquet", persist_directory=persist_dir))
+                else:
+                    self.chroma_client = chromadb.Client()
+                logger.info(f"✅ Chroma 初始化成功，persist_dir={persist_dir}")
+            except Exception as exc:
+                logger.warning(f"Chroma 初始化失败，继续以轻量模式运行: {exc}")
+            else:
+                # 如果 Chroma 成功初始化，则可以安全使用 Chroma 作为唯一向量存储
+                pass
+
+    def _get_tenant_collection(self, tenant_uuid: Optional[str] = None) -> str:
+        base = getattr(self.settings, 'CHROMA_COLLECTION', 'rag_chunks')
+        if tenant_uuid:
+            safe_uuid = tenant_uuid.replace('-', '_')
+            return f"{base}_{safe_uuid}"
+        return f"{base}_default"
+
+    def _init_tenant_collection(self, tenant_uuid: Optional[str] = None):
+        if self.chroma_client is None:
+            return
+        name = self._get_tenant_collection(tenant_uuid)
+        if name not in self._chroma_collections:
+            try:
+                coll = self.chroma_client.get_collection(name=name)
+            except Exception:
+                coll = self.chroma_client.create_collection(name=name)
+            self._chroma_collections[name] = coll
+
+    async def add_document(self, file_path: str, metadata: Dict, tenant_uuid: Optional[int] = None) -> str:
+        # 使用父类完成解析与 BM25 元数据保存，然后把向量写入 Chroma
+        doc_uuid = str(uuid.uuid4())
+        self._ensure_tenant_ready(tenant_uuid)
+
+        parser = DocumentParser()
+        chunker = TextChunker()
+
+        text = parser.parse_file(Path(file_path))
+        chunks = chunker.chunk_text(text)
+
+        if not chunks:
+            raise ValueError("文档解析为空")
+
+        logger.info(f"📄 处理文档 [{tenant_uuid}]: {metadata.get('title')} ({len(chunks)} chunks)")
+
+        if self.chroma_client is not None and self.client_rag is not None and self.settings.EMBEDDING_MODEL:
+            try:
+                embeddings = await self._get_embedding(chunks)
+                ids = [self._build_chunk_uid(doc_uuid, i) for i in range(len(chunks))]
+                metadatas = [{
+                    "doc_id": doc_uuid,
+                    "chunk_index": i,
+                    "source": metadata.get('original_filename',''),
+                    "tenant_uuid": tenant_uuid
+                } for i in range(len(chunks))]
+                coll_name = self._get_tenant_collection(tenant_uuid)
+                self._init_tenant_collection(tenant_uuid)
+                coll = self._chroma_collections.get(coll_name)
+                if coll is not None:
+                    coll.add(ids=ids, metadatas=metadatas, documents=chunks, embeddings=embeddings)
+            except Exception as exc:
+                logger.warning(f"向量写入 Chroma 失败，降级为轻量模式: {exc}")
+
+        key = tenant_uuid or "default"
+        metadata.update({
+            "uuid": doc_uuid,
+            "path": file_path,
+            "chunks_count": len(chunks),
+            "added_at": datetime.now().isoformat()
+        })
+        metadata["chunks"] = chunks
+        metadata["chunk_uids"] = [self._build_chunk_uid(doc_uuid, idx) for idx in range(len(chunks))]
+        self._tenant_documents[key][doc_uuid] = metadata
+        self._save_tenant_metadata(tenant_uuid)
+
+        await self._rebuild_bm25(tenant_uuid)
         return doc_uuid
 
     def remove_document(self, doc_id: str, tenant_uuid: Optional[int] = None):
@@ -408,10 +444,146 @@ class MilvusRAGPipeline():
         if doc_id not in documents:
             raise ValueError(f"文档 ID 不存在: {doc_id}")
 
-        if self.milvus is not None:
-            collection_name = self._get_tenant_collection(tenant_uuid)
-            delete_expr = f'doc_id == "{doc_id}"'
-            self.milvus.delete(collection_name=collection_name, filter=delete_expr)
+        if self.chroma_client is not None:
+            coll_name = self._get_tenant_collection(tenant_uuid)
+            self._init_tenant_collection(tenant_uuid)
+            coll = self._chroma_collections.get(coll_name)
+            try:
+                # Chroma 删除按 ids
+                ids = [uid for uid in documents.get(doc_id, {}).get('chunk_uids', [])]
+                if coll is not None and ids:
+                    coll.delete(ids=ids)
+            except Exception as e:
+                logger.warning(f"Chroma 删除失败: {e}")
+
+        doc_info = documents.pop(doc_id)
+        self._save_tenant_metadata(tenant_uuid)
+
+        path = Path(doc_info['path'])
+        if path.exists():
+            path.unlink()
+
+        asyncio.create_task(self._rebuild_bm25(tenant_uuid))
+
+        logger.info(f"🗑️ 文档已删除: {doc_id} (tenant={tenant_uuid})")
+
+    def get_stats(self, tenant_uuid: Optional[int] = None):
+        self._ensure_tenant_ready(tenant_uuid)
+        key = tenant_uuid or "default"
+        documents = self._tenant_documents.get(key, {})
+        total_docs = len(documents)
+        total_chunks = sum(len(doc.get('chunks', [])) if isinstance(doc.get('chunks', []), list) else int(doc.get('chunks_count', 0) or 0) for doc in documents.values())
+        if self.chroma_client is not None:
+            try:
+                coll_name = self._get_tenant_collection(tenant_uuid)
+                self._init_tenant_collection(tenant_uuid)
+                coll = self._chroma_collections.get(coll_name)
+                if coll is not None:
+                    total_chunks = coll.count()
+            except Exception as exc:
+                logger.warning(f"Chroma 统计失败，使用本地元数据统计: {exc}")
+        return {
+            "index_status": "Indexed" if total_chunks > 0 else "Empty",
+            "total_documents": total_docs,
+            "total_chunks": total_chunks
+        }
+
+    async def _rebuild_bm25(self, tenant_uuid: Optional[int] = None):
+        key = tenant_uuid or "default"
+        try:
+            texts = []
+            chunk_ids: List[str] = []
+            if self.chroma_client is not None:
+                coll_name = self._get_tenant_collection(tenant_uuid)
+                self._init_tenant_collection(tenant_uuid)
+                coll = self._chroma_collections.get(coll_name)
+                if coll is not None:
+                    try:
+                        # 获取全部 documents
+                        results = coll.get(include=["documents", "ids"]) or {}
+                        docs = results.get('documents', [])
+                        ids = results.get('ids', [])
+                        for d, _id in zip(docs, ids):
+                            texts.append(d)
+                            chunk_ids.append(str(_id))
+                    except Exception:
+                        pass
+            if not texts:
+                for doc in self._tenant_documents.get(key, {}).values():
+                    doc_uuid = str(doc.get("uuid", "unknown"))
+                    doc_chunks = list(doc.get("chunks", []))
+                    doc_chunk_uids = doc.get("chunk_uids") or [
+                        self._build_chunk_uid(doc_uuid, idx) for idx in range(len(doc_chunks))
+                    ]
+                    texts.extend(doc_chunks)
+                    chunk_ids.extend([str(uid) for uid in doc_chunk_uids])
+            if texts:
+                bm25 = BM25()
+                bm25.fit(texts)
+                self._tenant_bm25[key] = bm25
+                self._tenant_texts[key] = texts
+                self._tenant_chunk_ids[key] = chunk_ids
+                logger.info(f"📦 BM25 索引重建完成 ({key}): {len(texts)} 条")
+        except Exception as e:
+            logger.warning(f"BM25 索引重建失败: {e}")
+
+    async def _stage1_vector_search(
+        self,
+        question: str,
+        top_k: int,
+        tenant_uuid: Optional[int] = None
+    ) -> List[Dict]:
+        if not self._has_vector_search() or self.chroma_client is None:
+            return []
+        q_vec = (await self._get_embedding([question]))[0]
+        coll_name = self._get_tenant_collection(tenant_uuid)
+        self._init_tenant_collection(tenant_uuid)
+        coll = self._chroma_collections.get(coll_name)
+        if coll is None:
+            return []
+        try:
+            res = coll.query(query_embeddings=[q_vec], n_results=top_k, include=["documents", "metadatas", "ids", "distances"]) or {}
+            documents = res.get('documents', [[]])[0]
+            metadatas = res.get('metadatas', [[]])[0]
+            ids = res.get('ids', [[]])[0]
+            distances = res.get('distances', [[]])[0]
+            hits = []
+            for i in range(len(documents)):
+                chunk_uid = ids[i]
+                meta = metadatas[i] if i < len(metadatas) else {}
+                hits.append({
+                    "chunk_idx": i,
+                    "chunk_uid": str(chunk_uid),
+                    "text": documents[i],
+                    "source": meta.get('source', ''),
+                    "vector_score": distances[i] if i < len(distances) else 0
+                })
+            return hits
+        except Exception as e:
+            logger.warning(f"Chroma 查询失败: {e}")
+            return []
+
+        return doc_uuid
+
+    def remove_document(self, doc_id: str, tenant_uuid: Optional[int] = None):
+        self._ensure_tenant_ready(tenant_uuid)
+        key = tenant_uuid or "default"
+        documents = self._tenant_documents.get(key, {})
+
+        if doc_id not in documents:
+            raise ValueError(f"文档 ID 不存在: {doc_id}")
+
+        # 使用 Chroma 进行删除（若已初始化）
+        if getattr(self, 'chroma_client', None) is not None:
+            try:
+                coll_name = self._get_tenant_collection(tenant_uuid)
+                self._init_tenant_collection(tenant_uuid)
+                coll = self._chroma_collections.get(coll_name)
+                ids = [uid for uid in documents.get(doc_id, {}).get('chunk_uids', [])]
+                if coll is not None and ids:
+                    coll.delete(ids=ids)
+            except Exception as e:
+                logger.warning(f"Chroma 删除失败: {e}")
 
         doc_info = documents.pop(doc_id)
         self._save_tenant_metadata(tenant_uuid)
@@ -452,17 +624,16 @@ class MilvusRAGPipeline():
             return int(doc.get("chunks_count", 0) or 0)
 
         total_chunks = sum(_chunk_count(doc) for doc in documents.values())
-        if self.milvus is not None:
+        # 优先使用 Chroma 统计（若存在）
+        if getattr(self, 'chroma_client', None) is not None:
             try:
-                collection_name = self._get_tenant_collection(tenant_uuid)
-                res = self.milvus.query(
-                    collection_name=collection_name,
-                    filter="",
-                    output_fields=["count(*)"]
-                )
-                total_chunks = res[0]["count(*)"] if res else total_chunks
+                coll_name = self._get_tenant_collection(tenant_uuid)
+                self._init_tenant_collection(tenant_uuid)
+                coll = self._chroma_collections.get(coll_name)
+                if coll is not None:
+                    total_chunks = coll.count()
             except Exception as exc:
-                logger.warning(f"Milvus 统计失败，使用本地元数据统计: {exc}")
+                logger.warning(f"Chroma 统计失败，使用本地元数据统计: {exc}")
         return {
             "index_status": "Indexed" if total_chunks > 0 else "Empty",
             "total_documents": total_docs,
@@ -472,26 +643,29 @@ class MilvusRAGPipeline():
     # ==================== 多阶段检索核心 ====================
 
     async def _rebuild_bm25(self, tenant_uuid: Optional[int] = None):
-        """从 Milvus 全量拉取文本，重建 BM25 索引"""
+        """从向量存储全量拉取文本，重建 BM25 索引。优先使用 Chroma，再回退本地元数据。"""
         key = tenant_uuid or "default"
         try:
             texts = []
             chunk_ids: List[str] = []
-            if self.milvus is not None:
-                collection_name = self._get_tenant_collection(tenant_uuid)
-                res = self.milvus.query(
-                    collection_name=collection_name,
-                    filter="",
-                    output_fields=["text", "doc_id", "chunk_uid", "chunk_index"]
-                )
-                texts = [hit["text"] for hit in res]
-                for hit in res:
-                    chunk_uid = hit.get("chunk_uid")
-                    if not chunk_uid:
-                        doc_id = str(hit.get("doc_id", "unknown"))
-                        chunk_index = int(hit.get("chunk_index", hit.get("id", 0)) or 0)
-                        chunk_uid = self._build_chunk_uid(doc_id, chunk_index)
-                    chunk_ids.append(str(chunk_uid))
+            # 1) 尝试从 Chroma 拉取全部 documents
+            if getattr(self, 'chroma_client', None) is not None:
+                coll_name = self._get_tenant_collection(tenant_uuid)
+                self._init_tenant_collection(tenant_uuid)
+                coll = self._chroma_collections.get(coll_name)
+                if coll is not None:
+                    try:
+                        results = coll.get(include=["documents", "ids"]) or {}
+                        docs = results.get('documents', [])
+                        ids = results.get('ids', [])
+                        # 支持 Chroma 返回嵌套列表
+                        for doc_list, id_list in zip(docs, ids):
+                            for d, _id in zip(doc_list, id_list):
+                                texts.append(d)
+                                chunk_ids.append(str(_id))
+                    except Exception:
+                        pass
+            # 若 Chroma 不可用，则回退到本地元数据
             if not texts:
                 for doc in self._tenant_documents.get(key, {}).values():
                     doc_uuid = str(doc.get("uuid", "unknown"))
@@ -588,32 +762,41 @@ class MilvusRAGPipeline():
         tenant_uuid: Optional[int] = None
     ) -> List[Dict]:
         """Stage 1a: 向量 ANN 召回"""
-        if not self._has_vector_search() or self.milvus is None:
+        # 优先使用 Chroma 查询
+        if not self._has_vector_search():
             return []
+
         q_vec = (await self._get_embedding([question]))[0]
-        collection_name = self._get_tenant_collection(tenant_uuid)
-        results = self.milvus.search(
-            collection_name=collection_name,
-            data=[q_vec],
-            limit=top_k,
-            output_fields=["text", "source", "doc_id", "chunk_uid", "chunk_index"]
-        )
-        hits = []
-        for hit in (results[0] if results else []):
-            entity = hit["entity"]
-            chunk_uid = entity.get("chunk_uid")
-            if not chunk_uid:
-                doc_id = str(entity.get("doc_id", "unknown"))
-                chunk_index = int(entity.get("chunk_index", hit.get("id", 0)) or 0)
-                chunk_uid = self._build_chunk_uid(doc_id, chunk_index)
-            hits.append({
-                "chunk_idx": hit.get("id"),
-                "chunk_uid": str(chunk_uid),
-                "text": entity["text"],
-                "source": entity.get("source", ""),
-                "vector_score": hit.get("distance", 0)
-            })
-        return hits
+
+        # 1) Chroma
+        if getattr(self, 'chroma_client', None) is not None:
+            try:
+                coll_name = self._get_tenant_collection(tenant_uuid)
+                self._init_tenant_collection(tenant_uuid)
+                coll = self._chroma_collections.get(coll_name)
+                if coll is None:
+                    return []
+                res = coll.query(query_embeddings=[q_vec], n_results=top_k, include=["documents", "metadatas", "ids", "distances"]) or {}
+                documents = res.get('documents', [[]])[0]
+                metadatas = res.get('metadatas', [[]])[0]
+                ids = res.get('ids', [[]])[0]
+                distances = res.get('distances', [[]])[0]
+                hits = []
+                for i in range(len(documents)):
+                    chunk_uid = ids[i]
+                    meta = metadatas[i] if i < len(metadatas) else {}
+                    hits.append({
+                        "chunk_idx": i,
+                        "chunk_uid": str(chunk_uid),
+                        "text": documents[i],
+                        "source": meta.get('source', ''),
+                        "vector_score": distances[i] if i < len(distances) else 0
+                    })
+                return hits
+            except Exception as e:
+                logger.warning(f"Chroma 查询失败: {e}")
+        # 若 Chroma 查询失败或不可用，则不执行向量检索
+        return []
 
     async def _stage1_bm25_search(
         self,

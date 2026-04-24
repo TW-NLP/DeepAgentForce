@@ -167,7 +167,7 @@ RAG 模块支持分阶段增强：
 2. 接口层：FastAPI 路由、认证、WebSocket、文件上传下载
 3. 智能体层：`ConversationalAgent` 负责模型接入、技能工作空间和对话流程
 4. 能力层：Skill Manager、RAG Pipeline、用户画像、校对服务
-5. 存储层：SQLite（内置）、Milvus Lite、本地 data 目录
+5. 存储层：SQLite（内置）、Chroma（本地持久化）、本地 data 目录
 
 如果从 Harness 的角度看，这 5 层分别对应：
 
@@ -493,7 +493,7 @@ docker compose down -v
 
 - [LangChain / LangGraph](https://github.com/langchain-ai/langchain) — Agent 开发框架
 - [FastAPI](https://github.com/tiangolo/fastapi) — 高性能 Web 框架
-- [Milvus](https://github.com/milvus-io/milvus) — 向量数据库
+- [Chroma](https://github.com/chroma-core/chroma) — 本地向量存储（DuckDB + Parquet 持久化）
 
 ---
 
