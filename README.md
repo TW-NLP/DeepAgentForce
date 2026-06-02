@@ -483,7 +483,7 @@ docker compose down -v
 
 **微信：** NLP技术交流群
 
-<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/_chat.jpg" width="200" />
+<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/chat.jpg" width="200" />
 
 ---
 
@@ -497,6 +497,7 @@ docker compose down -v
 
 ---
 
+## Star History
 <p align="center">
   <br><br>
   <a href="https://github.com/TW-NLP/DeepAgentForce">
