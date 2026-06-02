@@ -5,183 +5,186 @@
 </p>
 
 <p align="center">
-  <strong>一个面向真实场景的 Agent Harness</strong>
-  <br>
-  <em>An extensible harness for multi-tenant agents, skills, memory and RAG</em>
+  <strong>A Production-Grade Multi-Tenant Agent Harness</strong><br>
+  <em>Progressive disclosure of Skills, Tools and MCP — built on LangGraph + deepagents</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.12%2B-blue?style=for-the-badge&logo=python" alt="Python 3.12+"/>
-  <img src="https://img.shields.io/badge/FastAPI-0.128%2B-009688?style=for-the-badge&logo=fastapi" alt="FastAPI"/>
-  <img src="https://img.shields.io/badge/LangGraph-Latest-blueviolet?style=for-the-badge" alt="LangGraph"/>
-  <img src="https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker" alt="Docker"/>
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License"/>
+  <a href="README_CN.md">🇨🇳 中文文档</a> &nbsp;|&nbsp;
+  <a href="https://github.com/TW-NLP/DeepAgentForce">GitHub</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12%2B-blue?style=for-the-badge&logo=python"/>
+  <img src="https://img.shields.io/badge/FastAPI-0.128%2B-009688?style=for-the-badge&logo=fastapi"/>
+  <img src="https://img.shields.io/badge/LangGraph-Latest-blueviolet?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/MCP-Supported-orange?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker"/>
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge"/>
 </p>
 
 ---
 
-## 项目简介
+## What is DeepAgentForce?
 
- **DeepAgentForce**，它的重点不是单次问答效果，而是为智能体提供一套可持续运行、扩展、隔离和观测的底座。  
-相比“聊天页面 + 一个模型接口”的常见项目，这个项目更关注下面这些运行层问题：
+DeepAgentForce is a **production-grade Agent Harness** — a runtime that gives agents a place to live, run, and scale across real multi-user environments.
 
-- Agent 如何按规则选择并调用技能,支持无限扩展的skills
-- 多用户环境下如何做会话、知识、配置和技能隔离
-- 如何把 RAG、工具、用户记忆接进同一个运行时
-- 如何在不重写主流程的情况下继续扩展能力
+It is not just another chatbot interface. The focus is on the operating layer:
 
-围绕这些问题，DeepAgentForce 做成了一个前后端一体化的智能体运行框架与工作台。
-
-如果这个项目对您有帮助，欢迎 Star ✨ 。
----
-
-## 📰 News
-
-- **2026-04-23** 发布 `V1.4.0` ✨
-  - 🎯 优化 Docker 构建流程与容器配置
-  - 📦 支持 macOS DMG 和 Windows EXE 打包
-  - 🔧 改进跨平台构建脚本
-  - 📚 完善部署文档
-  - ✅ 统一 SQLite 作为默认数据库
-
-- **2026-04-22** 发布 `V1.3.0`
-  - 支持 Skill 的 zip 上传
-  - 持续迭代智能对话交互
-
-- **2026-04-21** 发布 `V1.2.0`
-  - 新增 Claude 官网 20 个 Skills
-  - 优化智能对话交互，新增重新生成与编辑功能
-
-- **2026-04-20** 发布 `V1.1.0`
-  - 本次版本集成了文本校对能力
-  - 优化了知识库管理 UI
-  - 优化了 Skill 管理 UI
+- How an agent selects and invokes skills at scale (progressive disclosure, not a flat list)
+- How dozens or hundreds of tools/MCP servers stay out of the context window until needed
+- How multiple users share the same platform while keeping sessions, knowledge, configs, and skills fully isolated
+- How RAG, long-term user memory, tools, and custom logic connect into one coherent runtime
 
 ---
 
-## 为什么说它是 Harness
+## Key Differentiators
 
-<details>
-<summary>展开查看 DeepAgentForce 作为 Agent Harness 的设计逻辑</summary>
+### 1. Progressive Disclosure — Skills, Tools & MCP in Three Tiers
 
-### 1. 它提供的是智能体运行底座，不只是对话入口
+Inspired by the [hermes-agent](https://github.com) architecture but rebuilt natively on LangGraph + LangChain:
 
-项目已经把一个 Agent 在真实系统里常见的几类能力接到了同一个运行时中：
+| Layer | Skills | Built-in Tools | Extra / MCP Tools |
+|-------|--------|---------------|-------------------|
+| Always in context | Category overview only | Full list (15 tools, small schema) | Bridge tools only (3 stubs) |
+| On demand — tier 1 | `skills_list(category)` → name+description | — | `tool_search(query)` → BM25 matches |
+| On demand — tier 2 | `skill_view(name)` → full SKILL.md | — | `tool_describe(name)` → param schema |
+| Execution | `shell` → run skill script | Direct call (already bound) | `tool_invoke(name, args)` → proxy |
 
-- 对话入口
-- WebSocket 流式交互
-- Skills 调度
-- RAG 检索
-- 用户画像与偏好沉淀
-- 文件输入输出
-- 用户认证与租户隔离
+**Why it matters:** A deployment with 19 skills, 50 MCP tools, and 10 custom tools keeps the same constant context overhead — only 3 bridge stubs are ever in the context window regardless of how many tools you add.
 
-这就是 Harness 的价值所在：它不是替你定义单个 Agent 的能力，而是给 Agent 提供一个可运行、可接入、可扩展的宿主环境。
+```
+Threshold gate (tool_disclosure.py):
+  extra_tools schema tokens < 10% context  →  bind directly (no overhead)
+  extra_tools schema tokens ≥ 10% context  →  switch to tool_search bridge
+```
 
-### 2. Skill-first 设计让它像 Harness，而不是写死逻辑的应用
+### 2. MCP Integration (Model Context Protocol)
 
-项目内置了 `web-search`、`rag-query`、`pdf-processing` 等技能，Agent 会先读取技能目录中的 `SKILL.md`，再按规范执行脚本。  
-这意味着主流程和技能实现是解耦的，你可以把业务能力作为 Skill 挂上来，而不必不断侵入核心对话逻辑。
+Connect any MCP server — the same config format as Claude Desktop:
 
-如果把项目当成 Harness 来看，这一层就是它的“能力接插件接口”。
+```json
+{
+  "mcpServers": {
+    "slack":  { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-slack"] },
+    "github": { "url": "https://my-mcp-server/github", "headers": { "Authorization": "Bearer ..." } }
+  }
+}
+```
 
-### 3. 多租户隔离让 Harness 可以真正服务多人场景
+- Supports `stdio`, `streamable_http`, and `sse` transports
+- Multi-tenant: global shared config + per-tenant override file
+- Tools auto-prefixed `mcp__<server>__<tool>` to avoid conflicts
+- Full async support — `tool_invoke` uses `ainvoke` for MCP tools
+- Managed via Web UI (add, test connection, enable/disable)
 
-系统的会话、配置、RAG 索引、用户技能、用户画像都带有租户隔离能力：
+### 3. Multi-Tenant by Design
 
-- 会话按 `tenant_uuid + session_id` 区分
-- RAG 按租户维护独立 collection / 元数据
-- 用户上传的 Skill 存放在租户专属目录
-- 用户画像持久化到租户独立文件
-- API / WebSocket 会从 JWT 或 Header 中解析租户信息
+Every resource is scoped to `tenant_uuid`:
 
-这很关键，因为很多 Agent Demo 能跑，但一进入多用户环境就开始混数据、混配置、混知识。  
-DeepAgentForce 把这些问题前置处理掉了，所以更像平台底座，而不是个人脚本。
+| Resource | Isolation |
+|----------|-----------|
+| Chat sessions | `thread_id = tenant_uuid + session_id` |
+| RAG knowledge base | Separate ChromaDB collection per tenant |
+| Skills | Shared built-in + private `data/skill/<uuid>/` directory |
+| MCP configs | Global read-only + `data/mcp_servers_<uuid>.json` |
+| Custom tools | `data/agent_tools_custom/<uuid>/` |
+| User profile | PageRank-based preference graph per user |
+| File outputs | `data/outputs/<uuid>/` |
 
-### 4. Harness 不只接知识，还接“长期用户记忆”
+### 4. Custom Tool Sandbox
 
-`person_like_service.py` 中实现了基于对话的用户偏好挖掘：
+End users can upload Python tools via the Web UI. They run in an **isolated subprocess** — the main process never imports user code:
 
-- 用 LLM 从对话中抽取实体和关系
-- 用 NetworkX 构建用户知识图谱
-- 用 PageRank、连接权重、提及频次综合估计用户偏好
+- `subprocess` + `rlimit`: CPU 10s, file 16 MB, memory 1 GB (Linux)
+- Wall-clock timeout: 20s
+- Environment variable filtering: strips any variable containing `KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `CREDENTIAL`
+- New session + temp cwd per invocation
+- Proxy tools via `pydantic.create_model` preserve the original arg schema
 
-相比只保留最近几轮上下文，这种方式更适合长期使用场景。
+### 5. Standard Open-Source Stack
 
-从 Harness 视角看，这代表系统不只是执行一次任务，而是在持续积累用户状态。
+Built on LangGraph + LangChain + deepagents — not a custom runtime:
 
-### 5. RAG 在这里不是外挂，而是运行时内的标准能力
+| Capability | Implementation |
+|------------|---------------|
+| Agent graph | LangGraph `create_deep_agent` + `MemorySaver` |
+| Multi-turn memory | LangGraph `MemorySaver` (per thread_id) |
+| Tool binding | LangChain `BaseTool` / `StructuredTool` |
+| LLM access | `init_chat_model` — any OpenAI-compatible endpoint |
+| Streaming | `astream(stream_mode="messages")` |
+| Observability | WebSocket event callbacks (tool start/end, answer phase) |
 
-RAG 模块支持分阶段增强：
+### 6. Built-in RAG Pipeline
 
-- 向量召回
-- 可选 BM25 关键词召回
-- 可选 Rerank 重排
-- 可选 Query Rewrite 多路检索投票
+Not a plugin — a first-class runtime capability:
 
-也就是说，这里的 RAG 不是外挂脚本，而是 Harness 内的一等能力，可以自然接入 Agent 的任务流程。
+- ChromaDB local persistence, per-tenant collection isolation
+- PDF / DOCX / TXT / CSV / Markdown ingestion
+- Optional BM25 hybrid retrieval, reranking, and query rewrite
+- Accessible via the `rag-query` skill from any conversation
 
-### 6. 对开发者和用户来说，它都是一个可观测的工作台
+### 7. Long-Term User Memory
 
-项目直接由 FastAPI 托管静态页面，开箱即有：
-
-- 登录 / 注册
-- 聊天页面
-- 配置页面
-- 知识库页面
-- Skills 管理页面
-- 输出文件浏览
-- WebSocket 流式交互与状态展示
-- 工具调用与中间状态传递
-
-这意味着 Harness 不只是“在后端偷偷跑”，而是可以被直接演示、调试和交付。
-
-</details>
-
----
-
-## Harness 能力一览
-
-| Harness 维度 | DeepAgentForce 提供什么 |
-|:-------------|:------------------------|
-| Agent 接入 | 对话 Agent、流式会话、状态回调 |
-| Skill 编排 | 基于 `SKILL.md` 的技能发现与执行 |
-| Knowledge 接入 | 多租户 RAG、文档上传、检索增强 |
-| Memory | 用户偏好图谱与长期画像 |
-| Isolation | 会话、配置、技能、知识的租户隔离 |
-| Observability | WebSocket 事件、思考步骤、输出展示 |
-| Extensibility | 内置 Skill + 用户上传 Skill |
-| Delivery | FastAPI + 静态前端一体化部署 |
+`person_like_service.py` extracts entities and relationships from conversations, builds a NetworkX knowledge graph per user, and scores topics via PageRank + connection weight + mention frequency. The agent gets a personalized summary injected at every session start.
 
 ---
 
-## 系统架构
+## Architecture Overview
 
-<div align="center">
-  <img src="images/frame.png" alt="系统架构" width="90%"/>
-</div>
 
-整体架构可以概括为 5 层：
-
-1. 展示层：`static/` 下的聊天、配置、知识库、技能管理等页面
-2. 接口层：FastAPI 路由、认证、WebSocket、文件上传下载
-3. 智能体层：`ConversationalAgent` 负责模型接入、技能工作空间和对话流程
-4. 能力层：Skill Manager、RAG Pipeline、用户画像、校对服务
-5. 存储层：SQLite（内置）、Chroma（本地持久化）、本地 data 目录
-
-如果从 Harness 的角度看，这 5 层分别对应：
-
-1. 用户与开发者交互界面
-2. 统一接入层
-3. 智能体运行时
-4. 可插拔能力模块
-5. 状态与数据持久化
+```
+┌─────────────────────────────────────────────────────────┐
+│  Frontend (static/)  Chat · Knowledge · Skills · Config  │
+└────────────────────────┬────────────────────────────────┘
+                         │ WebSocket / REST
+┌────────────────────────▼────────────────────────────────┐
+│  API Layer (FastAPI)                                     │
+│  routes · auth_routes · skills_routes                    │
+│  tools_routes · mcp_routes · websocket                   │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│  Agent Runtime (ConversationalAgent)                     │
+│                                                          │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
+│  │  Skills     │  │ Common Tools │  │ Extra/MCP Tools│  │
+│  │ Disclosure  │  │  (15 tools)  │  │  Disclosure    │  │
+│  │skills_list  │  │  utils·web   │  │  tool_search   │  │
+│  │skill_view   │  │  memory      │  │  tool_invoke   │  │
+│  └─────────────┘  └──────────────┘  └────────────────┘  │
+│                                                          │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │  LangGraph  create_deep_agent + MemorySaver         │ │
+│  └─────────────────────────────────────────────────────┘ │
+└──────┬─────────────────────────┬───────────────────┬────┘
+       │                         │                   │
+┌──────▼──────┐  ┌───────────────▼──────┐  ┌────────▼────┐
+│  RAG        │  │  Skill Manager       │  │  Sandbox    │
+│  ChromaDB   │  │  built-in + custom   │  │  rlimit +   │
+│  per-tenant │  │  skills/<cat>/<name> │  │  subprocess │
+└─────────────┘  └──────────────────────┘  └─────────────┘
+```
 
 ---
 
-## 快速开始
+## Built-in Skills (19 skills across 5 categories)
 
-### 方式一：Docker 启动
+| Category | Skills |
+|----------|--------|
+| `design` | algorithmic-art, brand-guidelines, canvas-design, frontend-design, slack-gif-creator, theme-factory, web-artifacts-builder |
+| `development` | claude-api, mcp-builder, skill-creator, webapp-testing |
+| `document` | docx, pdf, pptx, xlsx |
+| `research` | rag-query, web-search |
+| `writing` | doc-coauthoring, internal-comms |
+
+Each skill lives in `skills/<category>/<name>/SKILL.md` + `scripts/`. The agent never loads them all — it uses `skills_list` → `skill_view` on demand.
+
+---
+
+## Quick Start
+
+### Docker (recommended)
 
 ```bash
 git clone https://github.com/TW-NLP/DeepAgentForce
@@ -189,33 +192,9 @@ cd DeepAgentForce
 docker compose up -d
 ```
 
-启动后访问：
+Visit `http://localhost:8000` — then go to **Settings** to configure your LLM and Embedding API keys.
 
-- 首页：http://localhost:8000
-- Swagger：http://localhost:8000/docs
-
-**特点**：
-
-- 🗄️ **开箱即用**：无需配置外部数据库，使用内置 SQLite
-- 📦 **数据持久化**：所有数据通过 `./data:/app/data` 卷挂载
-- 🔄 **容器重启无忧**：数据完全保留
-
-**启动后访问**：
-
-- 应用首页：http://localhost:8000
-- API 文档：http://localhost:8000/docs
-- 登录页面：http://localhost:8000/login.html
-
-注意：启动成功后，仍需在前端配置页补充 **LLM 和 Embedding 模型**参数，系统才能正常调用大模型。
-
-### 方式二：本地运行
-
-环境要求：
-
-- Python 3.12+
-- 无需外部数据库（使用内置 SQLite）
-
-安装步骤：
+### Local
 
 ```bash
 git clone https://github.com/TW-NLP/DeepAgentForce
@@ -223,283 +202,199 @@ cd DeepAgentForce
 
 conda create -n agent python=3.12 -y
 conda activate agent
-
 pip install -r requirements.txt
+
+python main.py
 ```
 
-国内用户可使用镜像加速：
-
+Mirror for users in China:
 ```bash
 pip install -r requirements.txt \
   -i https://mirrors.aliyun.com/pypi/simple/ \
   --trusted-host=mirrors.aliyun.com
 ```
 
-配置 `.env`：
-
+`.env` minimum config:
 ```bash
-# 数据库（自动使用 SQLite）
 SQLITE_DB_PATH=data/deepagentforce.db
-
-# JWT 安全
 JWT_SECRET_KEY=your-secret-key-change-in-production
-
-# 服务器
 HOST=127.0.0.1
 PORT=8000
 ```
 
-启动服务：
+---
 
-```bash
-python main.py
+## User Journey
+
+### 1. Register & Login
+`http://localhost:8000/login.html` — every user gets an isolated workspace.
+
+### 2. Configure Models
+Go to **Settings** and fill in:
+
+| Field | Example |
+|-------|---------|
+| `LLM_URL` | `https://api.openai.com/v1` |
+| `LLM_API_KEY` | `sk-xxxxxxxx` |
+| `LLM_MODEL` | `gpt-4o` |
+| `EMBEDDING_URL` | `https://api.openai.com/v1` |
+| `EMBEDDING_API_KEY` | `sk-xxxxxxxx` |
+| `EMBEDDING_MODEL` | `text-embedding-3-small` |
+
+### 3. Upload Knowledge Documents
+Supports PDF, DOCX, TXT, CSV, Markdown — all indexed into a per-tenant ChromaDB collection.
+
+### 4. Configure MCP Servers *(optional)*
+Go to **Skills → MCP tab** → Add Server. Use the same JSON format as Claude Desktop. Click **Test Connection** before saving.
+
+### 5. Upload Custom Tools *(optional)*
+Go to **Skills → Tools tab** → Add Tool. Upload a `.py` file — any top-level function with a docstring becomes a callable agent tool, sandboxed automatically.
+
+### 6. Start Chatting
+The agent auto-selects skills, searches the knowledge base, calls tools, and synthesizes answers in natural language.
+
+---
+
+## Project Structure
+
 ```
-
-访问：http://localhost:8000
-
----
-
-## 📖 上手路径
-
-### 1️⃣ 注册并登录
-
-访问 `http://localhost:8000/login.html`，注册后系统会为当前用户分配独立工作空间。
-
-<div align="center">
-  <img src="images/login.png" alt="模型配置" width="82%"/>
-</div>
-
-
-### 2. 配置模型
-
-进入“配置”页面，至少填写以下字段：
-
-| 配置项 | 说明 | 示例 |
-|--------|------|------|
-| `LLM_URL` | 对话模型 API 地址 | `https://api.openai.com/v1` |
-| `LLM_API_KEY` | 对话模型 Key | `sk-xxxxxxxx` |
-| `LLM_MODEL` | 对话模型名称 | `gpt-4o` |
-| `EMBEDDING_URL` | 向量模型 API 地址 | `https://api.openai.com/v1` |
-| `EMBEDDING_API_KEY` | 向量模型 Key | `sk-xxxxxxxx` |
-| `EMBEDDING_MODEL` | 向量模型名称 | `text-embedding-3-small` |
-
-**提示**：
-
-- 系统会自动处理 `/chat/completions`、`/embeddings` 等 API 路径后缀
-- 支持 OpenAI、Azure、阿里云等兼容接口
-- 校对服务可单独配置模型
-
-<div align="center">
-  <img src="images/config.png" alt="模型配置" width="82%"/>
-</div>
-
-### 3️⃣ 上传知识文档
-
-知识库模块支持多种格式，系统会自动解析、切分、向量化：
-
-| 格式 | 支持 |
-|------|------|
-| PDF | ✅ 支持文本、表格、图片提取 |
-| DOC / DOCX | ✅ 支持格式化文本 |
-| TXT | ✅ 纯文本 |
-| CSV | ✅ 表格数据 |
-| Markdown | ✅ 结构化文本 |
-
-所有文档会写入**租户专属索引**，数据完全隔离。
-
-<div align="center">
-  <img src="images/rag.png" alt="知识库管理" width="88%"/>
-</div>
-
-### 4️⃣ 开始对话
-
-在聊天页中，Agent 会根据问题自动决定：
-
-- 📝 **直接回答**：基于模型和历史
-- 🔧 **调用 Skill**：执行已安装的工具
-- 🔍 **查询知识库**：检索私有文档
-- 🧠 **结合用户画像**：参考个性化偏好
-
-<div align="center">
-  <img src="images/chat.png" alt="智能对话界面" width="88%"/>
-</div>
-
----
-
-## 内置模块
-
-### Agent Skills
-
-内置 Skill：
-
-| Skill | 作用 |
-|-------|------|
-| `web-search` | 联网搜索与网页信息获取 |
-| `rag-query` | 面向私有知识库的问答 |
-| `pdf-processing` | PDF 文本、表格与处理任务 |
-
-你也可以通过前端安装自定义 Skill。对每个租户来说：
-
-- 内置 Skill 全员可见
-- 用户 Skill 仅当前租户可见
-- Skill 内容由 `SKILL.md + scripts/*.py` 组成
-
-示例结构：
-
-<div align="center">
-  <img src="images/skill.png" alt="Skill 管理界面" width="88%"/>
-</div>
-
-### 用户画像
-
-用户画像不是简单的标签存储，而是一个逐步演化的图结构。系统会从长期对话中抽取：
-
-- 关注主题
-- 技术偏好
-- 常见任务类型
-- 潜在表达习惯
-
-这部分能力尤其适合做“越用越像你的助手”。
-
-
-### 校对服务
-
-项目还内置了中文校对能力，支持：
-
-- 通用 LLM 校对
-- 独立校对模型接入
-- 分句 / 分块并发处理
-
-如果你的场景不仅要“回答”，还要“润色、改错、校验”，这一块可以直接复用。
-
-<div align="center">
-  <img src="images/ChineseErrorCorrect4.png" alt="ChineseErrorCorrect4 校对" width="88%"/>
-</div>
-
----
-
-## API 概览
-
-启动后可访问 Swagger：
-
-- http://localhost:8000/docs
-
-常用接口：
-
-| Endpoint | 方法 | 说明 |
-|----------|:----:|------|
-| `/api/chat` | POST | 同步对话 |
-| `/api/chat/upload` | POST | 携带附件对话 |
-| `/ws/stream` | WebSocket | 流式对话 |
-| `/api/auth/register` | POST | 注册 |
-| `/api/auth/login` | POST | 登录 |
-| `/api/skills` | GET | 获取 Skill 列表 |
-| `/api/skills/install` | POST | 安装 Skill |
-| `/api/rag/documents/upload` | POST | 上传知识文档 |
-| `/api/rag/query` | POST | RAG 查询 |
-
----
-
-## 项目结构
-
-```text
 DeepAgentForce/
 ├── main.py
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-├── config/
-│   ├── settings.py
-│   └── prompts.py
+├── config/settings.py
 ├── src/
 │   ├── api/
-│   │   ├── routes.py
+│   │   ├── routes.py           # core chat + file routes
+│   │   ├── skills_routes.py    # skill CRUD
+│   │   ├── tools_routes.py     # custom tool CRUD
+│   │   ├── mcp_routes.py       # MCP server CRUD
 │   │   ├── auth_routes.py
-│   │   ├── skills_routes.py
 │   │   └── websocket.py
-│   ├── database/
-│   ├── models/
-│   ├── services/
-│   │   ├── conversational_agent.py
-│   │   ├── skill_manager.py
-│   │   ├── rag.py
-│   │   ├── person_like_service.py
-│   │   ├── proofread_service.py
-│   │   └── skills/
-│   └── workflow/
-├── static/
-├── images/
-└── data/
+│   └── services/
+│       ├── conversational_agent.py   # agent assembly
+│       ├── skill_disclosure.py       # skills progressive disclosure
+│       ├── tool_disclosure.py        # tools BM25 progressive disclosure
+│       ├── mcp_integration.py        # MCP connector + config store
+│       ├── custom_tool_manager.py    # user-uploaded Python tools
+│       ├── sandbox/                  # subprocess isolation
+│       │   ├── runner.py
+│       │   ├── loader.py
+│       │   └── tool_worker.py
+│       ├── agent_tools/              # 15 built-in common tools
+│       │   ├── utils.py
+│       │   ├── web.py
+│       │   └── memory.py
+│       ├── skill_manager.py
+│       ├── rag.py
+│       └── person_like_service.py
+├── src/services/skills/              # 19 built-in skills
+│   ├── design/
+│   ├── development/
+│   ├── document/
+│   ├── research/
+│   └── writing/
+├── static/                           # Web UI
+│   ├── js/i18n.js                    # EN/ZH language switcher
+│   ├── index.html
+│   ├── login.html
+│   └── register.html
+├── scripts/                          # test suites
+│   ├── test_sandbox.py               # 15/15
+│   ├── test_mcp_integration.py       # 14/14
+│   ├── test_tools_mcp_mgmt.py        # 20/20
+│   ├── test_routes_http.py           # 19/19
+│   └── test_optimizations.py         # 30/30
+└── data/                             # runtime data (gitignored)
 ```
 
 ---
 
-## 适合什么场景
+## API Reference
 
-如果你正在做下面这些方向，这个项目会比较有参考价值：
+Swagger: `http://localhost:8000/docs`
 
-- 智能体平台课程 / 毕设 / 实验项目
-- Agent Harness / Agent Platform 原型
-- 企业内部知识助手
-- 多用户共享的 AI 工作台
-- 可扩展工具型 Agent 原型
-- 面向中文场景的对话 + 校对 + 知识库系统
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/ws/stream` | WebSocket | Streaming conversation |
+| `/api/chat` | POST | Single-turn chat |
+| `/api/chat/upload` | POST | Chat with file attachment |
+| `/api/auth/register` | POST | Register |
+| `/api/auth/login` | POST | Login |
+| `/api/skills` | GET | List skills |
+| `/api/skills/install` | POST | Install skill |
+| `/api/tools` | GET | List tools (built-in + MCP + custom) |
+| `/api/tools/custom` | POST | Upload custom tool |
+| `/api/mcp/servers` | GET | List MCP servers |
+| `/api/mcp/servers` | POST | Add/update MCP server |
+| `/api/mcp/servers/test` | POST | Test MCP connection |
+| `/api/rag/documents/upload` | POST | Upload knowledge document |
+| `/api/rag/query` | POST | RAG query |
 
 ---
 
-## 常见问题
+## 📰 Changelog
 
-### Docker 启动后为什么还不能直接聊天？
+- **2026-06-02** — `v2.0.0` Progressive Disclosure Edition
+  - Skills progressive disclosure: `skills_list` / `skill_view` two-tier system
+  - BM25 tool search: `tool_search` / `tool_describe` / `tool_invoke` bridge
+  - Full MCP integration (stdio + HTTP, multi-tenant config)
+  - Custom Python tool sandbox (subprocess + rlimit)
+  - Web UI: Skills / Tools / MCP management tabs
+  - 15 built-in common tools (utils + web + memory)
+  - 19 skills reorganized into 5 categories
+  - EN/ZH frontend language switcher
 
-因为数据库和应用虽然已经启动，但模型配置默认是空的。  
-需要先到配置页补充 `LLM_*` 与 `EMBEDDING_*` 参数。
+- **2026-04-23** — `v1.4.0`
+  - Docker build optimization + macOS DMG / Windows EXE packaging
+  - SQLite as default database
 
-### 为什么这个项目适合做二次开发？
+- **2026-04-22** — `v1.3.0` — Skill zip upload, dialogue improvements
 
-因为它的能力边界比较清楚：
+- **2026-04-21** — `v1.2.0` — 20 Claude built-in skills, regenerate/edit in chat
 
-- 对话由 `ConversationalAgent` 统一编排
-- 知识库能力集中在 `rag.py`
-- Skill 扩展集中在 `skill_manager.py + skills/`
-- 多租户逻辑主要在 API 和服务层传递 `tenant_uuid`
+---
 
-### 如何清空 Docker 数据？
+## Use Cases
 
+- Agent platform thesis / research prototype
+- Enterprise internal knowledge assistant
+- Multi-user AI workbench with isolated data
+- Extensible tool-calling agent with MCP ecosystem access
+- Chinese NLP + RAG + proofreading pipeline
+
+---
+
+## FAQ
+
+**Why can't I chat right after Docker starts?**
+The LLM keys are not pre-configured. Go to Settings and fill in `LLM_*` and `EMBEDDING_*` fields first.
+
+**How do I add a new skill?**
+Create a directory with `SKILL.md` + `scripts/`, zip it, and upload via Skills → Add Skill. Or drop it directly into `src/services/skills/<category>/`.
+
+**How do I clear all Docker data?**
 ```bash
 docker compose down -v
 ```
-
-这会删除数据库卷，请谨慎使用。
 
 ---
 
 ## License
 
-本项目采用 **MIT License**，可自由使用、修改和分发，商用无忧。
+MIT — free to use, modify, and distribute commercially.
 
 ---
 
-## Contact
+## Acknowledgements
 
-**微信：** NLP技术交流群
-
-<img src="https://github.com/TW-NLP/ChineseErrorCorrector/blob/main/images/_chat.jpg" width="200" />
-
----
-
-## 致谢
-
-本项目基于以下优秀的开源项目构建：
-
-- [LangChain / LangGraph](https://github.com/langchain-ai/langchain) — Agent 开发框架
-- [FastAPI](https://github.com/tiangolo/fastapi) — 高性能 Web 框架
-- [Chroma](https://github.com/chroma-core/chroma) — 本地向量存储（DuckDB + Parquet 持久化）
+- [LangChain / LangGraph](https://github.com/langchain-ai/langchain) — Agent framework
+- [deepagents](https://pypi.org/project/deepagents/) — Skill-aware agent builder
+- [FastAPI](https://github.com/tiangolo/fastapi) — Web framework
+- [ChromaDB](https://github.com/chroma-core/chroma) — Local vector store
 
 ---
 
 <p align="center">
-  <br><br>
   <a href="https://github.com/TW-NLP/DeepAgentForce">
-    <img src="https://img.shields.io/github/stars/TW-NLP/DeepAgentForce?style=social" alt="GitHub Stars"/>
+    <img src="https://img.shields.io/github/stars/TW-NLP/DeepAgentForce?style=social"/>
   </a>
 </p>

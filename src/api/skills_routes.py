@@ -51,6 +51,7 @@ class SkillInfo(BaseModel):
     version: str = "1.0.0"
     author: str = "Unknown"
     tags: List[str] = Field(default_factory=list)
+    category: Optional[str] = None
     path: str
     scripts: List[Dict[str, str]] = Field(default_factory=list)
     script_count: int = 0

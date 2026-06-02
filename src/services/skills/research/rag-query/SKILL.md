@@ -38,7 +38,7 @@ tenant-scoped answers on internal topics.
 
 ### 命令格式（严格遵循，不得修改任何参数）
 ```bash
-python <PROJECT_ROOT>/src/services/skills/rag-query/scripts/query.py "<用户问题>" --tenant-uuid <UUID>
+python <PROJECT_ROOT>/src/services/skills/research/rag-query/scripts/query.py "<用户问题>" --tenant-uuid <UUID>
 ```
 
 ### 参数说明
@@ -52,13 +52,13 @@ python <PROJECT_ROOT>/src/services/skills/rag-query/scripts/query.py "<用户问
 ### 格式规则
 ```
 ✅ 正确格式：
-python /Users/tianwei/paper/DeepAgentForce/src/services/skills/rag-query/scripts/query.py "公司考勤制度是什么" --tenant-uuid 6d3b9398-ca84-4db5-a38b-e88ce427918b
+python /Users/tianwei/paper/DeepAgentForce/src/services/skills/research/rag-query/scripts/query.py "公司考勤制度是什么" --tenant-uuid 6d3b9398-ca84-4db5-a38b-e88ce427918b
 
 ❌ 错误 - JSON 数组格式：
 ["python /path/query.py \"公司考勤制度\" --tenant-uuid xxx"]
 
 ❌ 错误 - 相对路径：
-python src/services/skills/rag-query/scripts/query.py "问题" --tenant-uuid xxx
+python src/services/skills/research/rag-query/scripts/query.py "问题" --tenant-uuid xxx
 
 ❌ 错误 - 使用 --question flag：
 python /path/query.py --question "公司考勤制度" --tenant-uuid xxx
@@ -78,7 +78,7 @@ Step 1. 从 system prompt 读取 项目根路径，记为 PROJECT_ROOT
 Step 2. 从 system prompt 读取 当前租户 UUID，记为 UUID  
 Step 3. 将用户问题用双引号包裹，记为 QUESTION
 Step 4. 拼接完整命令：
-        python {PROJECT_ROOT}/src/services/skills/rag-query/scripts/query.py "{QUESTION}" --tenant-uuid {UUID}
+        python {PROJECT_ROOT}/src/services/skills/research/rag-query/scripts/query.py "{QUESTION}" --tenant-uuid {UUID}
 Step 5. 通过 shell 工具以纯文本字符串形式执行（不加任何 JSON 包装）
 Step 6. 将脚本输出结果整理后返回给用户
 ```

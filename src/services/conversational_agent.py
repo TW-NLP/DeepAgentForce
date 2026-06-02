@@ -196,7 +196,7 @@ class ConversationalAgent:
     def _build_shell_tool(self) -> SafeShellTool:
         # 🆕 使用项目根路径构建 RAG 脚本路径
         rag_script = (
-            f"{self.project_root}/src/services/skills/rag-query/scripts/query.py"
+            f"{self.project_root}/src/services/skills/research/rag-query/scripts/query.py"
             if self.project_root else "<未找到项目根，请设置 DEEPAGENTFORCE_ROOT 环境变量>"
         )
         # 🆕 用户专属 Skills 目录
@@ -218,6 +218,42 @@ class ConversationalAgent:
             f"  用户专属 Skills: {self.user_skills_dir or '(未配置)'}\n"
         )
         return SafeShellTool(inner_tool=ShellTool(), description=description)
+
+    # ------------------------------------------------------------------
+    # 额外 / MCP 工具收集点（渐进披露的输入池）
+    # ------------------------------------------------------------------
+    def _collect_extra_tools(self) -> list:
+        """收集「额外/MCP」工具池（区别于必备工具，可能很多）。
+
+        这些工具不直接列进 system prompt：池子小会被直接绑定，超过上下文 ~10%
+        时由 build_tool_disclosure 切换为 tool_search/tool_describe/tool_invoke
+        桥接工具按需取用。
+
+        来源有二：①MCP server（按租户配置连接）②用户上传的自定义 Python 工具
+        （按租户隔离）。任何加载失败都在各自模块内部吞掉，这里只会拿到可用工具。
+        """
+        extra: list = []
+
+        try:
+            from src.services.mcp_integration import collect_mcp_tools
+            mcp_tools = collect_mcp_tools(self.settings, self.tenant_uuid)
+            if mcp_tools:
+                logger.info(f"[ConversationalAgent] 接入 {len(mcp_tools)} 个 MCP 工具")
+            extra.extend(mcp_tools)
+        except Exception as e:
+            logger.warning(f"[ConversationalAgent] MCP 工具收集失败，忽略: {e}")
+
+        try:
+            from src.services.custom_tool_manager import CustomToolManager
+            base_dir = Path(self.settings.DATA_DIR) / "agent_tools_custom"
+            custom_tools = CustomToolManager(base_dir).load_all_tools(self.tenant_uuid)
+            if custom_tools:
+                logger.info(f"[ConversationalAgent] 接入 {len(custom_tools)} 个自定义工具")
+            extra.extend(custom_tools)
+        except Exception as e:
+            logger.warning(f"[ConversationalAgent] 自定义工具收集失败，忽略: {e}")
+
+        return extra
 
     # ------------------------------------------------------------------
     # 单例
@@ -251,10 +287,34 @@ class ConversationalAgent:
         # ✅ 使用 SafeShellTool，不再覆盖回 ShellTool
         exec_tool = self._build_shell_tool()
 
+        # 🆕 分类感知的渐进式披露：system prompt 只放分类概览，
+        # 具体技能通过 skills_list / skill_view 两个工具按需展开。
+        from src.services.skill_disclosure import build_skill_disclosure
+        tenant_skill_dir = (
+            self.user_skills_dir / self.tenant_uuid if self.tenant_uuid else None
+        )
+        skill_tools, skills_overview = build_skill_disclosure(
+            self.builtin_skills_dir, tenant_skill_dir
+        )
+
+        # 🆕 通用工具（本地实用 / 联网检索 / 记忆会话），参照 hermes tools 粒度
+        from src.services.agent_tools import build_common_tools
+        common_tools, common_tools_overview = build_common_tools(
+            self.settings, self.tenant_uuid
+        )
+
+        # 🆕 额外 / MCP 工具走渐进式披露：池子小则直接绑定，超过上下文 ~10% 则
+        # 改为桥接工具 tool_search/tool_describe/tool_invoke，避免上百个 schema 常驻。
+        from src.services.tool_disclosure import build_tool_disclosure
+        extra_tools = self._collect_extra_tools()
+        disclosure_tools, tool_disclosure_overview = build_tool_disclosure(
+            extra_tools, context_length=None
+        )
+
         # ✅ 项目根路径直接注入 system prompt，Agent 无需自己 find
         # rag_cmd_example 会插入到 f"" 的 system_prompt 中，JSON 的 { } 必须转义
         if self.project_root:
-            _query_cmd = f"python {self.project_root}/src/services/skills/rag-query/scripts/query.py"
+            _query_cmd = f"python {self.project_root}/src/services/skills/research/rag-query/scripts/query.py"
             _query_args = f'"{self.tenant_uuid}"'
             rag_cmd_example = f"{_query_cmd} {_query_args}"
         else:
@@ -263,9 +323,10 @@ class ConversationalAgent:
         system_prompt = f"""你是一个精确执行的智能体。闲聊直接回答，需要技能时找到对应技能并执行。
 
 ## 关键规则
-1. 读取技能的 SKILL.md，严格按照其中 Execution 部分的命令格式执行
-2. 区分位置参数和 --flag 参数，不得自行修改
-3. 命令必须是纯文本字符串，绝对禁止 JSON 数组格式
+1. 需要技能时按两步走：先 `skills_list(category)` 找到合适技能，再 `skill_view(name)` 读取其完整说明
+2. 严格按 skill_view 返回内容里 Execution 部分的命令格式执行
+3. 区分位置参数和 --flag 参数，不得自行修改
+4. 命令必须是纯文本字符串，绝对禁止 JSON 数组格式
 
 ## 输出格式规则（最最重要）
 
@@ -317,10 +378,16 @@ SKILL.md 内容...
 ## RAG 查询命令模板（直接使用）
 {rag_cmd_example}
 
+{skills_overview}
+
+{common_tools_overview}
+
+{tool_disclosure_overview}
+
 ## Skills 隔离规则（重要）🆕
 - **内置 Skills**：所有用户共享，来自 `{self.builtin_skills_dir}`
 - **用户专属 Skills**：仅当前用户可见，来自 `{self.user_skills_dir or '(无)'}`
-- Agent 会自动搜索这两个目录查找可用的 Skill
+- skills_list / skill_view 已自动覆盖这两个目录，无需手动 find
 - ⚠️ 不得访问其他用户的 Skills 目录
 
 ## 用户上下文
@@ -330,8 +397,7 @@ SKILL.md 内容...
         return create_deep_agent(
             model=model,
             backend=FilesystemBackend(root_dir=str(self.settings.PROJECT_ROOT)),
-            skills=[str(self.workspace)],
-            tools=[exec_tool],
+            tools=[exec_tool, *skill_tools, *common_tools, *disclosure_tools],
             checkpointer=MemorySaver(),
             system_prompt=system_prompt,
         )

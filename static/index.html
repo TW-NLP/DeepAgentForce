@@ -116,35 +116,28 @@
         .session-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 11px 12px;
-            border-radius: 14px;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 10px;
             border: 1px solid transparent;
             cursor: pointer;
             color: var(--text-secondary);
             font-size: 13px;
-            transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-            margin-bottom: 6px;
+            transition: background 0.15s ease, color 0.15s ease;
+            margin-bottom: 2px;
             position: relative;
         }
 
         .session-item:hover {
-            background: #f8fafc;
-            border-color: var(--border-color);
+            background: #f5f5f5;
             color: var(--text-primary);
-            transform: translateY(-1px);
         }
 
         .session-item.active {
-            background: rgba(25, 195, 125, 0.08);
-            border-color: rgba(25, 195, 125, 0.16);
+            background: #f0fdf4;
+            border-color: rgba(25, 195, 125, 0.18);
             color: var(--text-primary);
-        }
-
-        .session-item svg {
-            width: 16px;
-            height: 16px;
-            flex-shrink: 0;
+            font-weight: 500;
         }
 
         .session-title {
@@ -152,6 +145,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            font-size: 13px;
         }
 
         .session-delete {
@@ -161,16 +155,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 4px;
-            transition: opacity 0.2s;
+            border-radius: 5px;
+            transition: opacity 0.15s, background 0.15s;
+            flex-shrink: 0;
+            color: var(--text-tertiary);
         }
 
-        .session-item:hover .session-delete {
-            opacity: 1;
-        }
+        .session-item:hover .session-delete { opacity: 1; }
 
         .session-delete:hover {
-            background: rgba(239, 68, 68, 0.12);
+            background: rgba(239, 68, 68, 0.1);
             color: #ef4444;
         }
 
@@ -209,6 +203,15 @@
             padding: 20px 12px;
             color: var(--text-tertiary);
             font-size: 12px;
+        }
+
+        .session-group-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-tertiary);
+            padding: 12px 12px 5px;
         }
 
         .nav-section-title {
@@ -479,14 +482,24 @@
         .messages-container {
             flex: 1;
             overflow-y: auto;
-            padding: 28px 20px 18px;
-            background: linear-gradient(180deg, rgba(248, 250, 252, 0.55), rgba(255, 255, 255, 0));
+            padding: 24px 24px 12px;
+            background: #ffffff;
+            scrollbar-width: thin;
+            scrollbar-color: #e5e7eb transparent;
         }
 
+        .messages-container::-webkit-scrollbar { width: 5px; }
+        .messages-container::-webkit-scrollbar-track { background: transparent; }
+        .messages-container::-webkit-scrollbar-thumb {
+            background: #e5e7eb;
+            border-radius: 3px;
+        }
+        .messages-container::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+
         #messagesWrapper {
-            max-width: 900px;
+            max-width: 740px;
             margin: 0 auto;
-            padding-bottom: 24px;
+            padding-bottom: 32px;
         }
 
         /* 欢迎屏幕 */
@@ -495,248 +508,265 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 88px 20px 56px;
+            padding: 72px 24px 48px;
             text-align: center;
-            min-height: calc(100vh - 240px);
+            min-height: calc(100vh - 200px);
         }
 
         .welcome-text {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 600;
             color: var(--text-primary);
-            line-height: 1.55;
-            margin: 0;
-            max-width: 760px;
-            white-space: normal;
-            letter-spacing: -0.02em;
+            line-height: 1.5;
+            margin: 0 0 12px;
+            max-width: 600px;
+            letter-spacing: -0.025em;
         }
 
         .welcome-text br {
             display: block;
             content: "";
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .welcome-subtitle {
             font-size: 15px;
             color: var(--text-secondary);
             margin-bottom: 32px;
-            max-width: 500px;
+            max-width: 440px;
+            line-height: 1.6;
         }
 
-        /* 消息样式 */
+        /* ============ 消息样式 — Claude 风格 ============ */
         .message {
             display: flex;
-            gap: 14px;
-            padding: 14px 0;
-            animation: fadeIn 0.3s ease;
+            gap: 12px;
+            padding: 6px 0;
+            animation: fadeIn 0.22s ease;
             align-items: flex-start;
+            position: relative;
         }
 
+        .message:hover .message-hover-actions { opacity: 1; }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Avatar — 只有 assistant 显示 */
         .message-avatar {
-            width: 34px;
-            height: 34px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            margin-top: 4px;
         }
 
         .message-assistant .message-avatar {
-            background:
-                radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.24), transparent 38%),
-                linear-gradient(135deg, var(--accent-green), var(--accent-blue));
-            border-color: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 10px 24px rgba(25, 195, 125, 0.14);
+            background: linear-gradient(135deg, var(--accent-green) 0%, #06b6d4 100%);
+            box-shadow: 0 2px 8px rgba(25, 195, 125, 0.22);
         }
 
-        .message-avatar svg {
+        .message-assistant .message-avatar svg {
             width: 16px;
             height: 16px;
-            color: var(--text-primary);
+            color: #fff;
+            fill: #fff;
         }
+
+        /* 用户消息不显示 avatar */
+        .message-user .message-avatar { display: none; }
 
         .message-content {
-            flex: 1;
             min-width: 0;
-            max-width: 100%;
         }
 
-        .message-text {
-            font-size: 15px;
-            line-height: 1.75;
-            color: var(--text-primary);
-            letter-spacing: 0.01em;
-        }
-
+        /* ——— 用户消息：右对齐气泡 ——— */
         .message-user {
             flex-direction: row-reverse;
+            justify-content: flex-start;
         }
 
         .message-user .message-content {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-        }
-
-        .message-user .message-text,
-        .message-assistant .message-text {
-            display: inline-block;
-            max-width: 100%;
-            padding: 14px 16px;
-            border-radius: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
-        }
-
-        .message-assistant .message-text {
-            background: rgba(255, 255, 255, 0.035);
+            max-width: 72%;
         }
 
         .message-user .message-text {
-            background: rgba(255, 255, 255, 0.035);
-            border-color: rgba(255, 255, 255, 0.08);
+            background: #f0f0f0;
+            color: #0f172a;
+            border-radius: 20px 20px 5px 20px;
+            padding: 11px 16px;
+            font-size: 15px;
+            line-height: 1.65;
+            word-break: break-word;
+            white-space: pre-wrap;
+            display: inline-block;
+            max-width: 100%;
+            text-align: left;
         }
 
-        .message-user .message-text,
-        .message-user .message-text p,
-        .message-user .message-text li {
+        /* ——— 助手消息：全宽，无气泡 ——— */
+        .message-assistant .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-assistant .message-text {
+            font-size: 15px;
+            line-height: 1.78;
             color: var(--text-primary);
-        }
-
-        .message-user .message-actions {
-            justify-content: flex-end;
-        }
-
-        .message-user .message-avatar {
-            background:
-                radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.18), transparent 40%),
-                linear-gradient(135deg, rgba(59, 130, 246, 0.55), rgba(139, 92, 246, 0.45));
-        }
-
-        .message-text p { margin-bottom: 12px; }
-        .message-text p:last-child { margin-bottom: 0; }
-        .message-text pre {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 16px;
-            overflow-x: auto;
-            margin: 12px 0;
-        }
-        .message-text code {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-        }
-        .message-text pre code {
             background: none;
             padding: 0;
+            display: block;
+            word-break: break-word;
         }
+
+        /* Markdown 排版 */
+        .message-text p { margin-bottom: 14px; }
+        .message-text p:last-child { margin-bottom: 0; }
+        .message-text h1, .message-text h2, .message-text h3 {
+            font-weight: 600; margin: 20px 0 10px; line-height: 1.4;
+        }
+        .message-text h1 { font-size: 1.35em; }
+        .message-text h2 { font-size: 1.18em; }
+        .message-text h3 { font-size: 1.05em; }
+        .message-text blockquote {
+            border-left: 3px solid #d1d5db;
+            padding-left: 14px;
+            color: var(--text-secondary);
+            margin: 14px 0;
+        }
+        .message-text pre {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 16px;
+            overflow-x: auto;
+            margin: 14px 0;
+        }
+        .message-text code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+        }
+        .message-text pre code { background: none; padding: 0; }
         .message-text :not(pre) > code {
-            background: rgba(255, 255, 255, 0.06);
+            background: #f1f5f9;
+            color: #c7254e;
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 13px;
         }
-        .message-text ul, .message-text ol {
-            margin: 12px 0;
-            padding-left: 24px;
-        }
+        .message-text ul, .message-text ol { margin: 12px 0; padding-left: 24px; }
         .message-text li { margin-bottom: 6px; }
+        .message-text table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+        .message-text th, .message-text td {
+            border: 1px solid #e5e7eb;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .message-text th { background: #f8fafc; font-weight: 600; }
 
-        .message-actions {
+        /* ——— 悬停操作图标 ——— */
+        .message-hover-actions {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 14px;
+            gap: 2px;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            margin-top: 6px;
+            align-items: center;
         }
 
-        .message-action-btn {
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.03);
-            color: var(--text-secondary);
-            border-radius: 999px;
-            padding: 6px 12px;
-            font-size: 12px;
+        .message-user .message-hover-actions { justify-content: flex-end; }
+
+        .msg-action-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            color: var(--text-tertiary);
             cursor: pointer;
-            transition: all 0.18s ease;
+            transition: all 0.15s ease;
         }
 
-        .message-action-btn:hover {
-            border-color: rgba(25, 195, 125, 0.36);
-            color: var(--text-primary);
-            background: rgba(25, 195, 125, 0.10);
+        .msg-action-icon:hover {
+            background: #f1f5f9;
+            color: var(--text-secondary);
         }
 
-        .message-action-btn.primary {
-            border-color: rgba(59, 130, 246, 0.28);
-        }
+        .msg-action-icon.copied { color: var(--accent-green); }
 
-        .message-action-btn.primary:hover {
-            border-color: rgba(59, 130, 246, 0.55);
-            background: rgba(59, 130, 246, 0.12);
-        }
+        .msg-action-icon svg { width: 14px; height: 14px; }
 
+        /* ——— 内联编辑器 ——— */
         .inline-editor {
-            margin-top: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 18px;
-            padding: 12px;
+            margin-top: 8px;
+            width: 100%;
+            max-width: 560px;
         }
 
         .inline-edit-textarea {
             width: 100%;
-            min-height: 96px;
-            max-height: 240px;
-            resize: vertical;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.02);
+            min-height: 80px;
+            max-height: 220px;
+            resize: none;
+            border: 1.5px solid #d1d5db;
+            background: #ffffff;
             color: var(--text-primary);
-            border-radius: 14px;
-            padding: 10px 12px;
+            border-radius: 12px;
+            padding: 11px 14px;
             font: inherit;
+            font-size: 15px;
             line-height: 1.6;
             outline: none;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
 
         .inline-edit-textarea:focus {
-            border-color: rgba(59, 130, 246, 0.45);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
         .inline-edit-actions {
             display: flex;
             gap: 8px;
-            margin-top: 10px;
+            margin-top: 8px;
             justify-content: flex-end;
         }
 
         .inline-edit-actions button {
             border: none;
-            border-radius: 999px;
-            padding: 7px 12px;
-            font-size: 12px;
+            border-radius: 8px;
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
+            transition: all 0.15s ease;
         }
 
         .inline-edit-actions .save-btn {
-            background: var(--accent-blue);
+            background: #0f172a;
             color: #fff;
         }
 
+        .inline-edit-actions .save-btn:hover { background: #1e293b; }
+
         .inline-edit-actions .cancel-btn {
-            background: rgba(148, 163, 184, 0.12);
+            background: #f1f5f9;
             color: var(--text-secondary);
         }
+
+        .inline-edit-actions .cancel-btn:hover { background: #e2e8f0; }
 
         .message-debug {
             margin-top: 12px;
@@ -842,33 +872,28 @@
 
         /* 输入区域 */
         .input-container {
-            padding: 18px 20px 22px;
-            background:
-                linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.8) 18%, #ffffff 100%);
-            border-top: 1px solid var(--border-color);
-            backdrop-filter: blur(18px);
+            padding: 12px 24px 20px;
+            background: #ffffff;
+            border-top: 1px solid #f0f0f0;
             position: sticky;
             bottom: 0;
             z-index: 10;
         }
 
         .input-wrapper {
-            max-width: 900px;
+            max-width: 740px;
             margin: 0 auto;
             background: #ffffff;
-            border: 1px solid var(--border-color);
-            border-radius: 28px;
-            padding: 12px 12px 10px;
-            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
-            backdrop-filter: blur(16px);
+            border: 1.5px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 10px 12px 8px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
 
         .input-wrapper:focus-within {
-            border-color: rgba(25, 195, 125, 0.28);
-            box-shadow:
-                0 18px 48px rgba(15, 23, 42, 0.08),
-                0 0 0 1px rgba(25, 195, 125, 0.08),
-                0 0 0 6px rgba(25, 195, 125, 0.06);
+            border-color: #d1d5db;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.09), 0 0 0 3px rgba(25, 195, 125, 0.07);
         }
 
         .input-box {
@@ -972,46 +997,144 @@
             height: 18px;
         }
 
-        /* 附件显示 */
+        /* ——— 输入框附件区 ——— */
         .file-attachments {
             display: none;
             flex-wrap: wrap;
-            gap: 8px;
-            padding: 0 4px 12px;
+            gap: 6px;
+            padding: 4px 4px 10px;
         }
 
-        .file-attachments.has-files {
-            display: flex;
-        }
+        .file-attachments.has-files { display: flex; }
 
         .file-attachment {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 7px;
             background: #f8fafc;
-            border: 1px solid var(--border-color);
-            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
             padding: 6px 10px;
-            font-size: 12px;
+            font-size: 12.5px;
+            max-width: 220px;
+            position: relative;
         }
 
-        .file-name {
-            color: var(--text-secondary);
-            max-width: 150px;
+        .file-attachment-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: #e0e7ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .file-attachment-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .file-attachment-name {
+            color: var(--text-primary);
+            font-weight: 500;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            max-width: 120px;
+            font-size: 12px;
+        }
+
+        .file-attachment-size {
+            color: var(--text-tertiary);
+            font-size: 10.5px;
         }
 
         .file-remove {
             cursor: pointer;
             color: var(--text-tertiary);
-            font-size: 14px;
+            font-size: 13px;
+            line-height: 1;
+            padding: 2px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            transition: color 0.15s, background 0.15s;
         }
 
         .file-remove:hover {
-            color: var(--accent-red);
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
         }
+
+        /* ——— 消息内文件卡片 ——— */
+        .msg-file-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .msg-file-card {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 12.5px;
+            max-width: 240px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            text-decoration: none;
+        }
+
+        .msg-file-card:hover {
+            background: #f1f5f9;
+            border-color: #d1d5db;
+        }
+
+        .msg-file-card-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            background: #e0e7ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .msg-file-card-info { flex: 1; min-width: 0; }
+
+        .msg-file-card-name {
+            color: #0f172a;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 12px;
+            display: block;
+        }
+
+        .msg-file-card-size {
+            color: var(--text-tertiary);
+            font-size: 10.5px;
+            display: block;
+        }
+
+        .msg-file-card-dl {
+            color: var(--text-tertiary);
+            flex-shrink: 0;
+        }
+
+        .msg-file-card-dl svg { width: 13px; height: 13px; }
 
         /* ============ 配置页面 ============ */
         .config-container {
@@ -3213,6 +3336,81 @@
             color: #94a3b8;
         }
 
+        /* 子标签：技能 / 工具 / MCP */
+        .sp-header { margin-bottom: 20px; }
+        .sp-header-actions { display: flex; align-items: center; gap: 10px; }
+        .sp-actions-group { display: inline-flex; align-items: center; gap: 10px; }
+
+        .sp-subtabs {
+            display: flex;
+            gap: 6px;
+            padding: 5px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            width: fit-content;
+        }
+        .sp-subtab {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 20px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .sp-subtab svg { width: 16px; height: 16px; stroke: currentColor; }
+        .sp-subtab:hover { color: #1a1a2e; }
+        .sp-subtab.active {
+            background: #ffffff;
+            color: #1aaf6f;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+        }
+
+        .sp-subpanel { display: none; }
+        .sp-subpanel.active { display: block; animation: spFade 0.2s ease; }
+        @keyframes spFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        /* 工具 / MCP 卡片徽章（沿用 skill-row 卡片骨架） */
+        .sp-badge.tool-builtin { background: #e6f7ed; color: #1aaf6f; }
+        .sp-badge.tool-mcp { background: #eef2ff; color: #6366f1; }
+        .sp-badge.tool-custom { background: #fff4e5; color: #f59e0b; }
+        .sp-badge.mcp-global { background: #f1f5f9; color: #64748b; }
+        .sp-badge.mcp-tenant { background: #e6f7ed; color: #1aaf6f; }
+        .sp-badge.mcp-on { background: #e6f7ed; color: #1aaf6f; }
+        .sp-badge.mcp-off { background: #fde8e8; color: #ef4444; }
+
+        .sp-validate-box {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            font-size: 13px;
+            line-height: 1.7;
+            max-height: 220px;
+            overflow: auto;
+        }
+        .sp-validate-box .ok { color: #1aaf6f; }
+        .sp-validate-box .err { color: #ef4444; }
+        .sp-validate-box .warn { color: #f59e0b; }
+        .sp-validate-box .mono,
+        .skill-row .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+        .sp-code-textarea {
+            width: 100%;
+            min-height: 280px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            tab-size: 4;
+        }
+
         .sp-add-btn {
             display: inline-flex;
             align-items: center;
@@ -3459,6 +3657,7 @@
             margin-bottom: 14px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
@@ -3562,126 +3761,113 @@
         .sp-add-hint { font-size: 13px; color: #94a3b8; }
 
         /* ============ Claude/Gemini 风格思考过程 UI ============ */
+        /* ============ 思考过程 & 流式 — Claude 风格 ============ */
         .thinking-process {
-            margin: 12px 0;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 18px;
+            margin: 8px 0 12px;
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
             overflow: hidden;
-            transition: all 0.3s ease;
+            transition: border-color 0.2s ease;
         }
 
-        .thinking-process:hover {
-            border-color: var(--border-light);
-        }
+        .thinking-process:hover { border-color: #d1d5db; }
 
         .thinking-header {
-            padding: 12px 16px;
+            padding: 10px 14px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             font-size: 13px;
             color: var(--text-secondary);
-            transition: background 0.2s;
+            transition: background 0.15s;
             user-select: none;
         }
 
-        .thinking-header:hover {
-            background: var(--bg-tertiary);
-        }
+        .thinking-header:hover { background: #f3f4f6; }
 
         .thinking-toggle {
-            font-size: 11px;
-            color: var(--accent-green);
-            transition: transform 0.3s ease;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            transition: transform 0.25s ease;
             flex-shrink: 0;
         }
 
-        .thinking-header.collapsed .thinking-toggle {
-            transform: rotate(-90deg);
-        }
+        .thinking-header.collapsed .thinking-toggle { transform: rotate(-90deg); }
 
         .thinking-title {
             font-weight: 500;
             color: var(--text-secondary);
+            font-size: 12px;
+            letter-spacing: 0.01em;
         }
 
-        .thinking-header.collapsed .thinking-title {
-            color: var(--text-tertiary);
-        }
+        .thinking-header.collapsed .thinking-title { color: var(--text-tertiary); }
 
         .thinking-badge {
             margin-left: auto;
-            background: var(--bg-tertiary);
-            padding: 2px 8px;
-            border-radius: 10px;
+            background: #f1f5f9;
+            padding: 2px 7px;
+            border-radius: 8px;
             font-size: 11px;
             color: var(--text-tertiary);
         }
 
         .thinking-content {
-            padding: 0 16px 12px;
-            border-top: 1px solid var(--border-color);
+            padding: 0 14px 10px;
+            border-top: 1px solid #e5e7eb;
         }
 
-        .thinking-content.collapsed {
-            display: none;
-        }
+        .thinking-content.collapsed { display: none; }
 
         .thinking-step {
             display: flex;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border-color);
-            animation: slideInStep 0.3s ease;
+            gap: 10px;
+            padding: 9px 0;
+            border-bottom: 1px solid #f1f5f9;
+            animation: slideInStep 0.25s ease;
         }
 
         @keyframes slideInStep {
-            from { opacity: 0; transform: translateY(-8px); }
+            from { opacity: 0; transform: translateY(-5px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .thinking-step:last-child {
-            border-bottom: none;
-        }
+        .thinking-step:last-child { border-bottom: none; }
 
-        .thinking-step.is-new {
-            animation: highlightStep 1.5s ease;
-        }
+        .thinking-step.is-new { animation: highlightStep 1.2s ease; }
 
         @keyframes highlightStep {
-            0% { background: rgba(25, 195, 125, 0.15); }
+            0% { background: rgba(25, 195, 125, 0.08); }
             100% { background: transparent; }
         }
 
         .step-icon {
-            font-size: 16px;
+            font-size: 14px;
             flex-shrink: 0;
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-tertiary);
+            background: #f1f5f9;
             border-radius: 50%;
+            margin-top: 1px;
         }
 
-        .step-body {
-            flex: 1;
-            min-width: 0;
-        }
+        .step-body { flex: 1; min-width: 0; }
 
         .step-title {
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 500;
             color: var(--text-primary);
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             line-height: 1.4;
         }
 
         .step-desc {
-            font-size: 12px;
+            font-size: 11.5px;
             color: var(--text-tertiary);
             line-height: 1.5;
             word-break: break-all;
@@ -3690,16 +3876,31 @@
         .step-time {
             font-size: 10px;
             color: var(--text-tertiary);
-            margin-top: 4px;
+            margin-top: 3px;
         }
 
-        /* 流式消息结构 */
+        /* ——— 流式消息结构 ——— */
         .message-streaming {
             display: flex;
-            gap: 14px;
-            padding: 14px 0;
-            animation: fadeIn 0.3s ease;
+            gap: 12px;
+            padding: 6px 0;
+            animation: fadeIn 0.22s ease;
         }
+
+        .message-streaming .message-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 4px;
+            background: linear-gradient(135deg, var(--accent-green) 0%, #06b6d4 100%);
+            box-shadow: 0 2px 8px rgba(25, 195, 125, 0.22);
+        }
+
+        .message-streaming .message-avatar svg { width: 16px; height: 16px; color: #fff; fill: #fff; }
 
         .message-streaming .message-content {
             flex: 1;
@@ -3712,91 +3913,87 @@
             gap: 0;
         }
 
+        /* 轻量状态指示器 */
         .streaming-status {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             width: fit-content;
-            padding: 6px 10px;
-            margin-bottom: 10px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-secondary);
-            transition: opacity 0.25s ease, transform 0.25s ease;
+            padding: 4px 0;
+            margin-bottom: 8px;
+            color: var(--text-tertiary);
+            transition: opacity 0.2s ease;
+            font-size: 12.5px;
         }
 
         .streaming-status.is-hidden {
             opacity: 0;
-            transform: translateY(-4px);
             pointer-events: none;
         }
 
-        .streaming-status.is-complete {
-            color: var(--accent-green);
-            background: rgba(25, 195, 125, 0.12);
-        }
+        .streaming-status.is-complete { color: var(--accent-green); }
 
-        .streaming-status .typing-indicator {
-            padding: 0;
-        }
+        .streaming-status .typing-indicator { padding: 0; }
 
         .streaming-status .typing-indicator span {
-            width: 6px;
-            height: 6px;
+            width: 5px;
+            height: 5px;
             background: currentColor;
         }
 
-        .streaming-status-text {
-            font-size: 12px;
-            line-height: 1;
-        }
+        .streaming-status-text { line-height: 1; }
 
-        /* 思考过程区域（内置在消息内） */
-        .streaming-thinking {
-            margin-bottom: 8px;
-        }
+        .streaming-thinking { margin-bottom: 6px; }
 
         .streaming-final {
             font-size: 15px;
-            line-height: 1.75;
+            line-height: 1.78;
             color: var(--text-primary);
             word-break: break-word;
         }
 
-        .streaming-final.is-hidden {
-            display: none;
-        }
+        .streaming-final.is-hidden { display: none; }
 
         .streaming-final.is-pending {
-            min-height: 24px;
-            opacity: 0.92;
+            min-height: 22px;
+            opacity: 0.85;
         }
 
-        .streaming-final p { margin-bottom: 12px; }
+        .streaming-final p { margin-bottom: 14px; }
         .streaming-final p:last-child { margin-bottom: 0; }
         .streaming-final pre {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 16px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 16px;
             overflow-x: auto;
-            margin: 12px 0;
+            margin: 14px 0;
         }
         .streaming-final code { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
         .streaming-final pre code { background: none; padding: 0; }
         .streaming-final :not(pre) > code {
-            background: var(--bg-tertiary);
+            background: #f1f5f9;
+            color: #c7254e;
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 13px;
         }
         .streaming-final ul, .streaming-final ol { margin: 12px 0; padding-left: 24px; }
         .streaming-final li { margin-bottom: 6px; }
+        .streaming-final h1, .streaming-final h2, .streaming-final h3 {
+            font-weight: 600; margin: 18px 0 8px; line-height: 1.4;
+        }
 
+        /* 流式光标 */
         .streaming-cursor {
             display: inline-block;
-            animation: blink 1s step-end infinite;
-            color: var(--accent-green);
+            width: 2px;
+            height: 1em;
+            background: var(--accent-green);
+            border-radius: 1px;
+            margin-left: 1px;
+            vertical-align: text-bottom;
+            animation: cursorBlink 0.9s ease-in-out infinite;
         }
 
         .message-final .streaming-cursor,
@@ -3805,22 +4002,30 @@
             animation: none !important;
         }
 
-        @keyframes blink {
+        @keyframes cursorBlink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0; }
         }
 
-        /* 流式完成后的消息样式 */
+        /* 流式完成后 — 与 message-assistant 保持一致 */
         .message-final {
             display: flex;
-            gap: 14px;
-            padding: 14px 0;
-            animation: fadeIn 0.3s ease;
+            gap: 12px;
+            padding: 6px 0;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+        .message-final:hover .message-hover-actions { opacity: 1; }
+
+        .message-final .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-final .streaming-final {
+            font-size: 15px;
+            line-height: 1.78;
+            color: var(--text-primary);
+            word-break: break-word;
         }
 
         /* 步骤进度动画 */
@@ -6715,7 +6920,7 @@
             <div class="nav-section-title">管理工具</div>
                 <div class="nav-item" data-page="skills">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                    <span>Skill 管理</span>
+                    <span>技能管理</span>
                 </div>
                 <div class="nav-item" data-page="config">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -6991,19 +7196,58 @@
                                 </div>
                                 <div>
                                     <h1 class="sp-title">技能管理</h1>
-                                    <p class="sp-subtitle">管理智能体的技能插件，扩展系统能力</p>
+                                    <p class="sp-subtitle" id="spSubtitle">管理智能体的技能插件，扩展系统能力</p>
                                 </div>
                             </div>
                             <div class="sp-header-actions">
-                                <button class="sp-ghost-btn" id="refreshSkillsBtn" type="button">
-                                    刷新
-                                </button>
-                                <button class="sp-add-btn" id="addSkillBtn" type="button">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                                    添加技能
-                                </button>
+                                <span class="sp-actions-group" data-actions="skills">
+                                    <button class="sp-ghost-btn" id="refreshSkillsBtn" type="button">
+                                        刷新
+                                    </button>
+                                    <button class="sp-add-btn" id="addSkillBtn" type="button">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        添加技能
+                                    </button>
+                                </span>
+                                <span class="sp-actions-group" data-actions="tools" style="display:none;">
+                                    <button class="sp-ghost-btn" onclick="loadCustomTools()" type="button">
+                                        刷新
+                                    </button>
+                                    <button class="sp-add-btn" onclick="openToolModal()" type="button">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        添加工具
+                                    </button>
+                                </span>
+                                <span class="sp-actions-group" data-actions="mcp" style="display:none;">
+                                    <button class="sp-ghost-btn" onclick="loadMcpServers()" type="button">
+                                        刷新
+                                    </button>
+                                    <button class="sp-add-btn" onclick="openMcpModal()" type="button">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        添加 MCP Server
+                                    </button>
+                                </span>
                             </div>
                         </div>
+
+                        <!-- 子标签：技能 / 工具 / MCP -->
+                        <div class="sp-subtabs" id="spSubtabs">
+                            <button class="sp-subtab active" data-subtab="skills" type="button">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                技能
+                            </button>
+                            <button class="sp-subtab" data-subtab="tools" type="button">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                工具
+                            </button>
+                            <button class="sp-subtab" data-subtab="mcp" type="button">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                MCP
+                            </button>
+                        </div>
+
+                        <!-- ===== 子面板：技能 ===== -->
+                        <div class="sp-subpanel active" data-subpanel="skills">
 
                         <!-- Stats -->
                         <div class="sp-stats">
@@ -7140,6 +7384,88 @@
                                 </div>
                             </aside>
                         </div>
+                        </div><!-- /子面板：技能 -->
+
+                        <!-- ===== 子面板：工具 ===== -->
+                        <div class="sp-subpanel" data-subpanel="tools">
+                            <div class="sp-stats">
+                                <div class="sp-stat green">
+                                    <div class="sp-stat-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="sp-stat-label">内置工具</div>
+                                        <div class="sp-stat-value" id="statBuiltinTools">0</div>
+                                    </div>
+                                </div>
+                                <div class="sp-stat blue">
+                                    <div class="sp-stat-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="sp-stat-label">MCP 工具</div>
+                                        <div class="sp-stat-value" id="statMcpTools">0</div>
+                                    </div>
+                                </div>
+                                <div class="sp-stat purple">
+                                    <div class="sp-stat-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="sp-stat-label">自定义工具</div>
+                                        <div class="sp-stat-value" id="statCustomTools">0</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="sp-section">
+                                <div class="sp-section-header">
+                                    <div class="sp-section-title">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>
+                                        自定义工具
+                                        <span class="sp-count" id="customToolsCount">0</span>
+                                    </div>
+                                    <div class="sp-section-hint">上传 Python 文件，函数自动注册为工具（在受限子进程沙箱中执行）</div>
+                                </div>
+                                <div class="skills-list" id="customToolsGrid"></div>
+                                <div class="sp-empty-state" id="customToolsEmpty" style="display:none;">
+                                    <div class="sp-empty-icon">🧰</div>
+                                    <div class="sp-empty-title">暂无自定义工具</div>
+                                    <div class="sp-empty-text">点击右上角「添加工具」上传一个 Python 文件。</div>
+                                </div>
+                            </div>
+
+                            <div class="sp-section">
+                                <div class="sp-section-header">
+                                    <div class="sp-section-title">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                        内置 &amp; MCP 工具
+                                        <span class="sp-section-hint" style="margin-left:8px;">只读</span>
+                                    </div>
+                                </div>
+                                <div class="skills-list" id="readonlyToolsGrid"></div>
+                            </div>
+                        </div><!-- /子面板：工具 -->
+
+                        <!-- ===== 子面板：MCP ===== -->
+                        <div class="sp-subpanel" data-subpanel="mcp">
+                            <div class="sp-section">
+                                <div class="sp-section-header">
+                                    <div class="sp-section-title">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                        MCP Server
+                                        <span class="sp-count" id="mcpServersCount">0</span>
+                                    </div>
+                                    <div class="sp-section-hint">全局配置只读；你添加的可启停/编辑/删除</div>
+                                </div>
+                                <div class="skills-list" id="mcpServersGrid"></div>
+                                <div class="sp-empty-state" id="mcpServersEmpty" style="display:none;">
+                                    <div class="sp-empty-icon">🔌</div>
+                                    <div class="sp-empty-title">还没有 MCP Server</div>
+                                    <div class="sp-empty-text">点击右上角「添加 MCP Server」，填写本地命令或远程 URL。</div>
+                                </div>
+                            </div>
+                        </div><!-- /子面板：MCP -->
                     </div>
                 </div>
             </div>
@@ -7215,7 +7541,7 @@
 
                         <div class="config-section">
                             <div class="config-section-title">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 3c-1.1 2.8-2.7 4.4-5.5 5.5C9.3 9.6 10.9 11.2 12 14c1.1-2.8 2.7-4.4 5.5-5.5C14.7 7.4 13.1 5.8 12 3z"/><path d="M5 16c-.7 1.7-1.6 2.6-3.2 3.2C3.4 19.9 4.3 20.8 5 22.5c.7-1.7 1.6-2.6 3.2-3.2C6.6 18.6 5.7 17.7 5 16z" opacity=".7"/></svg>
                                 LLM 配置
                                 </div>
                             <div class="form-group">
@@ -7393,6 +7719,7 @@
     <script src="/static/config.js"></script>
     <script src="/static/knowledge.js"></script>
     <script src="/static/skills.js"></script>
+    <script src="/static/skills_tabs.js"></script>
     <script>
     // ============ 全局状态 ============
     let ws = null;
@@ -7701,7 +8028,7 @@
     const pageTitles = {
         chat: '智能对话',
         knowledge: '知识库管理',
-        skills: 'Skill 管理',
+        skills: '技能管理',
         config: '模型配置',
         proofread: '文本校对'
     };
@@ -9269,27 +9596,36 @@
 
     function attachQuestionActions(messageEl, userMessageEl) {
         if (!messageEl || !userMessageEl) return;
-        const contentEl = messageEl.querySelector('.message-content');
-        if (!contentEl || contentEl.querySelector('.message-actions')) return;
+        const hoverEl = messageEl.querySelector('.message-hover-actions');
+        if (!hoverEl || hoverEl.querySelector('[data-action="regen"]')) return;
 
         messageEl.__linkedUserEl = userMessageEl;
         userMessageEl.__linkedAssistantEl = messageEl;
 
-        const actions = document.createElement('div');
-        actions.className = 'message-actions';
-        actions.innerHTML = `
-            <button type="button" class="message-action-btn" data-action="edit">编辑问题</button>
-            <button type="button" class="message-action-btn primary" data-action="regen">重新生成</button>
-        `;
+        // 为助手消息的悬停区追加：重新生成 + 编辑问题（图标）
+        hoverEl.insertAdjacentHTML('beforeend', `
+            <button type="button" class="msg-action-icon" data-action="regen" title="重新生成">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.7"/></svg>
+            </button>
+        `);
 
-        actions.querySelector('[data-action="edit"]')?.addEventListener('click', () => {
-            startInlineEdit(userMessageEl);
-        });
-        actions.querySelector('[data-action="regen"]')?.addEventListener('click', () => {
+        hoverEl.querySelector('[data-action="regen"]')?.addEventListener('click', () => {
             regenerateQuestion(userMessageEl, messageEl);
         });
 
-        contentEl.appendChild(actions);
+        // 同步更新用户消息悬停区的编辑按钮（已在 addMessage 绑定，此处确保链接正确）
+        const userHoverEl = userMessageEl.querySelector('.message-hover-actions');
+        if (userHoverEl && !userHoverEl.querySelector('[data-action="edit"]')) {
+            userHoverEl.innerHTML = `
+                <button class="msg-action-icon" title="编辑消息" data-action="edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+            `;
+            userHoverEl.querySelector('[data-action="edit"]').addEventListener('click', () => {
+                startInlineEdit(userMessageEl);
+            });
+        }
+
     }
 
     function addMessage(role, content, options = {}) {
@@ -9298,19 +9634,53 @@
         const div = document.createElement('div');
         div.className = `message message-${role}`;
 
+        const avatarHtml = role === 'assistant'
+            ? `<div class="message-avatar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 3c-1.1 2.8-2.7 4.4-5.5 5.5C9.3 9.6 10.9 11.2 12 14c1.1-2.8 2.7-4.4 5.5-5.5C14.7 7.4 13.1 5.8 12 3z"/><path d="M5 16c-.7 1.7-1.6 2.6-3.2 3.2C3.4 19.9 4.3 20.8 5 22.5c.7-1.7 1.6-2.6 3.2-3.2C6.6 18.6 5.7 17.7 5 16z" opacity=".7"/></svg>
+               </div>`
+            : `<div class="message-avatar"></div>`;
+
         div.innerHTML = `
-            <div class="message-avatar">
-                ${role === 'user' 
-                    ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-                    : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>'
-                }
-            </div>
+            ${avatarHtml}
             <div class="message-content">
                 <div class="message-text"></div>
+                <div class="message-hover-actions"></div>
             </div>
         `;
         setMessageText(div, content, role);
-        
+
+        // 用户消息：悬停显示编辑图标
+        if (role === 'user') {
+            const hoverActions = div.querySelector('.message-hover-actions');
+            hoverActions.innerHTML = `
+                <button class="msg-action-icon" title="编辑消息" data-action="edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+            `;
+            hoverActions.querySelector('[data-action="edit"]').addEventListener('click', () => {
+                startInlineEdit(div);
+            });
+        }
+
+        // 助手消息：悬停显示复制图标
+        if (role === 'assistant') {
+            const hoverActions = div.querySelector('.message-hover-actions');
+            hoverActions.innerHTML = `
+                <button class="msg-action-icon" title="复制内容" data-action="copy">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+            `;
+            hoverActions.querySelector('[data-action="copy"]').addEventListener('click', (e) => {
+                const btn = e.currentTarget;
+                const text = div.querySelector('.message-text')?.innerText || '';
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.classList.add('copied');
+                    btn.title = '已复制';
+                    setTimeout(() => { btn.classList.remove('copied'); btn.title = '复制内容'; }, 1800);
+                });
+            });
+        }
+
         messagesWrapper.appendChild(div);
         if (role === 'user') {
             div.__messageRole = 'user';
@@ -9339,13 +9709,14 @@
             currentStreamingAnswer.__linkedUserEl = lastUserMessageEl || null;
             currentStreamingAnswer.innerHTML = `
                 <div class="message-avatar">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 3c-1.1 2.8-2.7 4.4-5.5 5.5C9.3 9.6 10.9 11.2 12 14c1.1-2.8 2.7-4.4 5.5-5.5C14.7 7.4 13.1 5.8 12 3z"/><path d="M5 16c-.7 1.7-1.6 2.6-3.2 3.2C3.4 19.9 4.3 20.8 5 22.5c.7-1.7 1.6-2.6 3.2-3.2C6.6 18.6 5.7 17.7 5 16z" opacity=".7"/></svg>
                 </div>
                 <div class="message-content">
                     <div class="streaming-body">
                         <div class="streaming-thinking"></div>
-                        <div class="streaming-final"><span class="streaming-cursor">▎</span></div>
+                        <div class="streaming-final"><span class="streaming-cursor"></span></div>
                     </div>
+                    <div class="message-hover-actions"></div>
                 </div>
             `;
             messagesWrapper.appendChild(currentStreamingAnswer);
@@ -9365,7 +9736,7 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/\n/g, '<br>');
-        finalEl.innerHTML = escaped + '<span class="streaming-cursor">▎</span>';
+        finalEl.innerHTML = escaped + '<span class="streaming-cursor"></span>';
         scrollToBottom();
     }
 
@@ -9417,6 +9788,26 @@
             const linkedUserEl = findLinkedUserMessageEl(currentStreamingAnswer);
             if (linkedUserEl) {
                 attachQuestionActions(currentStreamingAnswer, linkedUserEl);
+            }
+
+            // 为完成后的助手消息挂载复制按钮
+            const doneHoverEl = currentStreamingAnswer.querySelector('.message-hover-actions');
+            if (doneHoverEl && !doneHoverEl.querySelector('[data-action="copy"]')) {
+                doneHoverEl.insertAdjacentHTML('afterbegin', `
+                    <button class="msg-action-icon" title="复制内容" data-action="copy">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                `);
+                const finMsg = currentStreamingAnswer;
+                doneHoverEl.querySelector('[data-action="copy"]').addEventListener('click', (e) => {
+                    const btn = e.currentTarget;
+                    const text = finMsg.querySelector('.streaming-final')?.innerText || '';
+                    navigator.clipboard.writeText(text).then(() => {
+                        btn.classList.add('copied');
+                        btn.title = '已复制';
+                        setTimeout(() => { btn.classList.remove('copied'); btn.title = '复制内容'; }, 1800);
+                    });
+                });
             }
 
             currentStreamingAnswer = null;
@@ -9492,13 +9883,14 @@
             currentStreamingAnswer.__linkedUserEl = lastUserMessageEl || null;
             currentStreamingAnswer.innerHTML = `
                 <div class="message-avatar">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 3c-1.1 2.8-2.7 4.4-5.5 5.5C9.3 9.6 10.9 11.2 12 14c1.1-2.8 2.7-4.4 5.5-5.5C14.7 7.4 13.1 5.8 12 3z"/><path d="M5 16c-.7 1.7-1.6 2.6-3.2 3.2C3.4 19.9 4.3 20.8 5 22.5c.7-1.7 1.6-2.6 3.2-3.2C6.6 18.6 5.7 17.7 5 16z" opacity=".7"/></svg>
                 </div>
                 <div class="message-content">
                     <div class="streaming-body">
                         <div class="streaming-thinking"></div>
-                        <div class="streaming-final"><span class="streaming-cursor">▎</span></div>
+                        <div class="streaming-final"><span class="streaming-cursor"></span></div>
                     </div>
+                    <div class="message-hover-actions"></div>
                 </div>
             `;
             messagesWrapper.appendChild(currentStreamingAnswer);
@@ -9628,26 +10020,44 @@
             lastUserMessageEl = userMessageEl;
         }
 
+        // ——— 立即清空输入框（不等流完成）———
+        if (!text) {
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+        }
+
         if (attachedFiles.length > 0) {
             // 带附件上传
+            const filesToSend = [...attachedFiles];   // 发送前快照
             const formData = new FormData();
             formData.append('message', message);
             if (currentSessionId) formData.append('session_id', currentSessionId);
             if (isRegeneration) formData.append('replace_last', 'true');
-            attachedFiles.forEach(file => formData.append('files', file));
+            filesToSend.forEach(file => formData.append('files', file));
+
+            // 立即清空附件区
+            attachedFiles = [];
+            renderFileAttachments();
 
             const targetAssistantEl = assistantMessageEl || lastAssistantMessageEl;
             if (isRegeneration && targetAssistantEl) {
                 targetAssistantEl.remove();
-                if (targetAssistantEl === lastAssistantMessageEl) {
-                    lastAssistantMessageEl = null;
-                }
+                if (targetAssistantEl === lastAssistantMessageEl) lastAssistantMessageEl = null;
             }
 
             if (!isRegeneration && !userMessageEl) {
-                addMessage('user', message + `\n\n📎 ${attachedFiles.map(f => f.name).join(', ')}`);
+                // 用文件卡片 + 文字渲染用户消息
+                const msgEl = addMessage('user', message);
+                if (msgEl && filesToSend.length > 0) {
+                    const textEl = msgEl.querySelector('.message-text');
+                    if (textEl) {
+                        const cards = document.createElement('div');
+                        cards.innerHTML = buildFileCardsHtml(filesToSend);
+                        textEl.insertBefore(cards.firstChild, textEl.firstChild);
+                    }
+                }
             } else if (userMessageEl) {
-                updateMessageContent(userMessageEl, message + `\n\n📎 ${attachedFiles.map(f => f.name).join(', ')}`);
+                updateMessageContent(userMessageEl, message);
             }
 
             isProcessing = true;
@@ -9661,7 +10071,6 @@
                 const token = localStorage.getItem('access_token');
                 hideWelcomeScreen();
 
-                // 使用 SSE 流式接口
                 const response = await fetch(`${getApiUrl()}/chat/upload/stream`, {
                     method: 'POST',
                     headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -9670,36 +10079,20 @@
                 });
 
                 await readSseResponse(response, {
-                    start: (data) => {
-                        if (data.session_id) {
-                            currentSessionId = data.session_id;
-                        }
-                    },
-                    step: (data) => {
-                        handleStepUpdate({ data });
-                    },
+                    start: (data) => { if (data.session_id) currentSessionId = data.session_id; },
+                    step: (data) => { handleStepUpdate({ data }); },
                     answer_start: () => {
                         if (!currentStreamingAnswer) {
                             handleStepUpdate({ data: { step: 'summarize', title: '正在生成答案', description: '' } });
                         }
                     },
-                    token: (data) => {
-                        handleTokenUpdate(data.content || '');
-                    },
+                    token: (data) => { handleTokenUpdate(data.content || ''); },
                     done: (data) => {
-                        attachedFiles = [];
-                        renderFileAttachments();
-                        if (data.session_id) {
-                            currentSessionId = data.session_id;
-                        }
+                        if (data.session_id) currentSessionId = data.session_id;
                         handleDone(data.message || '');
                     },
-                    assistant_stopped: (data) => {
-                        handleStopped(data.message || '已停止生成');
-                    },
-                    error: (data) => {
-                        handleError(data.message || data.error || '未知错误');
-                    }
+                    assistant_stopped: (data) => { handleStopped(data.message || '已停止生成'); },
+                    error: (data) => { handleError(data.message || data.error || '未知错误'); }
                 });
             } catch (error) {
                 if (error && error.name === 'AbortError') {
@@ -9720,16 +10113,12 @@
             const payload = { message };
             if (currentSessionId) payload.session_id = currentSessionId;
             if (isRegeneration) payload.replace_last = true;
-            if (!sendWsPayload(payload)) {
-                return;
-            }
+            if (!sendWsPayload(payload)) return;
 
             const targetAssistantEl = assistantMessageEl || lastAssistantMessageEl;
             if (isRegeneration && targetAssistantEl) {
                 targetAssistantEl.remove();
-                if (targetAssistantEl === lastAssistantMessageEl) {
-                    lastAssistantMessageEl = null;
-                }
+                if (targetAssistantEl === lastAssistantMessageEl) lastAssistantMessageEl = null;
                 currentStreamingAnswer = null;
                 currentThinkingSteps = [];
             }
@@ -9740,14 +10129,26 @@
             messageInput.disabled = true;
             updateComposerState();
         }
-
-        if (!text) {
-            messageInput.value = '';
-            messageInput.style.height = 'auto';
-        }
     }
 
     // ============ 文件处理 ============
+    function getFileEmoji(filename) {
+        const ext = (filename.split('.').pop() || '').toLowerCase();
+        const map = { pdf: '📄', doc: '📝', docx: '📝', txt: '📃', md: '📋',
+                      csv: '📊', xlsx: '📊', xls: '📊', ppt: '📊', pptx: '📊',
+                      jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', webp: '🖼️',
+                      mp3: '🎵', wav: '🎵', mp4: '🎬', zip: '🗜️', json: '{}' };
+        return map[ext] || '📎';
+    }
+
+    function formatFileSize(bytes) {
+        if (!bytes) return '–';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
+    }
+
     function renderFileAttachments() {
         if (attachedFiles.length === 0) {
             fileAttachmentsContainer.innerHTML = '';
@@ -9758,9 +10159,12 @@
         fileAttachmentsContainer.classList.add('has-files');
         fileAttachmentsContainer.innerHTML = attachedFiles.map((file, index) => `
             <div class="file-attachment">
-                <span>📎</span>
-                <span class="file-name" title="${file.name}">${file.name}</span>
-                <span class="file-remove" onclick="removeAttachment(${index})">✕</span>
+                <div class="file-attachment-icon">${getFileEmoji(file.name)}</div>
+                <div class="file-attachment-info">
+                    <span class="file-attachment-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+                    <span class="file-attachment-size">${formatFileSize(file.size)}</span>
+                </div>
+                <span class="file-remove" onclick="removeAttachment(${index})" title="移除">✕</span>
             </div>
         `).join('');
     }
@@ -9768,6 +10172,24 @@
     function removeAttachment(index) {
         attachedFiles.splice(index, 1);
         renderFileAttachments();
+    }
+
+    function buildFileCardsHtml(files) {
+        if (!files || !files.length) return '';
+        const cards = files.map(f => {
+            const url = URL.createObjectURL(f);
+            return `<a class="msg-file-card" href="${url}" download="${escapeHtml(f.name)}" title="点击下载 ${escapeHtml(f.name)}">
+                <div class="msg-file-card-icon">${getFileEmoji(f.name)}</div>
+                <div class="msg-file-card-info">
+                    <span class="msg-file-card-name">${escapeHtml(f.name)}</span>
+                    <span class="msg-file-card-size">${formatFileSize(f.size)}</span>
+                </div>
+                <span class="msg-file-card-dl">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </span>
+            </a>`;
+        }).join('');
+        return `<div class="msg-file-cards">${cards}</div>`;
     }
 
     // ============ 会话管理 ============
@@ -9792,14 +10214,12 @@
 
         if (!sessions || sessions.length === 0) {
             if (emptySessions) emptySessions.style.display = 'block';
-            // 保留一个空会话占位
             if (sessionList) sessionList.innerHTML = '<div class="empty-sessions">暂无历史会话</div>';
             return;
         }
 
         if (emptySessions) emptySessions.style.display = 'none';
 
-        // 过滤掉没有有效标题的会话
         const validSessions = sessions.filter(s => s.title && s.title.trim());
 
         if (validSessions.length === 0) {
@@ -9807,24 +10227,44 @@
             return;
         }
 
-        // 按时间倒序排列
         validSessions.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
 
-        sessionList.innerHTML = validSessions.map(session => `
-            <div class="session-item ${session.session_id === currentSessionId ? 'active' : ''}"
-                 onclick="loadSession('${session.session_id}')">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                <span class="session-title">${escapeHtml(session.title)}</span>
-                <div class="session-delete" onclick="event.stopPropagation(); deleteSession('${session.session_id}')">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+        // 按日期分组
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterdayStart = new Date(todayStart - 86400000);
+        const weekStart = new Date(todayStart - 6 * 86400000);
+
+        const groups = { today: [], yesterday: [], week: [], earlier: [] };
+        validSessions.forEach(s => {
+            const d = new Date(s.updated_at || 0);
+            if (d >= todayStart) groups.today.push(s);
+            else if (d >= yesterdayStart) groups.yesterday.push(s);
+            else if (d >= weekStart) groups.week.push(s);
+            else groups.earlier.push(s);
+        });
+
+        const groupLabels = { today: '今天', yesterday: '昨天', week: '过去 7 天', earlier: '更早' };
+        let html = '';
+
+        for (const [key, label] of Object.entries(groupLabels)) {
+            const list = groups[key];
+            if (!list.length) continue;
+            html += `<div class="session-group-label">${label}</div>`;
+            html += list.map(session => `
+                <div class="session-item ${session.session_id === currentSessionId ? 'active' : ''}"
+                     onclick="loadSession('${session.session_id}')">
+                    <span class="session-title">${escapeHtml(session.title)}</span>
+                    <div class="session-delete" onclick="event.stopPropagation(); deleteSession('${session.session_id}')" title="删除">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `).join('');
+        }
+
+        sessionList.innerHTML = html;
     }
 
     function startNewChat() {
@@ -10365,5 +10805,6 @@ Use this skill when the user wants to..."></textarea>
         });
     });
     </script>
+    <script src="/static/js/i18n.js"></script>
 </body>
 </html>

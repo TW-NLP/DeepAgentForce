@@ -1,13 +1,78 @@
+# ============================================================
+# DeepAgentForce — .gitignore
+# NEVER commit API keys, secrets, or user data
+# ============================================================
+
+# ── IDE & OS ─────────────────────────────────────────────────
 /.vscode/
+/.idea/
+*.iml
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# ── Python ───────────────────────────────────────────────────
 *.pyc
-/config/saved_config.json
-/config/saved_history.json
-/uploads/
-/data/
-/tests/
-/output/
+*.pyo
+*.pyd
+__pycache__/
+*.egg-info/
+*.egg
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Environment & Secrets ────────────────────────────────────
+# WARNING: These files may contain API keys. NEVER commit them.
 .env
+.env.*
+!.env.example          # .env.example (no real keys) is OK to commit
+
+# Certificate / key files
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*_rsa
+*_rsa.pub
+*_ed25519
+*_ed25519.pub
+
+# ── App runtime data (contains API keys & user data) ─────────
+# ALL of /data/ is excluded — it holds:
+#   saved_config_<uuid>.json   (API keys per tenant)
+#   mcp_servers_<uuid>.json    (MCP server configs with credentials)
+#   agent_tools_custom/        (user-uploaded Python code)
+#   deepagentforce.db          (SQLite database)
+#   rag_storage/               (vector embeddings)
+#   uploads/, outputs/         (user files)
+/data/
+/uploads/
 /pdfs/
-*.DS_Store
+/output/
+
+# Tenant-specific config that could accidentally land in /config
+/config/saved_config.json
+/config/saved_config_*.json
+/config/saved_history.json
+
+# ── Database files ────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Log files ─────────────────────────────────────────────────
+*.log
+/logs/
+
+# ── Build artifacts ───────────────────────────────────────────
 /build/
 /dist/
+
+# ── Tests (data/fixtures, not unit tests) ────────────────────
+/tests/

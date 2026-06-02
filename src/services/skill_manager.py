@@ -93,16 +93,31 @@ class SkillManager:
             if tenant_skill_path.exists():
                 return tenant_skill_path
 
-        # 2. 查找内置 Skills 目录
-        builtin_path = self.builtin_skills_dir / skill_id
-        if builtin_path.exists():
-            return builtin_path
+        # 2. 查找内置 Skills 目录（支持分类嵌套：builtin/<category>/<skill>/）
+        direct = self.builtin_skills_dir / skill_id
+        if (direct / "SKILL.md").exists():
+            return direct
+        for skill_dir in self._iter_builtin_skill_dirs():
+            if skill_dir.name == skill_id:
+                return skill_dir
 
         return None
 
+    def _iter_builtin_skill_dirs(self):
+        """递归产出内置 skill 目录（含 SKILL.md），跳过用户目录与缓存目录。"""
+        if not self.builtin_skills_dir.exists():
+            return
+        for skill_md in self.builtin_skills_dir.rglob("SKILL.md"):
+            parts = skill_md.parts
+            if '_user_skills' in parts or '__pycache__' in parts:
+                continue
+            yield skill_md.parent
+
     def _is_builtin_skill(self, skill_id: str) -> bool:
-        """判断是否为内置 Skill"""
-        return skill_id in BUILTIN_SKILL_IDS
+        """判断是否为内置 Skill（递归覆盖分类目录下的全部内置技能）"""
+        if skill_id in BUILTIN_SKILL_IDS:
+            return True
+        return any(d.name == skill_id for d in self._iter_builtin_skill_dirs())
 
     def list_skills(self, tenant_uuid: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -120,20 +135,14 @@ class SkillManager:
         """
         skills = []
 
-        # 1. 添加内置 Skills（排除用户目录）
-        if self.builtin_skills_dir.exists():
-            for skill_path in self.builtin_skills_dir.iterdir():
-                if not skill_path.is_dir():
-                    continue
-                # 跳过用户 Skills 目录
-                if skill_path.name == '_user_skills':
-                    continue
-                skill_info = self._parse_skill_info(skill_path)
-                if skill_info:
-                    skill_info['source'] = 'builtin'
-                    skill_info['owner_id'] = None  # 内置 Skill 无所有者
-                    skill_info['is_deletable'] = False
-                    skills.append(skill_info)
+        # 1. 添加内置 Skills（递归扫描分类目录）
+        for skill_path in self._iter_builtin_skill_dirs():
+            skill_info = self._parse_skill_info(skill_path)
+            if skill_info:
+                skill_info['source'] = 'builtin'
+                skill_info['owner_id'] = None  # 内置 Skill 无所有者
+                skill_info['is_deletable'] = False
+                skills.append(skill_info)
 
         # 2. 添加指定租户的 Skills
         if tenant_uuid is not None:
@@ -210,6 +219,18 @@ class SkillManager:
                 body_lines = [line.strip() for line in content.splitlines() if line.strip() and not line.startswith('---')]
                 summary = body_lines[0][:120] if body_lines else ''
 
+            # 归属判断：skill 是否位于内置目录树下（支持分类嵌套）
+            is_builtin_path = (
+                skill_path == self.builtin_skills_dir
+                or self.builtin_skills_dir in skill_path.parents
+            )
+            # 分类：内置目录下 builtin/<category>/<skill>/ 的首段
+            category = None
+            if is_builtin_path:
+                rel_parts = skill_path.relative_to(self.builtin_skills_dir).parts
+                if len(rel_parts) >= 2:
+                    category = rel_parts[0]
+
             return {
                 'id': skill_path.name,
                 'name': metadata.get('name', skill_path.name),
@@ -217,6 +238,7 @@ class SkillManager:
                 'version': metadata.get('version', '1.0.0'),
                 'author': metadata.get('author', 'Unknown'),
                 'tags': metadata.get('tags', []),
+                'category': category,
                 'path': str(skill_path),
                 'scripts': scripts,
                 'script_count': len(scripts),
@@ -224,8 +246,8 @@ class SkillManager:
                 'size_bytes': size_bytes,
                 'file_count': file_count,
                 'summary': summary,
-                'is_builtin': skill_path.parent == self.builtin_skills_dir or skill_path.name in BUILTIN_SKILL_IDS,
-                'is_custom': skill_path.parent != self.builtin_skills_dir and skill_path.name not in BUILTIN_SKILL_IDS,
+                'is_builtin': is_builtin_path,
+                'is_custom': not is_builtin_path,
                 'created_at': created_at,
                 'modified_at': modified_at
             }

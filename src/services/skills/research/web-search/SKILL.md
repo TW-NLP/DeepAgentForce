@@ -25,7 +25,7 @@ Search the public internet via Tavily API and return structured results for synt
 
 **Command format (strictly follow — do not modify):**
 ```bash
-python <DEEPAGENTFORCE_ROOT>/src/services/skills/web-search/scripts/web_search.py "<搜索词>" [--max-results N] [--output file.json]
+python <DEEPAGENTFORCE_ROOT>/src/services/skills/research/web-search/scripts/web_search.py "<搜索词>" [--max-results N] [--output file.json]
 ```
 
 **How to determine `<DEEPAGENTFORCE_ROOT>`:**
@@ -49,17 +49,17 @@ find / -type d -name "DeepAgentForce" 2>/dev/null | head -1
 
 ✅ Basic search:
 ```bash
-python /home/user/projects/DeepAgentForce/src/services/skills/web-search/scripts/web_search.py "2024年诺贝尔奖得主"
+python /home/user/projects/DeepAgentForce/src/services/skills/research/web-search/scripts/web_search.py "2024年诺贝尔奖得主"
 ```
 
 ✅ More results:
 ```bash
-python /home/user/projects/DeepAgentForce/src/services/skills/web-search/scripts/web_search.py "latest React 19 features" --max-results 10
+python /home/user/projects/DeepAgentForce/src/services/skills/research/web-search/scripts/web_search.py "latest React 19 features" --max-results 10
 ```
 
 ✅ Save to file:
 ```bash
-python /home/user/projects/DeepAgentForce/src/services/skills/web-search/scripts/web_search.py "machine learning trends 2025" --output results.json
+python /home/user/projects/DeepAgentForce/src/services/skills/research/web-search/scripts/web_search.py "machine learning trends 2025" --output results.json
 ```
 
 ❌ Relative path (`src/services/...`) → execution will fail  

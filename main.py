@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from config.settings import get_settings
 from fastapi.middleware.cors import CORSMiddleware
 from src.services.conversational_agent import ConversationalAgent, get_tenant_settings
@@ -13,6 +13,8 @@ from src.services.proofread_service import ProofreadService
 from src.api.websocket import ConversationHistoryManager, setup_websocket_routes
 from src.api.routes import router as api_router
 from src.api.skills_routes import router as skills_router
+from src.api.tools_routes import router as tools_router
+from src.api.mcp_routes import router as mcp_router
 from src.api.auth_routes import router as auth_router
 from src.database.connection import init_database
 import os
@@ -58,10 +60,10 @@ app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 async def root():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
-# Skills 页面路由
+# Skills 页面已并入 index.html 的「技能管理」，旧地址重定向过去
 @app.get("/skills.html")
 async def skills():
-    return FileResponse(os.path.join(STATIC_DIR, "skills.html"))
+    return RedirectResponse(url="/index.html", status_code=302)
 
 # 登录页面路由
 @app.get("/login.html")
@@ -244,6 +246,8 @@ app.state.engine = engine  # 存入全局状态
 
 app.include_router(api_router, prefix="/api")  # 挂载基础 API 路由
 app.include_router(skills_router, prefix="/api")  # 挂载 Skill 管理路由
+app.include_router(tools_router, prefix="/api")   # 挂载工具管理路由（内置/自定义/MCP 工具）
+app.include_router(mcp_router, prefix="/api")     # 挂载 MCP server 管理路由
 app.include_router(auth_router, prefix="/api")   # 挂载认证路由
 setup_websocket_routes(app) # 挂载 WebSocket
 
