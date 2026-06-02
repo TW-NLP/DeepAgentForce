@@ -393,6 +393,7 @@ MIT — free to use, modify, and distribute commercially.
 
 ---
 
+## Star History
 <p align="center">
   <a href="https://github.com/TW-NLP/DeepAgentForce">
     <img src="https://img.shields.io/github/stars/TW-NLP/DeepAgentForce?style=social"/>
