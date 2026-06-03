@@ -9,7 +9,7 @@
     // ==================== 通用工具 ====================
     function apiBase() {
         if (window.getApiUrl) return window.getApiUrl();
-        return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+        return `${window.location.origin}/api`;
     }
 
     async function authFetch(url, options = {}) {

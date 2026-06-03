@@ -311,9 +311,9 @@ function getWsUrl() {
         return token ? `${CONFIG._wsBase}${sep}token=${encodeURIComponent(token)}` : CONFIG._wsBase;
     }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
+    const host = window.location.host;
     const token = localStorage.getItem('access_token');
-    const url = `${protocol}//${host}:8000/ws/stream`;
+    const url = `${protocol}//${host}/ws/stream`;
     return token ? `${url}?token=${encodeURIComponent(token)}` : url;
 }
 
@@ -328,8 +328,8 @@ async function connectWebSocket() {
         ? (token ? `${CONFIG._wsBase}${CONFIG._wsBase.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : CONFIG._wsBase)
         : (() => {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.hostname;
-            const url = `${protocol}//${host}:8000/ws/stream`;
+            const host = window.location.host;
+            const url = `${protocol}//${host}/ws/stream`;
             return token ? `${url}?token=${encodeURIComponent(token)}` : url;
         })();
 

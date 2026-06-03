@@ -600,7 +600,7 @@
 
 <script>
   const API_BASE = localStorage.getItem('api_base') ||
-    `${location.protocol}//${location.hostname}:8000/api`;
+    `${location.origin}/api`;
 
   if (localStorage.getItem('access_token')) location.href = '/index.html';
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="register.pageTitle">注册 - DeepAgentForce</title>
     <!-- 本地字体 -->
-    <link href="fonts/inter.css" rel="stylesheet">
+    <link href="/static/fonts/inter.css" rel="stylesheet">
     <style>
         :root {
             --bg-primary: #212121;
@@ -601,7 +601,7 @@
 </div>
 
 <script>
-    const API_BASE = localStorage.getItem('api_base') || `${window.location.protocol}//${window.location.hostname}:8000/api`;
+    const API_BASE = localStorage.getItem('api_base') || `${window.location.origin}/api`;
 
     // Check if already logged in
     if (localStorage.getItem('access_token')) {

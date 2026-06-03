@@ -133,7 +133,7 @@ async function loadOutputFiles(path = '') {
     `;
 
     try {
-        const apiUrl = window.getApiUrl ? window.getApiUrl() : `${window.location.protocol}//${window.location.hostname}:8000/api`;
+        const apiUrl = window.getApiUrl ? window.getApiUrl() : `${window.location.origin}/api`;
         const url = path ? `${apiUrl}/output/files?path=${encodeURIComponent(path)}` : `${apiUrl}/output/files`;
 
         // 🆕 使用 authFetch
@@ -261,7 +261,7 @@ async function previewFile(path, name) {
     outputPreviewContent.textContent = '正在加载...';
 
     try {
-        const apiUrl = window.getApiUrl ? window.getApiUrl() : `${window.location.protocol}//${window.location.hostname}:8000/api`;
+        const apiUrl = window.getApiUrl ? window.getApiUrl() : `${window.location.origin}/api`;
         // 🆕 使用 authFetch
         const response = await authFetch(`${apiUrl}/output/files/preview?path=${encodeURIComponent(path)}`);
 
@@ -288,7 +288,7 @@ function closePreviewModal() {
 
 // ============ 文件下载 ============
 function downloadFile(path) {
-    const apiUrl = window.getApiUrl ? window.getApiUrl() : `${window.location.protocol}//${window.location.hostname}:8000/api`;
+    const apiUrl = window.getApiUrl ? window.getApiUrl() : `${window.location.origin}/api`;
     const url = `${apiUrl}/output/files/download?path=${encodeURIComponent(path)}`;
 
     // 创建一个隐藏的 <a> 标签进行下载

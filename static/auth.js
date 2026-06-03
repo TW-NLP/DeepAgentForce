@@ -4,7 +4,7 @@
  */
 
 // ============ 配置 ============
-const API_BASE = localStorage.getItem('api_base') || `${window.location.protocol}//${window.location.hostname}:8000/api`;
+const API_BASE = localStorage.getItem('api_base') || `${window.location.origin}/api`;
 
 // ============ 认证状态 ============
 let currentUser = null;

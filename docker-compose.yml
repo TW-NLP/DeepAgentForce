@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   app:
-    image: twnlp/deepagentforce:v1.4.0
+    image: twnlp/deepagentforce:latest
     container_name: deepagentforce-app
     restart: unless-stopped
     
@@ -28,8 +28,9 @@ services:
       DEEPAGENTFORCE_DATA_DIR: ${DEEPAGENTFORCE_DATA_DIR:-/app/data}
       DEEPAGENTFORCE_ENV_FILE: ${DEEPAGENTFORCE_ENV_FILE:-/app/.env}
       
-      # CORS Configuration
+      # CORS Configuration (comma-separated origins, or * for all)
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
+
       
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}

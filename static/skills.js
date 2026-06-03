@@ -10,7 +10,7 @@ function getSkillApiUrl() {
     if (window.getApiUrl) {
         return window.getApiUrl();
     }
-    return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+    return `${window.location.origin}/api`;
 }
 
 // 🆕 获取带认证的请求头

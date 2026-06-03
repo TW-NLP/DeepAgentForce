@@ -40,19 +40,18 @@ function autoDetectFromBrowser() {
     CONFIG.FRONTEND_HOST = hostname;
     CONFIG.FRONTEND_PORT = port;
 
-    // 后端地址：假设后端与前端同服务器，端口为 8000
+    // 后端地址：与前端同源（同一个 FastAPI 应用同时提供静态页面与 API）
     CONFIG.API_HOST = hostname;
-    CONFIG.API_PORT = '8000';
+    CONFIG.API_PORT = port;
 
     // 自动构造前后端基础 URL（注意：apiBase 要包含 /api，因为后端接口在 /api 下）
-    const frontendBase = port
-        ? `${protocol}//${hostname}:${port}`
-        : `${protocol}//${hostname}`;
-    const apiBase = `${protocol}//${hostname}:8000/api`;  // 包含 /api 后缀
+    const origin = window.location.origin;
+    const frontendBase = origin;
+    const apiBase = `${origin}/api`;  // 包含 /api 后缀
 
     CONFIG._frontendBase = frontendBase;
     CONFIG._apiBase = apiBase;  // 修正：包含 /api
-    CONFIG._wsBase = `${protocol.replace('http', 'ws')}//${hostname}:8000/ws/stream`;
+    CONFIG._wsBase = `${protocol.replace('http', 'ws')}//${window.location.host}/ws/stream`;
 
     console.log(`✅ 自动检测到部署地址: ${frontendBase}，后端 API: ${apiBase}`);
 }
@@ -78,10 +77,8 @@ function getApiBase() {
         return CONFIG._apiBase;
     }
 
-    // 3. 回退：从浏览器 URL 动态构造（前后端同服务器）
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname;
-    return `${protocol}//${hostname}:8000/api`;
+    // 3. 回退：与前端同源
+    return `${window.location.origin}/api`;
 }
 
 /**
@@ -100,10 +97,8 @@ function getWsBase() {
         return CONFIG._wsBase;
     }
 
-    // 3. 回退：从浏览器 URL 动态构造（前后端同服务器）
-    const protocol = window.location.protocol.replace('http', 'ws');
-    const hostname = window.location.hostname;
-    return `${protocol}//${hostname}:8000/ws/stream`;
+    // 3. 回退：与前端同源
+    return `${window.location.protocol.replace('http', 'ws')}//${window.location.host}/ws/stream`;
 }
 
 /**
@@ -122,8 +117,8 @@ function getApiUrl() {
         return CONFIG._apiBase;
     }
 
-    // 3. 返回默认地址（始终包含 /api，与后端 server_info 保持一致）
-    return `http://${CONFIG.API_HOST}:${CONFIG.API_PORT}/api`;
+    // 3. 返回默认地址（与前端同源，始终包含 /api）
+    return `${window.location.origin}/api`;
 }
 
 /**
@@ -151,7 +146,7 @@ function getWsUrl() {
 async function syncServerConfig() {
     try {
         // 用浏览器地址构建基础 URL，始终以此为基准
-        const apiBase = CONFIG._apiBase || `${location.protocol}//${location.hostname}:8000/api`;
+        const apiBase = CONFIG._apiBase || `${location.origin}/api`;
         const response = await fetch(`${apiBase}/server_info`);
 
         if (!response.ok) {

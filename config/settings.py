@@ -13,9 +13,9 @@ import logging
 import sys
 import tempfile
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, NoDecode
 from pydantic import Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Annotated
 from functools import lru_cache
 import json
 import hashlib
@@ -296,10 +296,23 @@ class Settings(ServerConfig):
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     # ==================== CORS 配置 ====================
-    CORS_ORIGINS: List[str] = Field(
+    CORS_ORIGINS: Annotated[List[str], NoDecode] = Field(
         default=["*"],
-        description="允许的跨域源"
+        description="允许的跨域源（环境变量支持 * 或逗号分隔的多个源）"
     )
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v):
+        # 环境变量传入的是字符串：支持 "*"、逗号分隔、或 JSON 数组三种写法
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return ["*"]
+            if s.startswith("["):
+                return json.loads(s)
+            return [item.strip() for item in s.split(",") if item.strip()]
+        return v
 
     # ==================== Session 配置 ====================
     SESSION_TIMEOUT: int = Field(default=3600, description="Session 超时时间(秒)")
