@@ -5,8 +5,8 @@ FROM python:3.12-slim AS builder
 WORKDIR /app
 
 # Configure Debian mirror for faster builds
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y --no-install-recommends --fix-missing \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -16,12 +16,15 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Configure PyPI mirror for faster installation
+# NOTE: use a single index only — mixing mirrors causes index-metadata hash
+# mismatches ("DO NOT MATCH THE HASHES") because two indexes serve inconsistent
+# #sha256 fragments for the same package.
 RUN pip config set global.index-url https://mirrors.ustc.edu.cn/pypi/simple/ && \
     pip config set global.trusted-host mirrors.ustc.edu.cn
 
-# Install Python dependencies
+# Install Python dependencies (extra retries to ride out transient mirror/DNS hiccups)
 COPY requirements.txt .
-RUN pip install --no-cache-dir --timeout=300 -r requirements.txt
+RUN pip install --no-cache-dir --timeout=300 --retries 10 -r requirements.txt
 
 # Stage 2: Runtime image
 FROM python:3.12-slim
@@ -29,8 +32,8 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Configure Debian mirror
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y --no-install-recommends --fix-missing \
     curl \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*

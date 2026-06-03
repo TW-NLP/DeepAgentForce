@@ -358,10 +358,8 @@ class ChromaRAGPipeline(RAGPipeline):
             try:
                 # 本地持久化使用 settings.CHROMA_DIR 目录
                 persist_dir = str(getattr(self.settings, 'CHROMA_DIR', self.settings.DATA_DIR / 'rag_storage'))
-                if ChromaSettings is not None:
-                    self.chroma_client = chromadb.Client(ChromaSettings(chroma_db_impl="duckdb+parquet", persist_directory=persist_dir))
-                else:
-                    self.chroma_client = chromadb.Client()
+                # chromadb >=0.4 使用 PersistentClient 做本地持久化
+                self.chroma_client = chromadb.PersistentClient(path=persist_dir)
                 logger.info(f"✅ Chroma 初始化成功，persist_dir={persist_dir}")
             except Exception as exc:
                 logger.warning(f"Chroma 初始化失败，继续以轻量模式运行: {exc}")
@@ -500,7 +498,7 @@ class ChromaRAGPipeline(RAGPipeline):
                 if coll is not None:
                     try:
                         # 获取全部 documents
-                        results = coll.get(include=["documents", "ids"]) or {}
+                        results = coll.get(include=["documents"]) or {}
                         docs = results.get('documents', [])
                         ids = results.get('ids', [])
                         for d, _id in zip(docs, ids):
@@ -542,7 +540,7 @@ class ChromaRAGPipeline(RAGPipeline):
         if coll is None:
             return []
         try:
-            res = coll.query(query_embeddings=[q_vec], n_results=top_k, include=["documents", "metadatas", "ids", "distances"]) or {}
+            res = coll.query(query_embeddings=[q_vec], n_results=top_k, include=["documents", "metadatas", "distances"]) or {}
             documents = res.get('documents', [[]])[0]
             metadatas = res.get('metadatas', [[]])[0]
             ids = res.get('ids', [[]])[0]
@@ -655,7 +653,7 @@ class ChromaRAGPipeline(RAGPipeline):
                 coll = self._chroma_collections.get(coll_name)
                 if coll is not None:
                     try:
-                        results = coll.get(include=["documents", "ids"]) or {}
+                        results = coll.get(include=["documents"]) or {}
                         docs = results.get('documents', [])
                         ids = results.get('ids', [])
                         # 支持 Chroma 返回嵌套列表
@@ -776,7 +774,7 @@ class ChromaRAGPipeline(RAGPipeline):
                 coll = self._chroma_collections.get(coll_name)
                 if coll is None:
                     return []
-                res = coll.query(query_embeddings=[q_vec], n_results=top_k, include=["documents", "metadatas", "ids", "distances"]) or {}
+                res = coll.query(query_embeddings=[q_vec], n_results=top_k, include=["documents", "metadatas", "distances"]) or {}
                 documents = res.get('documents', [[]])[0]
                 metadatas = res.get('metadatas', [[]])[0]
                 ids = res.get('ids', [[]])[0]

@@ -193,7 +193,7 @@ pyinstaller==6.19.0
 pyinstaller-hooks-contrib==2026.4
 PyJWT==2.10.1
 pylatexenc==2.10
-chromadb==0.4.5
+chromadb==1.5.9
 PyMuPDF==1.23.8
 PyMuPDFb==1.23.7
 pyparsing==3.2.5
