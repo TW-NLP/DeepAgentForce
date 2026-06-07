@@ -72,6 +72,28 @@ For large tool / MCP repositories, the disclosure layer uses **Hi-RAG**, a struc
 - **Two entry points:** `tool_search` for custom tools (`Type → Tool`, 2-tier) and `mcp_search` for MCP (`Type → Service → Tool`, 3-tier); both share `tool_describe` / `tool_invoke` and **gracefully fall back to pure BM25** when no embedding endpoint is configured.
 - Each MCP server / custom tool carries a **Type** from a fixed 8-class taxonomy, used as the coarsest re-ranking signal.
 
+**Results.** On the MCP tool-selection benchmark, Hi-RAG consistently beats Flat RAG on accuracy while keeping token cost close to Flat RAG — and far below feeding the whole *Full Service* list — across five backbones, in both single- and multi-turn settings:
+
+<sub>**S** = Single-Turn (Top-1 Acc), **M** = Multi-Turn (Top-3 Acc). Acc ↑ higher is better; Avg Tokens ↓ lower is better. **∆Acc** is vs. the Flat RAG baseline.</sub>
+
+| Model | Method | S·Acc (%) ↑ | S·Tokens ↓ | S·∆Acc | M·Acc (%) ↑ | M·Tokens ↓ | M·∆Acc |
+|-------|--------|----------:|---------:|-------:|----------:|---------:|-------:|
+| **Qwen3-8B** | Full Service | 38.8 | 423.5 | – | 11.7 | 739.0 | – |
+| | Flat RAG | 72.6 | 170.8 | base | 36.7 | 198.7 | base |
+| | **Hi-RAG (Ours)** | **78.1** | 176.5 | **+5.5** | **43.3** | 288.6 | **+6.6** |
+| **Qwen3-32B** | Full Service | 47.8 | 610.0 | – | 21.7 | 1306.4 | – |
+| | Flat RAG | 75.6 | 82.7 | base | 38.3 | 134.4 | base |
+| | **Hi-RAG (Ours)** | **82.6** | 87.4 | **+7.0** | **48.3** | 132.9 | **+10.0** |
+| **QwQ-32B** | Full Service | 45.3 | 597.5 | – | 20.0 | 1416.3 | – |
+| | Flat RAG | 75.6 | 682.8 | base | 28.3 | 1353.3 | base |
+| | **Hi-RAG (Ours)** | **82.6** | 621.4 | **+7.0** | **36.7** | 1573.6 | **+8.4** |
+| **DeepSeek-V3** | Full Service | 41.3 | 167.2 | – | 6.7 | 271.2 | – |
+| | Flat RAG | 75.1 | 111.3 | base | 33.3 | 236.6 | base |
+| | **Hi-RAG (Ours)** | **82.6** | 111.4 | **+7.5** | **40.0** | 239.3 | **+6.7** |
+| **GPT-4o-mini** | Full Service | 40.3 | 108.6 | – | 6.7 | 199.6 | – |
+| | Flat RAG | 77.1 | 77.3 | base | 28.3 | 159.2 | base |
+| | **Hi-RAG (Ours)** | **83.1** | 76.4 | **+6.0** | **31.7** | 168.6 | **+3.4** |
+
 ### 2. MCP Integration (Model Context Protocol)
 
 Connect any MCP server — the same config format as Claude Desktop:
