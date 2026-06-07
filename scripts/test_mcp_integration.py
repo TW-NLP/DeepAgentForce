@@ -156,22 +156,23 @@ def main() -> int:
         ))
     bridged, ov = build_tool_disclosure(big_pool, context_length=None)
     bnames = {t.name for t in bridged}
-    check("大池子切换为三个桥接工具",
-          bnames == {"tool_search", "tool_describe", "tool_invoke"}, f"{bnames}")
+    # 纯 MCP 池 → 走 mcp_search（三层服务级），无自定义工具故无 tool_search。
+    check("大池子切换为桥接工具(MCP→mcp_search)",
+          bnames == {"mcp_search", "tool_describe", "tool_invoke"}, f"{bnames}")
     check("概览文本非空", bool(ov))
 
     print("\n" + "=" * 70)
-    print("6) 桥接 tool_invoke 调用异步专用 MCP 工具")
+    print("6) mcp_search 服务级检索 + 桥接 tool_invoke 调用异步专用 MCP 工具")
     print("=" * 70)
-    # 把真实 MCP 工具放进披露层（强制 mode='on' 走桥接），验证调用打通
+    # 把真实 MCP 工具放进披露层（强制 mode='on' 走桥接），验证服务级检索与调用打通
     bridged2, _ = build_tool_disclosure(tools, context_length=None, mode="on")
-    search_tool = next(t for t in bridged2 if t.name == "tool_search")
+    search_tool = next(t for t in bridged2 if t.name == "mcp_search")
     invoke_tool = next(t for t in bridged2 if t.name == "tool_invoke")
 
-    hits = json.loads(search_tool.invoke({"query": "求和 加法 add"}))
-    hit_names = {h["name"] for h in hits.get("tools", [])}
-    check("tool_search 能检索到 add",
-          "mcp__dummy__add" in hit_names, f"{hit_names}")
+    res = json.loads(search_tool.invoke({"query": "求和 加法 add"}))
+    hit_tool_names = {tt["name"] for s in res.get("services", []) for tt in s.get("tools", [])}
+    check("mcp_search 命中含 add 的服务",
+          "mcp__dummy__add" in hit_tool_names, f"{hit_tool_names}")
 
     # 同步入口（内部 NotImplementedError → 退回 ainvoke）
     sync_res = invoke_tool.invoke({"name": "mcp__dummy__add", "args": {"a": 7, "b": 8}})

@@ -46,18 +46,31 @@ Inspired by the [hermes-agent](https://github.com) architecture but rebuilt nati
 
 | Layer | Skills | Built-in Tools | Extra / MCP Tools |
 |-------|--------|---------------|-------------------|
-| Always in context | Category overview only | Full list (15 tools, small schema) | Bridge tools only (3 stubs) |
-| On demand — tier 1 | `skills_list(category)` → name+description | — | `tool_search(query)` → BM25 matches |
+| Always in context | Category overview only | Full list (15 tools, small schema) | Bridge tools only (≤4 stubs) |
+| On demand — tier 1 | `skills_list(category)` → name+description | — | `tool_search` / `mcp_search` → hybrid retrieve + re-rank |
 | On demand — tier 2 | `skill_view(name)` → full SKILL.md | — | `tool_describe(name)` → param schema |
 | Execution | `shell` → run skill script | Direct call (already bound) | `tool_invoke(name, args)` → proxy |
 
-**Why it matters:** A deployment with 19 skills, 50 MCP tools, and 10 custom tools keeps the same constant context overhead — only 3 bridge stubs are ever in the context window regardless of how many tools you add.
+**Why it matters:** A deployment with 19 skills, 50 MCP tools, and 10 custom tools keeps the same constant context overhead — only a handful of bridge stubs (≤4) are ever in the context window regardless of how many tools you add.
 
 ```
 Threshold gate (tool_disclosure.py):
   extra_tools schema tokens < 10% context  →  bind directly (no overhead)
-  extra_tools schema tokens ≥ 10% context  →  switch to tool_search bridge
+  extra_tools schema tokens ≥ 10% context  →  switch to Hi-RAG bridges
 ```
+
+#### Hi-RAG — Hierarchical Tool Selection (Type → Service → Tool)
+
+For large tool / MCP repositories, the disclosure layer uses **Hi-RAG**, a structure-aware, coarse-to-fine retrieval (inspired by *Hi-RAG: A Hierarchical Framework for Scalable and Generalizable Tool Selection*) that mirrors the natural `Type → Service → Tool` hierarchy of MCP:
+
+<p align="center">
+  <img src="images/hi-rag-framework.png" alt="Hi-RAG Framework" width="100%"/>
+</p>
+
+- **Stage 1 · Coarse-grained retrieval (hybrid):** BM25 (lexical) + embedding (semantic) fused with weighted RRF (`k=60, α=0.1`) over **tool** descriptions — *Tool-as-Proxy*: retrieve tools first, then roll up to their parent services.
+- **Stage 2 · Fine-grained re-ranking (type-aware):** candidates re-ranked by embedding cosine over the combined `Type + Service + Tool` description; only the top results are surfaced to the LLM.
+- **Two entry points:** `tool_search` for custom tools (`Type → Tool`, 2-tier) and `mcp_search` for MCP (`Type → Service → Tool`, 3-tier); both share `tool_describe` / `tool_invoke` and **gracefully fall back to pure BM25** when no embedding endpoint is configured.
+- Each MCP server / custom tool carries a **Type** from a fixed 8-class taxonomy, used as the coarsest re-ranking signal.
 
 ### 2. MCP Integration (Model Context Protocol)
 
@@ -332,6 +345,13 @@ Swagger: `http://localhost:8000/docs`
 ---
 
 ## 📰 Changelog
+
+- **2026-06-07** — `v2.1.0` Hi-RAG Edition
+  - Hi-RAG hierarchical tool selection (`Type → Service → Tool`), inspired by *Hi-RAG: A Hierarchical Framework for Scalable and Generalizable Tool Selection*
+  - Two entry points: `tool_search` (custom tools, 2-tier) and `mcp_search` (MCP, 3-tier), sharing `tool_describe` / `tool_invoke`
+  - Hybrid coarse retrieval: BM25 + embedding fused via weighted RRF, with type-aware fine re-ranking; graceful fallback to pure BM25 when no embedding endpoint is set
+  - Fixed 8-class Type taxonomy for MCP servers / custom tools (`tool_taxonomy.py`)
+  - ≤4 bridge stubs in context regardless of repository size
 
 - **2026-06-02** — `v2.0.0` Progressive Disclosure Edition
   - Skills progressive disclosure: `skills_list` / `skill_view` two-tier system

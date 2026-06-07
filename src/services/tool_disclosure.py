@@ -1,21 +1,27 @@
 """额外 / MCP 工具的渐进式披露（progressive tool disclosure）。
 
-与 skills 的渐进披露同源，但有一个本质差别：**skill 只是文本，tool 是可调用对象**。
-deepagents/LangGraph 在编译时把工具列表静态绑定到模型，无法中途再把某个工具绑上去，
-因此 tool 的「第二步」不是「读全文」，而是「真正执行」——需要一个分发层。
+参照 **Hi-RAG**（A Hierarchical Framework for Scalable and Generalizable Tool
+Selection）把工具检索从「扁平 BM25」升级为 **Type → Service → Tool 分层、
+粗粒度检索 + 细粒度重排**：
 
-做法（参照 hermes tools/tool_search.py）：
+- **粗排（coarse）**：混合检索 = BM25(词法) + embedding(语义) + 加权 RRF 融合
+  （k=60, α=0.1，偏向语义；与论文一致）。未配置 embedding 时自动退回纯 BM25。
+- **细排（fine）**：对粗排候选用 embedding 余弦相似度重排。
 
-- **必备工具**（deepagents 内置 + 本项目通用工具 + skills 工具）永远直接绑定，绝不延迟。
-- **额外 / MCP 工具**先进一个 registry（留在内存，schema 不进上下文）。
-- 阈值门控：估算这批工具 schema 的 token 占用，仅当其 ≥ 上下文的 ``threshold_pct``
-  （默认 10%）时才启用披露；否则直接绑定，不值得绕一层。
-- 启用披露后，模型可见的只有三个桥接工具：
-    * ``tool_search(query)``  —— BM25 检索，返回匹配工具的 name+description（菜单层）；
-    * ``tool_describe(name)`` —— 返回该工具的完整参数 schema（全文层）；
-    * ``tool_invoke(name, args)`` —— 按名字从 registry 取出真实工具并执行（执行层）。
+两类额外工具走**两套独立**披露，但共用 `tool_describe` / `tool_invoke`：
 
-无论后面挂 10 个还是 500 个 MCP 工具，常驻上下文的开销恒为这三个桥接工具。
+- **自定义工具**（无 service）→ `tool_search(query)`：两层 Type→Tool。
+  粗排用工具信息，细排用 ``type + 工具描述``。
+- **MCP 工具**（有 service=server）→ `mcp_search(query)`：三层 Type→Service→Tool。
+  粗排用工具信息（Tool-as-Proxy：检索工具→上卷到父服务），细排用
+  ``type + 服务描述 + 旗下各工具描述`` 重排服务，返回候选服务及其工具清单。
+
+与 skills 的渐进披露同源，但 tool 是可调用对象：第二步不是「读全文」而是
+「真正执行」，故 `tool_invoke` 提供分发层。无论挂多少工具，常驻上下文只有
+这几个桥接工具。
+
+阈值门控（沿用）：额外工具池 schema token 占用 < 上下文 ``threshold_pct``
+（默认 10%）时直接绑定，不值得绕一层；达阈值才启用桥接。
 """
 
 from __future__ import annotations
@@ -30,17 +36,26 @@ from typing import Any, Dict, List, Optional, Tuple
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field
 
+from src.services.tool_taxonomy import normalize_type, type_label
+
 logger = logging.getLogger(__name__)
 
-# 无真实 tokenizer 时按 chars/4 估算 token，跨厂商稳定（与 hermes 一致）。
+# 无真实 tokenizer 时按 chars/4 估算 token，跨厂商稳定。
 CHARS_PER_TOKEN = 4.0
-# 上下文未知时的固定 token 阈值兜底（Anthropic/OpenAI 都在此量级观察到质量下降）。
+# 上下文未知时的固定 token 阈值兜底。
 _FALLBACK_TOKEN_CUTOFF = 20_000
 
+# 混合检索参数（与 Hi-RAG 论文一致）：RRF 平滑因子 k，权重 α（偏向语义检索）。
+_RRF_K = 60
+_RRF_ALPHA = 0.1
+
 TOOL_SEARCH_NAME = "tool_search"
+MCP_SEARCH_NAME = "mcp_search"
 TOOL_DESCRIBE_NAME = "tool_describe"
 TOOL_INVOKE_NAME = "tool_invoke"
-BRIDGE_TOOL_NAMES = frozenset({TOOL_SEARCH_NAME, TOOL_DESCRIBE_NAME, TOOL_INVOKE_NAME})
+BRIDGE_TOOL_NAMES = frozenset(
+    {TOOL_SEARCH_NAME, MCP_SEARCH_NAME, TOOL_DESCRIBE_NAME, TOOL_INVOKE_NAME}
+)
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9]+")
 _CJK_RE = re.compile(r"[一-鿿]")
@@ -162,80 +177,15 @@ def should_activate(
 
 
 # ---------------------------------------------------------------------------
-# 工具目录 + BM25 检索
+# 检索文本与 BM25
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _CatalogEntry:
-    name: str
-    description: str
-    tool: BaseTool
-    _tokens: List[str] = field(default_factory=list)
-
-
 def _entry_search_text(tool: BaseTool) -> str:
-    """检索文本：工具名（拆词）+ 描述 + 参数名。schema 主体不入索引（噪声大、收益低）。"""
+    """粗排检索文本：工具名（拆词）+ 描述 + 参数名。schema 主体不入索引。"""
     name_words = re.sub(r"[_.:\-]+", " ", tool.name)
     param_names = " ".join(_tool_param_schema(tool).keys())
     return f"{name_words} {tool.description or ''} {param_names}"
-
-
-class ToolCatalog:
-    """延迟工具的目录：支持 BM25 检索、describe、按名取真实工具执行。"""
-
-    def __init__(self, tools: List[BaseTool]):
-        self._by_name: Dict[str, BaseTool] = {}
-        self._entries: List[_CatalogEntry] = []
-        for t in tools:
-            if t.name in self._by_name:
-                logger.warning("延迟工具重名，后者覆盖前者: %s", t.name)
-            self._by_name[t.name] = t
-            self._entries.append(
-                _CatalogEntry(
-                    name=t.name,
-                    description=t.description or "",
-                    tool=t,
-                    _tokens=_tokenize(_entry_search_text(t)),
-                )
-            )
-
-    def __len__(self) -> int:
-        return len(self._entries)
-
-    def get(self, name: str) -> Optional[BaseTool]:
-        return self._by_name.get(name)
-
-    def search(self, query: str, limit: int = 5) -> List[_CatalogEntry]:
-        if not self._entries or limit <= 0:
-            return []
-        query_tokens = _tokenize(query)
-        if not query_tokens:
-            return []
-
-        doc_lengths = [len(e._tokens) for e in self._entries]
-        avg_dl = sum(doc_lengths) / max(len(doc_lengths), 1)
-        doc_freq: Dict[str, int] = {}
-        for e in self._entries:
-            for tok in set(e._tokens):
-                doc_freq[tok] = doc_freq.get(tok, 0) + 1
-        n_docs = len(self._entries)
-
-        scored: List[Tuple[float, _CatalogEntry]] = []
-        for e in self._entries:
-            s = _bm25_score(query_tokens, e._tokens, avg_dl, doc_freq, n_docs)
-            if s > 0:
-                scored.append((s, e))
-
-        if not scored:
-            # 子串兜底：BM25 在「所有文档都含同一词」时 IDF 为 0，需补充。
-            ql = query.lower()
-            for e in self._entries:
-                if ql in e.name.lower() or ql in e.description.lower():
-                    scored.append((0.1, e))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return [e for _, e in scored[:limit]]
 
 
 def _bm25_score(
@@ -267,48 +217,373 @@ def _bm25_score(
     return score
 
 
+def _cosine(a: List[float], b: List[float]) -> float:
+    if not a or not b:
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def _ranks(scored: Dict[int, float]) -> Dict[int, int]:
+    """score 字典 → 名次字典（1 起，分高名次小）。"""
+    ordered = sorted(scored, key=lambda i: scored[i], reverse=True)
+    return {idx: rank for rank, idx in enumerate(ordered, start=1)}
+
+
+def _rrf_fuse(
+    sparse: Dict[int, float], dense: Dict[int, float], n: int
+) -> Dict[int, float]:
+    """加权 RRF 融合两路名次。dense 为空时退化为纯 BM25 名次。"""
+    sr = _ranks(sparse)
+    dr = _ranks(dense)
+    has_dense = bool(dense)
+    fused: Dict[int, float] = {}
+    for i in range(n):
+        s = 0.0
+        if has_dense:
+            if i in sr:
+                s += _RRF_ALPHA / (_RRF_K + sr[i])
+            if i in dr:
+                s += (1 - _RRF_ALPHA) / (_RRF_K + dr[i])
+        elif i in sr:
+            s += 1.0 / (_RRF_K + sr[i])
+        if s > 0:
+            fused[i] = s
+    return fused
+
+
 # ---------------------------------------------------------------------------
-# 桥接工具
+# Embedding（异步，复用 EMBEDDING_* 配置；未配置/失败则不可用，退回纯 BM25）
+# ---------------------------------------------------------------------------
+
+
+class _Embedder:
+    def __init__(self, settings: Any):
+        self._client = None
+        self._model = ""
+        if settings is None:
+            return
+        try:
+            url = getattr(settings, "EMBEDDING_URL", "") or ""
+            model = getattr(settings, "EMBEDDING_MODEL", "") or ""
+            if not (url and model):
+                return
+            base = getattr(settings, "EMBEDDING_BASE_URL", "") or url
+            key = getattr(settings, "EMBEDDING_API_KEY", "") or ""
+            from openai import AsyncOpenAI
+
+            self._client = AsyncOpenAI(api_key=key, base_url=base)
+            self._model = model
+        except Exception as e:  # noqa: BLE001
+            logger.info("[tool_disclosure] 未启用向量检索（embedding 不可用）: %s", e)
+            self._client = None
+            self._model = ""
+
+    @property
+    def available(self) -> bool:
+        return self._client is not None and bool(self._model)
+
+    async def aembed(self, texts: List[str]) -> Optional[List[List[float]]]:
+        if not self.available or not texts:
+            return None
+        try:
+            resp = await self._client.embeddings.create(input=list(texts), model=self._model)
+            return [d.embedding for d in resp.data]
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[tool_disclosure] embedding 调用失败，本次退回纯 BM25: %s", e)
+            return None
+
+
+# ---------------------------------------------------------------------------
+# 条目 / 服务 / 混合检索器
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _Entry:
+    name: str
+    description: str
+    tool: BaseTool
+    type_slug: str
+    service: str  # "" 表示自定义工具（无 service）
+    service_description: str
+    coarse_text: str
+    fine_text: str  # type 标签 + 工具描述（tool 级细排文本）
+    tokens: List[str] = field(default_factory=list)
+
+
+@dataclass
+class _Service:
+    name: str
+    type_slug: str
+    description: str
+    entries: List[_Entry]
+    ds_text: str  # type + 服务描述 + 旗下各工具描述（service 级细排文本）
+
+
+def _tool_leaf_name(name: str) -> str:
+    """去掉 ``mcp__<server>__`` 前缀，便于可读展示。"""
+    if name.startswith("mcp__") and name.count("__") >= 2:
+        return name.split("__", 2)[2]
+    return name
+
+
+def _build_entry(tool: BaseTool) -> _Entry:
+    try:
+        md = dict(getattr(tool, "metadata", None) or {})
+    except Exception:  # noqa: BLE001
+        md = {}
+    name = tool.name
+    is_mcp = name.startswith("mcp__") or bool(md.get("mcp_service"))
+    if is_mcp:
+        service = md.get("mcp_service") or (
+            name.split("__")[1] if name.startswith("mcp__") and name.count("__") >= 2 else "mcp"
+        )
+        type_slug = normalize_type(md.get("mcp_type"))
+        service_desc = str(md.get("mcp_service_description") or "")
+    else:
+        service = ""
+        type_slug = normalize_type(md.get("custom_type"))
+        service_desc = ""
+    desc = tool.description or ""
+    coarse = _entry_search_text(tool)
+    fine = (type_label(type_slug) + " " if type_slug else "") + desc
+    return _Entry(
+        name=name,
+        description=desc,
+        tool=tool,
+        type_slug=type_slug,
+        service=service,
+        service_description=service_desc,
+        coarse_text=coarse,
+        fine_text=fine,
+        tokens=_tokenize(coarse),
+    )
+
+
+def _build_services(mcp_entries: List[_Entry]) -> Dict[str, _Service]:
+    groups: Dict[str, List[_Entry]] = {}
+    for e in mcp_entries:
+        groups.setdefault(e.service, []).append(e)
+    services: Dict[str, _Service] = {}
+    for name, ents in groups.items():
+        type_slug = next((x.type_slug for x in ents if x.type_slug), "")
+        desc = next((x.service_description for x in ents if x.service_description), "")
+        parts: List[str] = []
+        if type_slug:
+            parts.append(type_label(type_slug))
+        if desc:
+            parts.append(desc)
+        for x in ents:
+            parts.append(f"{_tool_leaf_name(x.name)}: {x.description}")
+        services[name] = _Service(
+            name=name,
+            type_slug=type_slug,
+            description=desc,
+            entries=ents,
+            ds_text="\n".join(parts),
+        )
+    return services
+
+
+class _Hybrid:
+    """对一组条目做混合检索（BM25 + 向量 + RRF），向量不可用时退回纯 BM25。"""
+
+    def __init__(self, entries: List[_Entry], embedder: _Embedder):
+        self.entries = entries
+        self.embedder = embedder
+        self._n = len(entries)
+        self._doc_freq: Dict[str, int] = {}
+        for e in entries:
+            for tok in set(e.tokens):
+                self._doc_freq[tok] = self._doc_freq.get(tok, 0) + 1
+        lengths = [len(e.tokens) for e in entries]
+        self._avg_dl = (sum(lengths) / len(lengths)) if lengths else 0.0
+        self._doc_vecs: Optional[List[List[float]]] = None  # 懒算并缓存
+
+    def _bm25_scores(self, q_tokens: List[str]) -> Dict[int, float]:
+        scored: Dict[int, float] = {}
+        for i, e in enumerate(self.entries):
+            s = _bm25_score(q_tokens, e.tokens, self._avg_dl, self._doc_freq, self._n)
+            if s > 0:
+                scored[i] = s
+        if not scored and q_tokens:
+            # 全文档共享同词时 IDF=0，用子串兜底保召回。
+            for i, e in enumerate(self.entries):
+                hay = (e.name + " " + e.description).lower()
+                if any(t in hay for t in q_tokens):
+                    scored[i] = 0.1
+        return scored
+
+    async def _doc_vectors(self) -> List[List[float]]:
+        if self._doc_vecs is None:
+            if self.embedder.available:
+                vecs = await self.embedder.aembed([e.coarse_text for e in self.entries])
+                self._doc_vecs = vecs or []
+            else:
+                self._doc_vecs = []
+        return self._doc_vecs
+
+    async def coarse(
+        self, query: str, top_m: int
+    ) -> Tuple[List[_Entry], Optional[List[float]]]:
+        """返回 (粗排候选条目, query 向量)。query 向量供细排复用，避免重复编码。"""
+        q_tokens = _tokenize(query)
+        sparse = self._bm25_scores(q_tokens) if q_tokens else {}
+        dense: Dict[int, float] = {}
+        q_vec: Optional[List[float]] = None
+        doc_vecs = await self._doc_vectors()
+        if doc_vecs:
+            qv = await self.embedder.aembed([query])
+            if qv:
+                q_vec = qv[0]
+                for i, dv in enumerate(doc_vecs):
+                    c = _cosine(q_vec, dv)
+                    if c > 0:
+                        dense[i] = c
+        fused = _rrf_fuse(sparse, dense, self._n)
+        order = sorted(fused, key=lambda i: fused[i], reverse=True)[:top_m]
+        return [self.entries[i] for i in order], q_vec
+
+
+async def _rerank(
+    q_vec: Optional[List[float]], texts: List[str], embedder: _Embedder
+) -> Optional[List[float]]:
+    """细排：对候选文本编码并与 query 向量算余弦。不可用时返回 None（保持粗排序）。"""
+    if q_vec is None or not embedder.available or not texts:
+        return None
+    vecs = await embedder.aembed(texts)
+    if not vecs or len(vecs) != len(texts):
+        return None
+    return [_cosine(q_vec, v) for v in vecs]
+
+
+# ---------------------------------------------------------------------------
+# 桥接工具参数
 # ---------------------------------------------------------------------------
 
 
 class _SearchArgs(BaseModel):
     query: str = Field(description="用自然语言或关键词描述你需要的能力，如 '发送邮件' 或 'github issue'。")
-    limit: int = Field(default=5, description="返回的候选工具数量（1-20）。")
+    limit: int = Field(default=5, description="返回的候选数量（1-20）。")
 
 
 class _DescribeArgs(BaseModel):
-    name: str = Field(description="要查看完整参数说明的工具名（来自 tool_search 结果）。")
+    name: str = Field(description="要查看完整参数说明的工具名（来自 tool_search / mcp_search 结果）。")
 
 
 class _InvokeArgs(BaseModel):
-    name: str = Field(description="要调用的工具名（来自 tool_search 结果）。")
+    name: str = Field(description="要调用的工具名（来自 tool_search / mcp_search 结果）。")
     args: Optional[dict] = Field(default=None, description="传给该工具的参数对象（键值对）。")
 
 
-def _make_bridge_tools(catalog: ToolCatalog) -> List[StructuredTool]:
-    def _search(query: str, limit: int = 5) -> str:
-        hits = catalog.search(query, max(1, min(limit, 20)))
+# ---------------------------------------------------------------------------
+# 桥接工具构造
+# ---------------------------------------------------------------------------
+
+
+def _make_tool_search(hybrid: _Hybrid, embedder: _Embedder) -> StructuredTool:
+    """自定义工具的两层披露：粗排工具 → 按 type+描述 细排 → 返回工具。"""
+
+    async def _arun(query: str, limit: int = 5) -> str:
+        limit = max(1, min(int(limit or 5), 20))
+        cand, q_vec = await hybrid.coarse(query, max(20, limit * 4))
+        scores = await _rerank(q_vec, [e.fine_text for e in cand], embedder)
+        if scores is not None:
+            cand = [cand[i] for i in sorted(range(len(cand)), key=lambda i: scores[i], reverse=True)]
+        hits = cand[:limit]
         return _ok({
             "count": len(hits),
-            "tools": [{"name": e.name, "description": e.description} for e in hits],
+            "tools": [
+                {"name": e.name, "description": e.description, "type": e.type_slug}
+                for e in hits
+            ],
             "hint": "用 tool_describe(name) 看参数，再用 tool_invoke(name, args) 调用",
         })
 
+    def _run(query: str, limit: int = 5) -> str:
+        return _run_coro(_arun(query, limit))
+
+    return StructuredTool.from_function(
+        func=_run, coroutine=_arun, name=TOOL_SEARCH_NAME,
+        description=(
+            "在「自定义工具库」中按能力检索可用工具（混合检索+按 Type 重排，返回 name+description+type）。"
+            "当必备工具无法满足、需要某个本地/自定义能力时先调用它。"
+        ),
+        args_schema=_SearchArgs,
+    )
+
+
+def _make_mcp_search(
+    hybrid: _Hybrid, services: Dict[str, _Service], embedder: _Embedder
+) -> StructuredTool:
+    """MCP 的三层披露：Tool-as-Proxy 粗排 → 上卷服务 → 按 type+服务+工具 细排服务。"""
+
+    async def _arun(query: str, limit: int = 5) -> str:
+        limit = max(1, min(int(limit or 5), 10))
+        cand_tools, q_vec = await hybrid.coarse(query, max(30, limit * 8))
+        # 上卷到唯一父服务（保序）
+        ordered_services: List[str] = []
+        for e in cand_tools:
+            if e.service and e.service not in ordered_services:
+                ordered_services.append(e.service)
+        cand = [services[s] for s in ordered_services if s in services]
+        scores = await _rerank(q_vec, [s.ds_text for s in cand], embedder)
+        if scores is not None:
+            cand = [cand[i] for i in sorted(range(len(cand)), key=lambda i: scores[i], reverse=True)]
+        top = cand[:limit]
+        return _ok({
+            "count": len(top),
+            "services": [
+                {
+                    "service": s.name,
+                    "type": s.type_slug,
+                    "description": s.description,
+                    "tools": [
+                        {"name": e.name, "description": e.description} for e in s.entries
+                    ],
+                }
+                for s in top
+            ],
+            "hint": "选定服务后用 tool_describe(name) 看某工具参数，再用 tool_invoke(name, args) 调用",
+        })
+
+    def _run(query: str, limit: int = 5) -> str:
+        return _run_coro(_arun(query, limit))
+
+    return StructuredTool.from_function(
+        func=_run, coroutine=_arun, name=MCP_SEARCH_NAME,
+        description=(
+            "在「MCP 服务库」中按能力检索相关服务（Tool-as-Proxy 粗排→Type/Service/Tool 重排）。"
+            "返回候选服务及其工具清单；需要外部集成/MCP 能力时调用它。"
+        ),
+        args_schema=_SearchArgs,
+    )
+
+
+def _make_describe_invoke(by_name: Dict[str, _Entry]) -> List[StructuredTool]:
     def _describe(name: str) -> str:
-        tool = catalog.get(name)
-        if tool is None:
-            return _err(f"未找到工具 '{name}'，请先用 tool_search 检索")
+        entry = by_name.get(name)
+        if entry is None:
+            return _err(f"未找到工具 '{name}'，请先用 tool_search / mcp_search 检索")
+        tool = entry.tool
         return _ok({
             "name": tool.name,
             "description": tool.description or "",
+            "type": entry.type_slug,
+            "service": entry.service,
             "parameters": _tool_param_schema(tool),
         })
 
     def _invoke(name: str, args: Optional[dict] = None) -> str:
-        tool = catalog.get(name)
-        if tool is None:
-            return _err(f"未找到工具 '{name}'，请先用 tool_search 检索")
+        entry = by_name.get(name)
+        if entry is None:
+            return _err(f"未找到工具 '{name}'，请先用 tool_search / mcp_search 检索")
+        tool = entry.tool
         try:
             result = tool.invoke(args or {})
             return result if isinstance(result, str) else _ok(result)
@@ -323,28 +598,19 @@ def _make_bridge_tools(catalog: ToolCatalog) -> List[StructuredTool]:
             return _err(f"调用工具 '{name}' 失败: {e}")
 
     async def _ainvoke(name: str, args: Optional[dict] = None) -> str:
-        # Agent 经 LangGraph 异步执行时走这里；MCP 异步工具天然契合。
-        tool = catalog.get(name)
-        if tool is None:
-            return _err(f"未找到工具 '{name}'，请先用 tool_search 检索")
+        entry = by_name.get(name)
+        if entry is None:
+            return _err(f"未找到工具 '{name}'，请先用 tool_search / mcp_search 检索")
         try:
-            result = await tool.ainvoke(args or {})
+            result = await entry.tool.ainvoke(args or {})
             return result if isinstance(result, str) else _ok(result)
         except Exception as e:  # noqa: BLE001
             return _err(f"调用工具 '{name}' 失败: {e}")
 
     return [
         StructuredTool.from_function(
-            func=_search, name=TOOL_SEARCH_NAME,
-            description=(
-                "在「额外/MCP 工具库」中按需检索可用工具（返回 name+description）。"
-                "当必备工具无法满足、可能需要某个外部/集成能力时先调用它。"
-            ),
-            args_schema=_SearchArgs,
-        ),
-        StructuredTool.from_function(
             func=_describe, name=TOOL_DESCRIBE_NAME,
-            description="查看某个工具的完整参数 schema；在 tool_search 选定后、调用前使用。",
+            description="查看某个工具的完整参数 schema；在 tool_search / mcp_search 选定后、调用前使用。",
             args_schema=_DescribeArgs,
         ),
         StructuredTool.from_function(
@@ -353,6 +619,26 @@ def _make_bridge_tools(catalog: ToolCatalog) -> List[StructuredTool]:
             args_schema=_InvokeArgs,
         ),
     ]
+
+
+def _compose_overview(
+    n_custom: int, n_services: int, n_mcp_tools: int, hybrid_on: bool
+) -> str:
+    retr = "混合检索(BM25+向量)" if hybrid_on else "BM25 检索"
+    lines = ["## 额外工具库（渐进式披露 · Type→Service→Tool 分层）\n"]
+    if n_custom:
+        lines.append(
+            f"- **自定义工具 {n_custom} 个**：`tool_search(query)` 按能力{retr} + 按 Type 重排，"
+            "返回工具 name/description/type；"
+        )
+    if n_services:
+        lines.append(
+            f"- **MCP：{n_services} 个服务 / {n_mcp_tools} 个工具**：`mcp_search(query)` 先 "
+            f"Tool-as-Proxy {retr} 粗排、再按 Type+Service+Tool 重排，返回候选服务及其工具清单；"
+        )
+    lines.append("- 选定后用 `tool_describe(name)` 看参数，再 `tool_invoke(name, args)` 执行。")
+    lines.append("\n必备工具能直接满足时无需走这一层。")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -365,13 +651,18 @@ def build_tool_disclosure(
     context_length: Optional[int] = None,
     threshold_pct: float = 10.0,
     mode: str = "auto",
+    settings: Any = None,
 ) -> Tuple[List[BaseTool], str]:
-    """构建额外/MCP 工具的披露层。
+    """构建额外/MCP 工具的分层披露层。
 
     返回 ``(要绑定到模型的工具, system-prompt 概览文本)``：
 
-    - 当额外工具池小于阈值（或 mode='off'）：直接返回这些工具本身（全部绑定），概览为空。
-    - 当达到阈值（或 mode='on'）：返回三个桥接工具，概览说明两步用法。
+    - 池子小于阈值（或 mode='off'）：直接返回这些工具本身（全部绑定），概览为空。
+    - 达到阈值（或 mode='on'）：按 metadata/名称前缀自动拆分为「MCP 工具」与
+      「自定义工具」两池，分别构建 `mcp_search`（三层）与 `tool_search`（两层），
+      并共用 `tool_describe` / `tool_invoke`。
+
+    ``settings`` 用于取 EMBEDDING_* 配置启用向量检索；缺省或不可用则纯 BM25。
     """
     if not extra_tools:
         return [], ""
@@ -383,16 +674,31 @@ def build_tool_disclosure(
         )
         return list(extra_tools), ""
 
-    catalog = ToolCatalog(extra_tools)
+    entries = [_build_entry(t) for t in extra_tools]
+    mcp_entries = [e for e in entries if e.service]
+    custom_entries = [e for e in entries if not e.service]
+    by_name = {e.name: e for e in entries}
+
+    embedder = _Embedder(settings)
+    bridges: List[StructuredTool] = []
+
+    if custom_entries:
+        bridges.append(_make_tool_search(_Hybrid(custom_entries, embedder), embedder))
+
+    services: Dict[str, _Service] = {}
+    if mcp_entries:
+        services = _build_services(mcp_entries)
+        bridges.append(_make_mcp_search(_Hybrid(mcp_entries, embedder), services, embedder))
+
+    bridges.extend(_make_describe_invoke(by_name))
+
+    overview = _compose_overview(
+        len(custom_entries), len(services), len(mcp_entries), embedder.available
+    )
     logger.info(
-        "额外工具池 %d 个（约 %d tokens）达阈值，启用渐进披露（tool_search/describe/invoke）。",
-        len(catalog), tokens,
+        "额外工具池 %d 个（约 %d tokens）达阈值，启用分层披露："
+        "自定义 %d / MCP 工具 %d（%d 服务），向量检索=%s。",
+        len(entries), tokens, len(custom_entries), len(mcp_entries),
+        len(services), embedder.available,
     )
-    overview = (
-        "## 额外工具库（渐进式披露）\n\n"
-        f"另有 **{len(catalog)}** 个额外/MCP 工具未直接列出，按需两步取用：\n"
-        "1. `tool_search(query)` 按能力检索，拿到候选工具的 name+description；\n"
-        "2. （可选）`tool_describe(name)` 看参数，再 `tool_invoke(name, args)` 执行。\n\n"
-        "必备工具能直接满足时无需走这一层。"
-    )
-    return _make_bridge_tools(catalog), overview
+    return bridges, overview

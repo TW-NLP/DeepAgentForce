@@ -46,18 +46,31 @@ DeepAgentForce 是一个 **面向生产环境的 Agent Harness（运行底座）
 
 | 层次 | Skills | 内置通用工具 | 额外/MCP 工具 |
 |------|--------|-------------|--------------|
-| 常驻 system prompt | 仅分类概览 | 全量（15 个工具，schema 小） | 仅 3 个桥接工具 |
-| 第一层按需 | `skills_list(category)` → name+description | — | `tool_search(query)` → BM25 匹配结果 |
+| 常驻 system prompt | 仅分类概览 | 全量（15 个工具，schema 小） | 仅 ≤4 个桥接工具 |
+| 第一层按需 | `skills_list(category)` → name+description | — | `tool_search` / `mcp_search` → 混合检索 + 重排 |
 | 第二层按需 | `skill_view(name)` → 完整 SKILL.md | — | `tool_describe(name)` → 参数 schema |
 | 执行层 | `shell` → 运行技能脚本 | 直接调用（已绑定） | `tool_invoke(name, args)` → 代理执行 |
 
-**为什么重要：** 19 个 skill + 50 个 MCP 工具 + 10 个自定义工具的部署，上下文开销始终恒定 — 无论挂多少工具，常驻上下文的只有 3 个桥接工具。
+**为什么重要：** 19 个 skill + 50 个 MCP 工具 + 10 个自定义工具的部署，上下文开销始终恒定 — 无论挂多少工具，常驻上下文的只有少数几个桥接工具（≤4）。
 
 ```
 阈值门控（tool_disclosure.py）：
   extra_tools schema token < 上下文 10%  →  直接绑定（无需桥接层）
-  extra_tools schema token ≥ 上下文 10%  →  切换为 tool_search 桥接模式
+  extra_tools schema token ≥ 上下文 10%  →  切换为 Hi-RAG 分层桥接
 ```
+
+#### Hi-RAG — 分层工具选择（Type → Service → Tool）
+
+面向海量工具 / MCP 场景，披露层采用 **Hi-RAG**：一种结构感知、由粗到精的检索（参照论文 *Hi-RAG: A Hierarchical Framework for Scalable and Generalizable Tool Selection*），契合 MCP 天然的 `Type → Service → Tool` 层级：
+
+<p align="center">
+  <img src="images/hi-rag-framework.png" alt="Hi-RAG 框架" width="100%"/>
+</p>
+
+- **阶段 1 · 粗粒度检索（混合）：** 在**工具**描述上做 BM25（词法）+ embedding（语义），用加权 RRF（`k=60, α=0.1`）融合 —— *Tool-as-Proxy*：先检索工具，再上卷到其父服务。
+- **阶段 2 · 细粒度重排（Type 感知）：** 候选按 `Type + Service + Tool` 拼接描述做 embedding 余弦重排，只把 top 结果交给 LLM。
+- **两个入口：** `tool_search`（自定义工具，`Type → Tool` 两层）与 `mcp_search`（MCP，`Type → Service → Tool` 三层）；二者共用 `tool_describe` / `tool_invoke`，**未配置 embedding 时自动退回纯 BM25**。
+- 每个 MCP server / 自定义工具携带固定 8 类表里的一个 **Type**，作为重排最粗的一路信号。
 
 ### 2. MCP 支持（Model Context Protocol）
 
@@ -331,6 +344,13 @@ Swagger 文档：`http://localhost:8000/docs`
 ---
 
 ## 📰 更新日志
+
+- **2026-06-07** — `v2.1.0` Hi-RAG 版本
+  - Hi-RAG 分层工具选择（`Type → Service → Tool`），参考 *Hi-RAG: A Hierarchical Framework for Scalable and Generalizable Tool Selection*
+  - 两个入口：`tool_search`（自定义工具，两层）与 `mcp_search`（MCP，三层），共用 `tool_describe` / `tool_invoke`
+  - 混合粗排召回：BM25 + 向量经加权 RRF 融合，再做 Type 感知细排；未配置向量端点时优雅回退到纯 BM25
+  - MCP server / 自定义工具固定 8 类 Type 体系（`tool_taxonomy.py`）
+  - 无论工具仓库多大，上下文中始终只有 ≤4 个桥接 stub
 
 - **2026-06-02** — `v2.0.0` 渐进式披露版本
   - Skills 渐进式披露：`skills_list` / `skill_view` 两步展开

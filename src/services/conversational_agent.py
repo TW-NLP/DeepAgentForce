@@ -23,40 +23,51 @@ from src.utils.setting_utils import load_config_from_file
 logger = logging.getLogger(__name__)
 
 
-def sanitize_agent_output(text: str) -> str:
-    """最小化清理内部内容，避免误删正常答案。"""
-    if not text:
-        return text
+def _clean_prose_segment(seg: str) -> str:
+    """只清洗「非代码」文本段：路径 / SKILL.md / 工具 JSON / 表格残留等。"""
+    cleaned = seg
 
-    cleaned = str(text)
-
-    # 1. 去掉代码块和 YAML frontmatter
-    cleaned = re.sub(r"```[\w-]*\n?[\s\S]*?```", "", cleaned)
+    # 去掉 YAML frontmatter
     cleaned = re.sub(r"(?ms)^---\s*\n.*?\n---\s*", "", cleaned)
-
-    # 2. 去掉绝对路径和技能文件列表
+    # 去掉绝对路径和技能文件列表
     cleaned = re.sub(r"\[[^\]]*?/[^]\n]*(?:SKILL\.md|\.py)[^\]]*\]", "", cleaned)
     cleaned = re.sub(r"/(?:Users|home|app|tmp)[^\s,'\"\]]+", "", cleaned)
-
-    # 3. 仅删除非常明确的内部痕迹，避免误伤正常自然语言
+    # 删除非常明确的内部痕迹
     cleaned = re.sub(r"(?im)^.*SKILL\.md.*$", "", cleaned)
     cleaned = re.sub(r"(?im)^.*已调用\s*[\w\-]+\s*技能[^。]*[：:]?\s*$", "", cleaned)
-
-    # 4. 去掉常见工具原始 JSON 输出
+    # 去掉常见工具原始 JSON 输出
     cleaned = re.sub(
         r'\{\s*"datetime"\s*:\s*".*?"\s*,\s*"date"\s*:\s*".*?"\s*,\s*"time"\s*:\s*".*?"[\s\S]*?"utc_offset"\s*:\s*".*?"\s*\}',
         "",
         cleaned,
         flags=re.S,
     )
-
-    # 5. 去掉非常明确的表格残留
+    # 去掉明确的表格残留
     cleaned = re.sub(r"(?im)^\s*\|.*\|\s*$", "", cleaned)
-
-    # 6. 合并多余空行
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
-
     return cleaned
+
+
+def sanitize_agent_output(text: str) -> str:
+    """清理内部内容，但**完整保留 markdown 代码块**（像 Claude 一样展示代码）。
+
+    做法：按代码块切分——奇数段是代码块，原样保留；偶数段是普通文本，做清洗。
+    全程不使用占位符，因此绝不会出现占位符泄漏（如 \\x00CODE0）。
+    """
+    if not text:
+        return text
+
+    # 切分：捕获组保留分隔符（代码块）。先匹配完整 ```...```，再匹配流式未闭合的尾部。
+    parts = re.split(r"(```[\s\S]*?```|```[\s\S]*$)", str(text))
+    rebuilt = "".join(
+        part if (idx % 2 == 1) else _clean_prose_segment(part)
+        for idx, part in enumerate(parts)
+    )
+
+    # 合并多余空行
+    rebuilt = re.sub(r"\n{3,}", "\n\n", rebuilt).strip()
+    # 安全网：清除任何残留控制字符（含历史占位符的 \x00），确保前端不会看到 �
+    rebuilt = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", rebuilt)
+    return rebuilt
 
 
 def get_tenant_settings(tenant_uuid: Optional[str] = None) -> Any:
@@ -303,12 +314,14 @@ class ConversationalAgent:
             self.settings, self.tenant_uuid
         )
 
-        # 🆕 额外 / MCP 工具走渐进式披露：池子小则直接绑定，超过上下文 ~10% 则
-        # 改为桥接工具 tool_search/tool_describe/tool_invoke，避免上百个 schema 常驻。
+        # 🆕 额外 / MCP 工具走分层渐进式披露（Hi-RAG：Type→Service→Tool，粗排+细排）：
+        # 池子小则直接绑定；超过上下文 ~10% 则按 metadata 自动拆为「自定义」与「MCP」两池，
+        # 分别走 tool_search（两层）与 mcp_search（三层），共用 tool_describe/tool_invoke。
+        # 传入 settings 以复用 EMBEDDING_* 启用混合检索（未配置则自动退回纯 BM25）。
         from src.services.tool_disclosure import build_tool_disclosure
         extra_tools = self._collect_extra_tools()
         disclosure_tools, tool_disclosure_overview = build_tool_disclosure(
-            extra_tools, context_length=None
+            extra_tools, context_length=None, settings=self.settings
         )
 
         # ✅ 项目根路径直接注入 system prompt，Agent 无需自己 find
@@ -335,14 +348,14 @@ class ConversationalAgent:
 - **任何工具的原始输出内容**（包括 JSON、API 返回结果、命令行输出）
 - **任何文件路径**（如 `/Users/...`、`<DEEPAGENTFORCE_ROOT>`、`.py` 脚本路径）
 - **任何 YAML frontmatter**（`---` 开头的内容）
-- **任何代码块内容**（\`\`\` 包围的内容）
 - **"正在使用 XX 工具"、"调用 XX 接口"、"执行 XX 命令"** 等描述
 - **"根据搜索结果"、"查询到以下内容"、"返回了 N 个结果"** 等前缀
 - **表格格式的参数说明**（如 `| Parameter | Required |` 这样的表格）
 
 ### 正确做法：
-- **只输出对用户有价值的自然语言回答**
-- 工具执行后，用自己的话总结结果，不要复制工具输出
+- **当用户要求写代码 / 脚本 / 配置时，必须用 markdown 代码块（```语言 ... ```）把完整代码直接展示给用户**——这是有价值的内容，要展示，不要只描述。若同时把代码保存成了文件，正常告诉用户文件已保存即可。
+- **只输出对用户有价值的自然语言回答**（代码块属于有价值内容）
+- 工具执行后，用自己的话总结结果，不要复制工具的原始 JSON / 日志 / 命令行输出
 - 如果工具没有返回有用结果，直接告诉用户"未找到相关信息"或给出建议
 - 回答应该像 ChatGPT 一样：干净、自然、直接
 - 即使用户追问你是否调用了 skill / 工具，也只需一句话简短回答，不得展示内部文件、路径、命令、SKILL.md 内容或原始 JSON

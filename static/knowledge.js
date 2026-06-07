@@ -51,12 +51,20 @@ const LoadingManager = {
 
 // ============ 工具函数 ============
 function getFileIcon(filename) {
+    // 统一的线性文件图标（颜色由 getFileColorClass 区分类型）
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>';
+}
+
+function getFileColorClass(filename) {
     const ext = (filename || '').split('.').pop().toLowerCase();
-    const icons = {
-        'pdf': '📕', 'docx': '📘', 'doc': '📘',
-        'txt': '📄', 'md': '📝', 'markdown': '📝', 'csv': '📊'
-    };
-    return icons[ext] || '📄';
+    const m = { pdf: 'ft-pdf', doc: 'ft-doc', docx: 'ft-doc', txt: 'ft-txt', md: 'ft-md', markdown: 'ft-md', csv: 'ft-csv' };
+    return m[ext] || 'ft-default';
+}
+
+// 折叠/展开「知识库概览」面板
+function toggleKbOverview() {
+    const el = document.getElementById('kbOverview');
+    if (el) el.classList.toggle('collapsed');
 }
 
 function getFileTypeLabel(ext) {
@@ -180,7 +188,10 @@ function renderDrawer(doc, previewData = null, loading = false) {
         const extLabel = getDocumentTypeLabel(doc);
         els.subtitle.textContent = `${extLabel} · ${formatRelativeTime(doc.uploaded_at)} · ${buildDocumentSummary(doc)}`;
     }
-    if (els.icon) els.icon.textContent = getFileIcon(doc.name);
+    if (els.icon) {
+        els.icon.innerHTML = getFileIcon(doc.name);
+        els.icon.className = 'kb-drawer-icon ' + getFileColorClass(doc.name);
+    }
     if (els.status) {
         els.status.textContent = loading ? '加载中' : (previewData ? `${previewData.chunks?.length || 0} 个块` : '已选中文档');
     }
@@ -323,6 +334,12 @@ async function loadKnowledgeBaseStats() {
             if (statDocs) statDocs.textContent = data.document_count;
             if (statChunks) statChunks.textContent = data.chunks_count || 0;
             if (statSize) statSize.textContent = data.total_size || '0 KB';
+
+            // 同步折叠面板头部的摘要
+            const ovSummary = document.getElementById('kbOverviewSummary');
+            if (ovSummary) {
+                ovSummary.textContent = `${data.document_count || 0} 个文档 · ${data.chunks_count || 0} 文本块 · ${data.total_size || '0 KB'}`;
+            }
             if (kbTypeBreakdown) {
                 const breakdown = data.file_type_counts || {};
                 const entries = Object.entries(breakdown)
@@ -433,7 +450,7 @@ function renderDocuments() {
                         <polyline points="20 6 9 17 4 12"/>
                     </svg>
                 </div>
-                <div class="doc-icon">${getFileIcon(doc.name)}</div>
+                <div class="doc-icon ${getFileColorClass(doc.name)}">${getFileIcon(doc.name)}</div>
                 <div class="doc-info" onclick="showDocumentDetail('${doc.document_id}')">
                     <div class="doc-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</div>
                     <div class="doc-summary">${escapeHtml(buildDocumentSummary(doc))}</div>

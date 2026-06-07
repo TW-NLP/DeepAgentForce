@@ -53,9 +53,10 @@
     function card({ icon, iconClass, name, badge, subtitle, metas, tags, actions }) {
         const metaHtml = (metas || []).map(m => `<span class="skill-chip muted">${m}</span>`).join('');
         const tagHtml = (tags || []).map(t => `<span class="skill-row-tag">${esc(t)}</span>`).join('');
+        const iconHtml = (icon && icon.trim().startsWith('<svg')) ? icon : esc(icon || 'T');
         return `
         <div class="skill-row" style="cursor:default">
-            <div class="skill-row-icon ${iconClass || 'default'}">${esc(icon || 'T')}</div>
+            <div class="skill-row-icon ${iconClass || 'default'}">${iconHtml}</div>
             <div class="skill-row-main">
                 <div class="skill-row-topline">
                     <div class="skill-row-title">
@@ -109,11 +110,13 @@
     // ==================== 工具：加载与渲染 ====================
     async function loadCustomTools() {
         try {
+            await loadToolTypes();   // 先就绪 slug→label，供分组/展示用
             const resp = await authFetch(`${apiBase()}/tools`);
             if (!resp) return;
             const data = await resp.json();
             if (!data.success) { toast('加载工具失败', 'error'); return; }
 
+            customCache = data.custom || [];
             renderReadonlyTools(data.builtin || [], data.mcp || []);
             renderCustomTools(data.custom || []);
 
@@ -132,18 +135,26 @@
     function renderReadonlyTools(builtin, mcp) {
         const grid = document.getElementById('readonlyToolsGrid');
         if (!grid) return;
-        const b = builtin.map(t => card({
-            icon: 'B', iconClass: 'green', name: t.name,
-            badge: '<span class="sp-badge tool-builtin">' + esc(t.category_label || '内置') + '</span>',
-            subtitle: t.description,
-        }));
-        const m = mcp.map(t => card({
-            icon: 'M', iconClass: 'blue', name: t.name,
-            badge: '<span class="sp-badge tool-mcp">' + esc(t.category_label || 'MCP') + '</span>',
-            subtitle: t.description,
-        }));
-        grid.innerHTML = b.concat(m).join('') ||
-            '<div class="sp-empty-state" style="display:flex"><div class="sp-empty-icon">🧰</div><div class="sp-empty-text">暂无工具</div></div>';
+        // 内置工具：按其原生类目（本地实用 / 联网 / 记忆…）分组
+        const b = groupCards(builtin,
+            t => t.category_label || '内置工具',
+            t => card({
+                icon: 'B', iconClass: 'green', name: t.name,
+                badge: '<span class="sp-badge tool-builtin">' + esc(t.category_label || '内置') + '</span>',
+                subtitle: t.description,
+            }));
+        // MCP 工具：按 Type 分门别类（每张卡也显示其 Type 与所属 server）
+        const m = groupCards(mcp,
+            t => 'MCP · ' + typeLabel(t.type),
+            t => card({
+                icon: 'M', iconClass: 'blue', name: t.name,
+                badge: '<span class="sp-badge tool-mcp">' + esc(t.category_label || 'MCP') + '</span>'
+                     + (t.type ? ' <span class="sp-badge tool-builtin">' + esc(typeLabel(t.type)) + '</span>' : ''),
+                subtitle: t.description,
+                metas: t.type ? ['类型：' + esc(typeLabel(t.type))] : [],
+            }));
+        grid.innerHTML = (b + m) ||
+            '<div class="sp-empty-state" style="display:flex"><div class="sp-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 13h20"/></svg></div><div class="sp-empty-text">暂无工具</div></div>';
     }
 
     function renderCustomTools(items) {
@@ -156,25 +167,76 @@
             return;
         }
         if (empty) empty.style.display = 'none';
-        grid.innerHTML = items.map(it => {
-            const toolNames = (it.tools || []).map(t => t.name);
-            const subtitle = it.error
-                ? '加载失败：' + it.error
-                : (it.tools || []).map(t => t.name + '：' + (t.description || '')).join('；') || '无可用工具';
-            const metas = [
-                (it.tools || []).length + ' 个工具',
-                fmtSize(it.size_bytes),
-                esc(it.modified_at || ''),
-            ];
-            const actions =
-                `<button class="sp-action-btn edit" title="编辑" onclick="editCustomTool('${esc(it.tool_id)}')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` +
-                `<button class="sp-action-btn danger" title="删除" onclick="deleteCustomTool('${esc(it.tool_id)}')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`;
-            return card({
-                icon: 'PY', iconClass: 'orange', name: it.tool_id,
-                badge: '<span class="sp-badge tool-custom">自定义</span>',
-                subtitle, metas, tags: toolNames, actions,
+        // 自定义工具：按 Type 分门别类
+        grid.innerHTML = groupCards(items, it => typeLabel(it.type), customToolCard);
+    }
+
+    function customToolCard(it) {
+        const toolNames = (it.tools || []).map(t => t.name);
+        const subtitle = it.error
+            ? '加载失败：' + it.error
+            : (it.tools || []).map(t => t.name + '：' + (t.description || '')).join('；') || '无可用工具';
+        const metas = [
+            (it.tools || []).length + ' 个工具',
+            fmtSize(it.size_bytes),
+            esc(it.modified_at || ''),
+        ];
+        if (it.type) metas.unshift('类目：' + esc(typeLabel(it.type)));
+        const actions =
+            `<button class="sp-action-btn edit" title="编辑" onclick="editCustomTool('${esc(it.tool_id)}')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` +
+            `<button class="sp-action-btn danger" title="删除" onclick="deleteCustomTool('${esc(it.tool_id)}')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`;
+        return card({
+            icon: 'PY', iconClass: 'orange', name: it.tool_id,
+            badge: '<span class="sp-badge tool-custom">自定义</span>',
+            subtitle, metas, tags: toolNames, actions,
+        });
+    }
+
+    // ==================== Type 类目（MCP / 自定义工具共用，固定表） ====================
+    let toolTypes = [];
+    let typeLabelMap = {};   // slug -> 中文 label
+    let customCache = [];
+
+    async function loadToolTypes() {
+        if (toolTypes.length) return;
+        try {
+            const resp = await authFetch(`${apiBase()}/tools/types`);
+            if (!resp) return;
+            const data = await resp.json();
+            toolTypes = data.types || [];
+            typeLabelMap = {};
+            toolTypes.forEach(t => { typeLabelMap[t.slug] = t.label; });
+            ['toolType', 'mcpType'].forEach(id => {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                sel.innerHTML = '<option value="">（未分类）</option>' +
+                    toolTypes.map(t => `<option value="${esc(t.slug)}">${esc(t.label)}（${esc(t.slug)}）</option>`).join('');
             });
-        }).join('');
+        } catch (e) { console.error(e); }
+    }
+
+    // slug -> 展示用中文 label（缺失/未分类回退）
+    function typeLabel(slug) {
+        if (!slug) return '未分类';
+        return typeLabelMap[slug] || slug;
+    }
+
+    // 按类目分组渲染：在单列网格里插入「分组标题 + 该组卡片」序列。
+    function groupCards(items, groupOf, cardOf) {
+        const groups = new Map();
+        (items || []).forEach(it => {
+            const g = groupOf(it) || '未分类';
+            if (!groups.has(g)) groups.set(g, []);
+            groups.get(g).push(it);
+        });
+        let html = '';
+        for (const [label, arr] of groups) {
+            html += `<div class="sp-tool-group-title" style="display:flex;align-items:center;gap:8px;`
+                 + `margin:12px 2px 0;font-size:12px;font-weight:600;color:var(--text-tertiary);">`
+                 + `${esc(label)}<span class="sp-count">${arr.length}</span></div>`;
+            html += arr.map(cardOf).join('');
+        }
+        return html;
     }
 
     // ==================== 工具：弹窗 CRUD ====================
@@ -182,10 +244,12 @@
 
     function openToolModal() {
         editingToolId = null;
+        loadToolTypes();
         document.getElementById('toolModalTitle').textContent = '添加自定义工具';
         const idInput = document.getElementById('toolId');
         idInput.value = '';
         idInput.removeAttribute('readonly');
+        sv('toolType', '');
         document.getElementById('toolCode').value = '';
         document.getElementById('toolValidateResult').innerHTML = '';
         document.getElementById('toolModal').classList.add('active');
@@ -193,6 +257,7 @@
     function closeToolModal() { document.getElementById('toolModal').classList.remove('active'); }
 
     async function editCustomTool(toolId) {
+        await loadToolTypes();
         const resp = await authFetch(`${apiBase()}/tools/custom/${encodeURIComponent(toolId)}`);
         if (!resp || !resp.ok) { toast('获取源码失败', 'error'); return; }
         const data = await resp.json();
@@ -201,6 +266,7 @@
         const idInput = document.getElementById('toolId');
         idInput.value = toolId;
         idInput.setAttribute('readonly', 'readonly');
+        sv('toolType', (customCache.find(x => x.tool_id === toolId) || {}).type || '');
         document.getElementById('toolCode').value = data.code || '';
         document.getElementById('toolValidateResult').innerHTML = '';
         document.getElementById('toolModal').classList.add('active');
@@ -242,11 +308,12 @@
         if (!toolId) { toast('请填写工具文件名', 'error'); return; }
         if (!code.trim()) { toast('请填写代码', 'error'); return; }
 
+        const tool_type = gv('toolType');
         const force = editingToolId === toolId ? 'true' : 'false';
         let resp = await authFetch(`${apiBase()}/tools/custom`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ tool_id: toolId, code, force }),
+            body: new URLSearchParams({ tool_id: toolId, code, force, tool_type }),
         });
         if (!resp) return;
         let data = await resp.json();
@@ -256,7 +323,7 @@
                 resp = await authFetch(`${apiBase()}/tools/custom`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ tool_id: toolId, code, force: 'true' }),
+                    body: new URLSearchParams({ tool_id: toolId, code, force: 'true', tool_type }),
                 });
                 data = await resp.json();
             } else return;
@@ -279,6 +346,7 @@
 
     async function loadMcpServers() {
         try {
+            await loadToolTypes();   // 先就绪 slug→label
             const resp = await authFetch(`${apiBase()}/mcp/servers`);
             if (!resp) return;
             const data = await resp.json();
@@ -298,27 +366,31 @@
         if (!grid) return;
         if (!servers.length) { grid.innerHTML = ''; if (empty) empty.style.display = 'flex'; return; }
         if (empty) empty.style.display = 'none';
+        // MCP Server 也按 Type 分门别类
+        grid.innerHTML = groupCards(servers, s => typeLabel(s.type), mcpServerCard);
+    }
 
-        grid.innerHTML = servers.map(s => {
-            const isGlobal = s.source === 'global';
-            const target = s.url || ((s.command || '') + ' ' + (s.args || []).join(' ')).trim();
-            const badge =
-                (isGlobal ? '<span class="sp-badge mcp-global">全局·只读</span>' : '<span class="sp-badge mcp-tenant">我的</span>') +
-                (s.enabled ? ' <span class="sp-badge mcp-on">已启用</span>' : ' <span class="sp-badge mcp-off">已禁用</span>');
-            let actions = '';
-            if (!isGlobal) {
-                actions =
-                    `<button class="sp-action-btn" title="${s.enabled ? '禁用' : '启用'}" onclick="toggleMcpServer('${esc(s.name)}', ${s.enabled ? 'false' : 'true'})"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>` +
-                    `<button class="sp-action-btn edit" title="编辑" onclick="editMcpServer('${esc(s.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` +
-                    `<button class="sp-action-btn danger" title="删除" onclick="deleteMcpServer('${esc(s.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`;
-            }
-            return card({
-                icon: '🔌', iconClass: isGlobal ? 'default' : 'green', name: s.name,
-                badge, subtitle: target,
-                metas: ['传输：' + (s.transport || 'stdio')],
-                actions,
-            });
-        }).join('');
+    function mcpServerCard(s) {
+        const isGlobal = s.source === 'global';
+        const target = s.url || ((s.command || '') + ' ' + (s.args || []).join(' ')).trim();
+        const badge =
+            (isGlobal ? '<span class="sp-badge mcp-global">全局·只读</span>' : '<span class="sp-badge mcp-tenant">我的</span>') +
+            (s.enabled ? ' <span class="sp-badge mcp-on">已启用</span>' : ' <span class="sp-badge mcp-off">已禁用</span>') +
+            (s.type ? ' <span class="sp-badge tool-mcp">' + esc(typeLabel(s.type)) + '</span>' : '');
+        let actions = '';
+        if (!isGlobal) {
+            actions =
+                `<button class="sp-action-btn" title="${s.enabled ? '禁用' : '启用'}" onclick="toggleMcpServer('${esc(s.name)}', ${s.enabled ? 'false' : 'true'})"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>` +
+                `<button class="sp-action-btn edit" title="编辑" onclick="editMcpServer('${esc(s.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` +
+                `<button class="sp-action-btn danger" title="删除" onclick="deleteMcpServer('${esc(s.name)}')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`;
+        }
+        const metas = ['传输：' + (s.transport || 'stdio')];
+        if (s.description) metas.push(esc(s.description));
+        return card({
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></svg>',
+            iconClass: isGlobal ? 'default' : 'green', name: s.name,
+            badge, subtitle: target, metas, actions,
+        });
     }
 
     // ==================== MCP：弹窗 CRUD ====================
@@ -342,11 +414,13 @@
     }
 
     function openMcpModal() {
+        loadToolTypes();
         sv('mcpName', '');
         document.getElementById('mcpName').removeAttribute('readonly');
         sv('mcpTransport', 'stdio');
         sv('mcpCommand', ''); sv('mcpArgs', ''); sv('mcpEnv', '');
         sv('mcpUrl', ''); sv('mcpHeaders', '');
+        sv('mcpType', ''); sv('mcpDesc', '');
         document.getElementById('mcpTestResult').innerHTML = '';
         document.getElementById('mcpModalTitle').textContent = '添加 MCP Server';
         onMcpTransportChange();
@@ -354,9 +428,10 @@
     }
     function closeMcpModal() { document.getElementById('mcpModal').classList.remove('active'); }
 
-    function editMcpServer(name) {
+    async function editMcpServer(name) {
         const s = serversCache.find(x => x.name === name);
         if (!s) { toast('未找到该 server', 'error'); return; }
+        await loadToolTypes();
         sv('mcpName', s.name);
         document.getElementById('mcpName').setAttribute('readonly', 'readonly');
         sv('mcpTransport', s.transport || 'stdio');
@@ -365,6 +440,7 @@
         sv('mcpEnv', kvToText(s.env));
         sv('mcpUrl', s.url || '');
         sv('mcpHeaders', kvToText(s.headers));
+        sv('mcpType', s.type || ''); sv('mcpDesc', s.description || '');
         document.getElementById('mcpTestResult').innerHTML = '';
         document.getElementById('mcpModalTitle').textContent = `编辑：${name}`;
         onMcpTransportChange();
@@ -382,6 +458,8 @@
             cfg.url = gv('mcpUrl').trim();
             cfg.headers = textToKv(gv('mcpHeaders'));
         }
+        cfg.type = gv('mcpType');
+        cfg.description = gv('mcpDesc').trim();
         return cfg;
     }
 
@@ -457,10 +535,17 @@
                 <div class="modal-body">
                     <div class="form-section">
                         <div class="form-section-title">基本信息</div>
-                        <div class="form-group">
-                            <label class="form-label">工具文件名 *</label>
-                            <input type="text" class="form-input" id="toolId" placeholder="例如: math_pack（仅字母数字下划线连字符）">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">工具文件名 *</label>
+                                <input type="text" class="form-input" id="toolId" placeholder="例如: math_pack（仅字母数字下划线连字符）">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Type 类目</label>
+                                <select class="form-input" id="toolType"><option value="">（未分类）</option></select>
+                            </div>
                         </div>
+                        <div class="form-hint">Type 用于分层工具检索（tool_search）的细粒度重排。</div>
                     </div>
                     <div class="form-section">
                         <div class="form-section-title">Python 代码 *</div>
@@ -507,6 +592,17 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Type 类目</label>
+                                <select class="form-input" id="mcpType"><option value="">（未分类）</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">服务描述</label>
+                                <input type="text" class="form-input" id="mcpDesc" placeholder="一句话描述该服务用途（用于 mcp_search 重排）">
+                            </div>
+                        </div>
+                        <div class="form-hint">Type + 服务描述用于分层服务检索（mcp_search）的细粒度重排。</div>
                     </div>
                     <div class="form-section" id="mcpStdioFields">
                         <div class="form-section-title">本地命令</div>

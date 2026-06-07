@@ -3,8 +3,14 @@ import sys
 import json
 import argparse
 import httpx
-# 添加config路径
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
+# 添加项目根到 sys.path：向上查找包含 config/ 的目录，
+# 避免技能目录层级调整（如加 category 子目录）后相对路径失效。
+_d = os.path.dirname(os.path.abspath(__file__))
+while _d != os.path.dirname(_d):
+    if os.path.isdir(os.path.join(_d, "config")):
+        break
+    _d = os.path.dirname(_d)
+ROOT = _d
 sys.path.insert(0, ROOT)
 from config import settings
 
@@ -77,7 +83,8 @@ def query_rag(question: str, top_k: int = 10, tenant_uuid: str = None) -> dict:
     if tenant_uuid:
         headers["X-Tenant-UUID"] = tenant_uuid
 
-    with httpx.Client(timeout=120.0) as client:
+    # trust_env=False：RAG 是本机 API 调用，绝不能走系统 http_proxy（否则 127.0.0.1 被代理拦成 502）
+    with httpx.Client(timeout=120.0, trust_env=False) as client:
         response = client.post(
             RAG_ENDPOINT,
             headers=headers,
@@ -121,6 +128,17 @@ def main():
         else:
             print("❌ Query failed")
             print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    except httpx.HTTPStatusError as e:
+        # 把接口返回的真实 detail 打出来（通常是上游 LLM/Embedding 的报错），
+        # 避免上层只看到笼统的 "HTTP request failed" 而误判为"RAG 配置问题"。
+        try:
+            detail = e.response.json().get("detail", e.response.text)
+        except Exception:
+            detail = e.response.text
+        print("❌ RAG 接口返回错误")
+        print(f"HTTP {e.response.status_code}: {detail}")
+        sys.exit(1)
 
     except httpx.HTTPError as e:
         print("❌ HTTP request failed")

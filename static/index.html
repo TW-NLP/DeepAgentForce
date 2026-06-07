@@ -90,6 +90,23 @@
             font-size: 19px;
             box-shadow: 0 12px 24px rgba(25, 195, 125, 0.18);
         }
+        .logo-icon svg { width: 22px; height: 22px; color: #fff; }
+
+        /* ============ 全局键盘可见焦点环（a11y + 精致度） ============ */
+        button:focus-visible,
+        a:focus-visible,
+        [role="button"]:focus-visible,
+        .nav-item:focus-visible,
+        .suggest-card:focus-visible,
+        .sp-subtab:focus-visible,
+        .kb-filter-chip:focus-visible {
+            outline: 2px solid var(--accent-green);
+            outline-offset: 2px;
+            border-radius: var(--radius-sm);
+        }
+        input:focus-visible,
+        textarea:focus-visible,
+        select:focus-visible { outline: none; }
 
         .logo-text {
             font-size: 17px;
@@ -477,7 +494,30 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            position: relative;
         }
+
+        /* 回到底部按钮（滚上去时浮现） */
+        .scroll-bottom-btn {
+            position: absolute;
+            left: 50%;
+            bottom: 100px;
+            transform: translateX(-50%) translateY(8px);
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-md);
+            color: var(--text-secondary);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            opacity: 0; pointer-events: none;
+            transition: opacity .2s ease, transform .2s ease, background .15s ease, color .15s ease;
+            z-index: 12;
+        }
+        .scroll-bottom-btn.visible { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+        .scroll-bottom-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .scroll-bottom-btn svg { width: 18px; height: 18px; }
 
         .messages-container {
             flex: 1;
@@ -508,34 +548,81 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 72px 24px 48px;
+            padding: 56px 24px 40px;
             text-align: center;
-            min-height: calc(100vh - 200px);
+            min-height: calc(100vh - 230px);
         }
+
+        .welcome-logo {
+            width: 56px; height: 56px;
+            border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, var(--accent-green), #06b6d4);
+            box-shadow: 0 8px 24px rgba(25, 195, 125, .28);
+            margin-bottom: 20px;
+        }
+        .welcome-logo svg { width: 30px; height: 30px; color: #fff; }
 
         .welcome-text {
             font-size: 26px;
             font-weight: 600;
             color: var(--text-primary);
-            line-height: 1.5;
-            margin: 0 0 12px;
+            line-height: 1.4;
+            margin: 0 0 8px;
             max-width: 600px;
-            letter-spacing: -0.025em;
+            letter-spacing: -0.02em;
         }
-
-        .welcome-text br {
-            display: block;
-            content: "";
-            margin-bottom: 6px;
-        }
+        .welcome-text br { display: block; content: ""; margin-bottom: 6px; }
 
         .welcome-subtitle {
             font-size: 15px;
             color: var(--text-secondary);
-            margin-bottom: 32px;
-            max-width: 440px;
+            margin: 0 0 30px;
+            max-width: 480px;
             line-height: 1.6;
         }
+
+        /* 推荐提示词卡片 */
+        .welcome-suggestions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            width: 100%;
+            max-width: 640px;
+        }
+        .suggest-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            text-align: left;
+            padding: 14px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            font-family: inherit;
+            transition: border-color .15s ease, box-shadow .15s ease, transform .12s ease;
+        }
+        .suggest-card:hover {
+            border-color: var(--border-light);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        .suggest-icon {
+            flex-shrink: 0;
+            width: 34px; height: 34px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .suggest-icon svg { width: 18px; height: 18px; }
+        .suggest-icon.green  { background: rgba(25, 195, 125, .12); color: var(--accent-green); }
+        .suggest-icon.blue   { background: rgba(59, 130, 246, .12); color: var(--accent-blue); }
+        .suggest-icon.purple { background: rgba(139, 92, 246, .12); color: var(--accent-purple); }
+        .suggest-icon.orange { background: rgba(245, 158, 11, .14); color: var(--accent-orange); }
+        .suggest-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .suggest-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+        .suggest-desc { font-size: 12px; color: var(--text-tertiary); line-height: 1.45; }
+        @media (max-width: 720px) { .welcome-suggestions { grid-template-columns: 1fr; } }
 
         /* ============ 消息样式 — Claude 风格 ============ */
         .message {
@@ -708,65 +795,99 @@
 
         .msg-action-icon svg { width: 14px; height: 14px; }
 
-        /* ——— 内联编辑器 ——— */
-        .inline-editor {
-            margin-top: 8px;
+        /* ——— 内联消息编辑器（破壳成干净卡片） ——— */
+        /* 编辑态：用户气泡去壳、内容区放宽，让编辑器舒展 */
+        .message-user.is-editing { flex-direction: column; align-items: stretch; }
+        .message-user.is-editing .message-content { max-width: 100%; width: 100%; align-items: stretch; }
+        .message-user.is-editing .message-text {
+            background: transparent;
+            padding: 0;
+            border-radius: 0;
             width: 100%;
-            max-width: 560px;
+            max-width: 100%;
+        }
+
+        .inline-editor {
+            width: 100%;
+            margin: 2px 0;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            padding: 6px 6px 6px;
+            transition: border-color .18s ease, box-shadow .18s ease;
+            animation: fadeIn .18s ease;
+        }
+        .inline-editor:focus-within {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px rgba(25, 195, 125, .12);
         }
 
         .inline-edit-textarea {
             width: 100%;
-            min-height: 80px;
-            max-height: 220px;
+            min-height: 48px;
+            max-height: 320px;
             resize: none;
-            border: 1.5px solid #d1d5db;
-            background: #ffffff;
+            border: none;
+            background: transparent;
             color: var(--text-primary);
-            border-radius: 12px;
-            padding: 11px 14px;
-            font: inherit;
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
+            font-family: inherit;
             font-size: 15px;
-            line-height: 1.6;
+            line-height: 1.65;
             outline: none;
-            transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
-
-        .inline-edit-textarea:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
+        .inline-edit-textarea::placeholder { color: var(--text-tertiary); }
 
         .inline-edit-actions {
             display: flex;
+            align-items: center;
             gap: 8px;
-            margin-top: 8px;
-            justify-content: flex-end;
+            padding: 2px 6px;
+        }
+        .inline-edit-hint {
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            margin-right: auto;
+            user-select: none;
+        }
+        .inline-edit-hint kbd {
+            font-family: inherit;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 0 5px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.6;
         }
 
         .inline-edit-actions button {
-            border: none;
-            border-radius: 8px;
-            padding: 7px 16px;
-            font-size: 13px;
+            border: 1px solid transparent;
+            border-radius: var(--radius-full);
+            padding: 4px 12px;
+            font-size: 12.5px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: background .15s ease, border-color .15s ease, transform .08s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
-
+        .inline-edit-actions .save-btn svg { width: 12px; height: 12px; }
+        .inline-edit-actions button:active { transform: translateY(.5px); }
+        .inline-edit-actions .cancel-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: var(--border-color);
+        }
+        .inline-edit-actions .cancel-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
         .inline-edit-actions .save-btn {
-            background: #0f172a;
+            background: var(--accent-green);
             color: #fff;
         }
-
-        .inline-edit-actions .save-btn:hover { background: #1e293b; }
-
-        .inline-edit-actions .cancel-btn {
-            background: #f1f5f9;
-            color: var(--text-secondary);
-        }
-
-        .inline-edit-actions .cancel-btn:hover { background: #e2e8f0; }
+        .inline-edit-actions .save-btn:hover { background: #15a86b; }
 
         .message-debug {
             margin-top: 12px;
@@ -1136,6 +1257,22 @@
 
         .msg-file-card-dl svg { width: 13px; height: 13px; }
 
+        /* button 形态的卡片需要重置 UA 样式 */
+        button.msg-file-card { font-family: inherit; text-align: left; }
+        .msg-file-card-icon svg { width: 16px; height: 16px; color: #6366f1; }
+
+        /* 本轮生成的输出文件区块（回复底部） */
+        .msg-output-files { margin-top: 12px; }
+        .msg-output-files-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            margin-bottom: 7px;
+        }
+        .msg-output-files .msg-file-cards { margin: 0; }
+
         /* ============ 配置页面 ============ */
         .config-container {
             flex: 1;
@@ -1190,15 +1327,23 @@
 
         .config-tip {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 8px;
             padding: 12px 16px;
             background: rgba(59, 130, 246, 0.1);
             border: 1px solid rgba(59, 130, 246, 0.3);
             border-radius: var(--radius-md);
             font-size: 13px;
+            line-height: 1.6;
             color: var(--accent-blue);
             margin-bottom: 16px;
+        }
+        .config-tip code {
+            font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+            font-size: 12px;
+            background: rgba(59, 130, 246, 0.16);
+            padding: 1px 6px;
+            border-radius: 5px;
         }
 
         .config-tip svg {
@@ -2392,6 +2537,46 @@
             align-items: center;
         }
 
+        /* 知识库概览（可折叠面板：统计 + 文件分布） */
+        .kb-overview {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-elevated);
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: border-color .15s ease;
+        }
+        .kb-overview:hover { border-color: var(--border-light); }
+        .kb-overview-header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            text-align: left;
+            transition: background .15s ease;
+        }
+        .kb-overview-header:hover { background: var(--bg-hover); }
+        .kb-overview-ico { width: 18px; height: 18px; color: var(--accent-green); flex-shrink: 0; }
+        .kb-overview-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .kb-overview-summary { font-size: 13px; color: var(--text-tertiary); margin-right: auto; }
+        .kb-overview-chevron { width: 16px; height: 16px; color: var(--text-tertiary); transition: transform .25s ease; flex-shrink: 0; }
+        .kb-overview.collapsed .kb-overview-chevron { transform: rotate(-90deg); }
+        .kb-overview:not(.collapsed) .kb-overview-summary { display: none; }
+        .kb-overview-body {
+            padding: 2px 18px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .kb-overview.collapsed .kb-overview-body { display: none; }
+        .kb-overview-body .kb-stats,
+        .kb-overview-body .kb-insight-grid { margin: 0; }
+
         /* 统计卡片网格 */
         .kb-stats {
             display: grid;
@@ -2756,16 +2941,30 @@
         }
 
         .doc-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, rgba(25, 195, 125, 0.1), rgba(14, 165, 233, 0.08));
+            width: 44px;
+            height: 44px;
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
             flex-shrink: 0;
         }
+        .doc-icon svg { width: 22px; height: 22px; }
+
+        /* 文件类型彩色图标块（文档卡 + 详情抽屉共用） */
+        .doc-icon.ft-pdf,     .kb-drawer-icon.ft-pdf     { color: #ef4444; background: rgba(239, 68, 68, .10); }
+        .doc-icon.ft-doc,     .kb-drawer-icon.ft-doc     { color: #3b82f6; background: rgba(59, 130, 246, .10); }
+        .doc-icon.ft-txt,     .kb-drawer-icon.ft-txt     { color: #64748b; background: rgba(100, 116, 139, .10); }
+        .doc-icon.ft-md,      .kb-drawer-icon.ft-md      { color: #8b5cf6; background: rgba(139, 92, 246, .10); }
+        .doc-icon.ft-csv,     .kb-drawer-icon.ft-csv     { color: #19c37d; background: rgba(25, 195, 125, .10); }
+        .doc-icon.ft-default, .kb-drawer-icon.ft-default { color: #64748b; background: rgba(100, 116, 139, .10); }
+        .kb-drawer-icon svg { width: 24px; height: 24px; }
+
+        /* 知识库各处图标（emoji → SVG）的尺寸与配色 */
+        .kb-header-icon svg { width: 28px; height: 28px; color: #fff; }
+        .upload-icon svg { width: 30px; height: 30px; color: var(--accent-green); }
+        .empty-illustration svg { width: 52px; height: 52px; color: #b6c2d1; }
+        .kb-drawer-empty-icon svg { width: 30px; height: 30px; color: #3b82f6; }
 
         .doc-info {
             flex: 1;
@@ -3762,121 +3961,183 @@
 
         /* ============ Claude/Gemini 风格思考过程 UI ============ */
         /* ============ 思考过程 & 流式 — Claude 风格 ============ */
+        /* ============ 思考过程：折叠为药丸，展开为时间线（Claude 风格） ============ */
         .thinking-process {
-            margin: 8px 0 12px;
-            background: #fafafa;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            overflow: hidden;
-            transition: border-color 0.2s ease;
+            margin: 2px 0 12px;
+            width: fit-content;
+            max-width: 100%;
         }
-
-        .thinking-process:hover { border-color: #d1d5db; }
+        .thinking-process:has(.thinking-header:not(.collapsed)) { width: 100%; }
 
         .thinking-header {
-            padding: 10px 14px;
-            cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 8px;
-            font-size: 13px;
+            gap: 7px;
+            padding: 5px 11px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-full);
             color: var(--text-secondary);
-            transition: background 0.15s;
+            font-size: 12.5px;
             user-select: none;
+            transition: background .15s ease, border-color .15s ease, color .15s ease;
+        }
+        .thinking-header:hover { background: var(--bg-hover); border-color: var(--border-light); color: var(--text-primary); }
+
+        /* 展开态：头部成为卡片顶沿，与下方内容连成一体 */
+        .thinking-header:not(.collapsed) {
+            display: flex;
+            width: 100%;
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            border-bottom-color: transparent;
         }
 
-        .thinking-header:hover { background: #f3f4f6; }
+        .thinking-spark { display: inline-flex; flex-shrink: 0; }
+        .thinking-spark svg { width: 14px; height: 14px; color: var(--accent-purple); }
+        .thinking-header.is-thinking .thinking-spark svg { animation: sparkPulse 1.4s ease-in-out infinite; }
+        @keyframes sparkPulse { 0%,100% { opacity:.45; transform:scale(.85);} 50% { opacity:1; transform:scale(1.15);} }
 
-        .thinking-toggle {
-            font-size: 10px;
-            color: var(--text-tertiary);
-            transition: transform 0.25s ease;
-            flex-shrink: 0;
+        .thinking-title { font-weight: 500; letter-spacing: .01em; white-space: nowrap; }
+        /* 思考中：标题流光 */
+        .thinking-header.is-thinking .thinking-title {
+            background: linear-gradient(90deg, var(--text-tertiary) 0%, var(--text-primary) 50%, var(--text-tertiary) 100%);
+            background-size: 200% 100%;
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmerText 1.8s linear infinite;
         }
-
-        .thinking-header.collapsed .thinking-toggle { transform: rotate(-90deg); }
-
-        .thinking-title {
-            font-weight: 500;
-            color: var(--text-secondary);
-            font-size: 12px;
-            letter-spacing: 0.01em;
-        }
-
-        .thinking-header.collapsed .thinking-title { color: var(--text-tertiary); }
+        @keyframes shimmerText { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         .thinking-badge {
             margin-left: auto;
-            background: #f1f5f9;
-            padding: 2px 7px;
-            border-radius: 8px;
+            background: var(--bg-tertiary);
+            padding: 1px 7px;
+            border-radius: var(--radius-full);
             font-size: 11px;
             color: var(--text-tertiary);
+            font-variant-numeric: tabular-nums;
         }
+        .thinking-toggle {
+            width: 13px; height: 13px;
+            flex-shrink: 0;
+            color: var(--text-tertiary);
+            transition: transform .25s ease;
+        }
+        .thinking-header.collapsed .thinking-toggle { transform: rotate(-90deg); }
 
+        /* 展开内容：时间线卡片 */
         .thinking-content {
-            padding: 0 14px 10px;
-            border-top: 1px solid #e5e7eb;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+            background: var(--bg-secondary);
+            padding: 4px 14px 10px;
+            position: relative;
         }
-
         .thinking-content.collapsed { display: none; }
+        /* 时间线竖线（穿过各步骤圆点中心） */
+        .thinking-content::before {
+            content: '';
+            position: absolute;
+            left: 24px; top: 16px; bottom: 18px;
+            width: 1.5px;
+            background: var(--border-color);
+        }
 
         .thinking-step {
             display: flex;
-            gap: 10px;
-            padding: 9px 0;
-            border-bottom: 1px solid #f1f5f9;
-            animation: slideInStep 0.25s ease;
+            gap: 11px;
+            padding: 7px 0;
+            position: relative;
+            animation: slideInStep .25s ease;
         }
-
-        @keyframes slideInStep {
-            from { opacity: 0; transform: translateY(-5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .thinking-step:last-child { border-bottom: none; }
-
-        .thinking-step.is-new { animation: highlightStep 1.2s ease; }
-
-        @keyframes highlightStep {
-            0% { background: rgba(25, 195, 125, 0.08); }
-            100% { background: transparent; }
-        }
+        @keyframes slideInStep { from { opacity:0; transform:translateY(-4px);} to { opacity:1; transform:translateY(0);} }
+        .thinking-step.is-new .step-icon { box-shadow: 0 0 0 4px rgba(139, 92, 246, .14); }
 
         .step-icon {
-            font-size: 14px;
             flex-shrink: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #f1f5f9;
+            width: 21px; height: 21px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
             border-radius: 50%;
             margin-top: 1px;
+            z-index: 1;
+            transition: box-shadow .5s ease;
         }
+        .step-icon svg { width: 13px; height: 13px; }
 
-        .step-body { flex: 1; min-width: 0; }
+        .step-body { flex: 1; min-width: 0; padding-top: 2px; }
 
-        .step-title {
-            font-size: 12.5px;
-            font-weight: 500;
-            color: var(--text-primary);
-            margin-bottom: 2px;
-            line-height: 1.4;
-        }
+        .step-title { font-size: 12.5px; font-weight: 500; color: var(--text-primary); line-height: 1.45; }
 
         .step-desc {
             font-size: 11.5px;
-            color: var(--text-tertiary);
+            color: var(--text-secondary);
             line-height: 1.5;
-            word-break: break-all;
+            margin-top: 3px;
+            word-break: break-word;
+            font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+            background: var(--bg-tertiary);
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            max-width: 100%;
         }
 
-        .step-time {
-            font-size: 10px;
+        .step-time { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+        /* ============ 对话代码块：语言标签 + 一键复制（独立类名，避免与既有 .code-block 冲突） ============ */
+        .cm-codeblock {
+            margin: 12px 0;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background: var(--bg-secondary);
+        }
+        .code-block-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 5px 10px 5px 12px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .code-block-lang {
+            font-size: 11.5px;
             color: var(--text-tertiary);
-            margin-top: 3px;
+            font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+            letter-spacing: .02em;
+        }
+        .code-copy-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: transparent; border: none; cursor: pointer;
+            color: var(--text-tertiary); font-size: 11.5px;
+            padding: 2px 7px; border-radius: 6px;
+            transition: background .15s ease, color .15s ease;
+        }
+        .code-copy-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .code-copy-btn.copied { color: var(--accent-green); }
+        .code-copy-btn svg { width: 13px; height: 13px; }
+        /* 提高特异性，覆盖 .message-text pre / .streaming-final pre 的圆角与内距 */
+        .message-text .cm-codeblock pre,
+        .streaming-final .cm-codeblock pre {
+            margin: 0;
+            border: none;
+            border-radius: 0;
+            background: var(--bg-secondary);
+            padding: 12px 14px;
+            max-height: none;
+            overflow-x: auto;
+            overflow-y: visible;
+            white-space: pre;
+            word-break: normal;
+        }
+        .message-text .cm-codeblock pre code,
+        .streaming-final .cm-codeblock pre code {
+            background: none;
+            padding: 0;
+            white-space: pre;
+            word-break: normal;
         }
 
         /* ——— 流式消息结构 ——— */
@@ -4812,6 +5073,7 @@
             font-size: 34px;
             margin-bottom: 10px;
         }
+        .confirm-icon svg { width: 30px; height: 30px; color: var(--accent-orange); }
 
         .confirm-title {
             font-size: 16px;
@@ -5193,6 +5455,9 @@
         .skill-row-icon.blue { background: linear-gradient(135deg, #0ea5e9, #2563eb); }
         .skill-row-icon.green { background: linear-gradient(135deg, #10b981, #059669); }
         .skill-row-icon.orange { background: linear-gradient(135deg, #f59e0b, #f97316); }
+        .skill-row-icon.purple { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+        .skill-row-icon.default { background: linear-gradient(135deg, #94a3b8, #64748b); }
+        .skill-row-icon svg { width: 22px; height: 22px; color: #fff; }
         .skill-row-icon.default { background: linear-gradient(135deg, #94a3b8, #64748b); }
 
         .skill-row-main {
@@ -5376,6 +5641,7 @@
             font-size: 28px;
             font-weight: 800;
         }
+        .skill-drawer-empty-icon svg { width: 30px; height: 30px; }
 
         .skill-drawer-empty-title {
             font-size: 18px;
@@ -5780,6 +6046,7 @@
             color: #2563eb;
             font-size: 30px;
         }
+        .sp-empty-icon svg { width: 30px; height: 30px; }
 
         .sp-empty-title {
             font-size: 18px;
@@ -6880,7 +7147,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <div class="logo-icon">🦀</div>
+                    <div class="logo-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-1.3 3.4-3.3 5.4-6.7 6.7C8.7 10 10.7 12 12 15.4 13.3 12 15.3 10 18.7 8.7 15.3 7.4 13.3 5.4 12 2z"/><path d="M5 16c-.7 1.7-1.6 2.6-3.2 3.2C3.4 19.9 4.3 20.8 5 22.5c.7-1.7 1.6-2.6 3.2-3.2C6.6 18.6 5.7 17.7 5 16z" opacity=".75"/></svg></div>
                     <span class="logo-text">DeepAgentForce</span>
                     </div>
                 </div>
@@ -6980,10 +7247,37 @@
                             <div id="messagesWrapper">
                                 <!-- 欢迎屏幕 -->
                                 <div class="welcome-screen" id="welcomeScreen">
-                                    <p class="welcome-text">你好，我是 DeepAgentForce<br>帮你读文档、查知识、做分析。</p>
+                                    <div class="welcome-logo">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-1.3 3.4-3.3 5.4-6.7 6.7C8.7 10 10.7 12 12 15.4 13.3 12 15.3 10 18.7 8.7 15.3 7.4 13.3 5.4 12 2z"/><path d="M5 15c-.7 1.8-1.7 2.8-3.5 3.5C3.3 19.2 4.3 20.2 5 22c.7-1.8 1.7-2.8 3.5-3.5C6.7 17.8 5.7 16.8 5 15z" opacity=".75"/></svg>
+                                    </div>
+                                    <h1 class="welcome-text">你好，我是 DeepAgentForce</h1>
+                                    <p class="welcome-subtitle" data-i18n="chat.welcomeSub">读文档、查知识、用工具、做分析 —— 试试下面的例子，或直接开始提问。</p>
+                                    <div class="welcome-suggestions">
+                                        <button class="suggest-card" onclick="useSuggestion(this)" data-prompt="把我知识库里最新的文档提炼成 5 条要点">
+                                            <span class="suggest-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                                            <span class="suggest-body"><span class="suggest-title">总结知识库文档</span><span class="suggest-desc">从已上传文档提炼关键要点</span></span>
+                                        </button>
+                                        <button class="suggest-card" onclick="useSuggestion(this)" data-prompt="联网搜索今天的 AI 行业要闻，并归纳成简报">
+                                            <span class="suggest-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                                            <span class="suggest-body"><span class="suggest-title">联网搜索归纳</span><span class="suggest-desc">检索实时信息并整理成简报</span></span>
+                                        </button>
+                                        <button class="suggest-card" onclick="useSuggestion(this)" data-prompt="帮我写一封专业、简洁的项目周报邮件">
+                                            <span class="suggest-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></span>
+                                            <span class="suggest-body"><span class="suggest-title">起草一封邮件</span><span class="suggest-desc">专业措辞，结构清晰</span></span>
+                                        </button>
+                                        <button class="suggest-card" onclick="useSuggestion(this)" data-prompt="用合适的技能或工具帮我完成一个数据分析小任务">
+                                            <span class="suggest-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6.4 6.4 2 2 6.4-6.4a4 4 0 0 0 5.6-5.6l-2.6 2.6-2-2 2.6-2.6z"/></svg></span>
+                                            <span class="suggest-body"><span class="suggest-title">调用技能/工具</span><span class="suggest-desc">让智能体自动选工具完成任务</span></span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- 回到底部 -->
+                        <button id="scrollToBottomBtn" class="scroll-bottom-btn" title="回到底部" type="button" aria-label="回到底部">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+                        </button>
 
                         <!-- 输入区域 -->
                         <div class="input-container">
@@ -7019,7 +7313,7 @@
                         <!-- 页面标题 -->
                         <div class="kb-header">
                             <div class="kb-header-left">
-                                <div class="kb-header-icon">📚</div>
+                                <div class="kb-header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
                                 <div class="kb-header-text">
                                     <h1>知识库管理</h1>
                                     <p>管理和查询你的文档库，支持 PDF、Word、TXT 等多种格式</p>
@@ -7030,49 +7324,54 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                                     刷新
                                 </button>
-                                <button class="btn-primary-large" onclick="document.getElementById('documentInput').click()">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                    上传文档
-                                </button>
                             </div>
                         </div>
 
-                        <!-- 统计卡片 -->
-                        <div class="kb-stats">
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        <!-- 知识库概览（可折叠：统计 + 文件分布） -->
+                        <div class="kb-overview collapsed" id="kbOverview">
+                            <button class="kb-overview-header" type="button" onclick="toggleKbOverview()">
+                                <svg class="kb-overview-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
+                                <span class="kb-overview-title">知识库概览</span>
+                                <span class="kb-overview-summary" id="kbOverviewSummary">0 个文档</span>
+                                <svg class="kb-overview-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                            <div class="kb-overview-body">
+                                <div class="kb-stats">
+                                    <div class="stat-card">
+                                        <div class="stat-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                        </div>
+                                        <div class="stat-info">
+                                            <div class="stat-label" data-i18n="kb.docCount">文档数量</div>
+                                            <div class="stat-value" id="statDocs">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                        </div>
+                                        <div class="stat-info">
+                                            <div class="stat-label" data-i18n="kb.chunkCount">文本块数</div>
+                                            <div class="stat-value" id="statChunks">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                                        </div>
+                                        <div class="stat-info">
+                                            <div class="stat-label" data-i18n="kb.totalSize">总大小</div>
+                                            <div class="stat-value" id="statSize">0 KB</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="stat-info">
-                                    <div class="stat-label">文档数量</div>
-                                    <div class="stat-value" id="statDocs">0</div>
-                                </div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                                </div>
-                                <div class="stat-info">
-                                    <div class="stat-label">文本块数</div>
-                                    <div class="stat-value" id="statChunks">0</div>
-                                </div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                                </div>
-                                <div class="stat-info">
-                                    <div class="stat-label">总大小</div>
-                                    <div class="stat-value" id="statSize">0 KB</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="kb-insight-grid">
-                            <div class="kb-insight-card">
-                                <div class="kb-insight-label">文件分布</div>
-                                <div class="kb-type-breakdown" id="kbTypeBreakdown">
-                                    <span class="kb-type-pill muted">暂无分类</span>
+                                <div class="kb-insight-grid">
+                                    <div class="kb-insight-card">
+                                        <div class="kb-insight-label">文件分布</div>
+                                        <div class="kb-type-breakdown" id="kbTypeBreakdown">
+                                            <span class="kb-type-pill muted">暂无分类</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -7082,7 +7381,7 @@
                             <!-- 上传区域 -->
                             <div class="kb-upload-section">
                                 <div class="upload-area" id="uploadArea" onclick="document.getElementById('documentInput').click()">
-                                    <div class="upload-icon">📤</div>
+                                    <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l-4-4-4 4"/><path d="M12 12v9"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
                                     <div class="upload-text">拖拽文件到此处或点击上传</div>
                                     <div class="upload-hint">支持批量上传多个文件</div>
                                     <div class="upload-formats">
@@ -7143,7 +7442,7 @@
 
                             <!-- 空状态 -->
                             <div class="empty-state" id="emptyState" style="display: none;">
-                                <div class="empty-illustration">📭</div>
+                                <div class="empty-illustration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
                                 <div class="empty-title">暂无文档</div>
                                 <div class="empty-text">上传文档后即可开始使用知识库进行智能问答</div>
                             </div>
@@ -7151,14 +7450,14 @@
                             </div>
                             <aside class="kb-detail-drawer" id="kbDetailDrawer">
                                 <div class="kb-drawer-empty" id="kbDrawerEmpty">
-                                    <div class="kb-drawer-empty-icon">📄</div>
+                                    <div class="kb-drawer-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
                                     <div class="kb-drawer-empty-title">选择一个文档</div>
                                     <div class="kb-drawer-empty-text">左侧列表会显示你的全部知识库文档。点击任意一项，右侧会展开详情、元数据和文本预览。</div>
                                 </div>
                                 <div class="kb-drawer-shell" id="kbDrawerShell" style="display:none;">
                                     <div class="kb-drawer-header">
                                         <div class="kb-drawer-header-top">
-                                            <div class="kb-drawer-icon" id="kbDrawerIcon">📄</div>
+                                            <div class="kb-drawer-icon ft-default" id="kbDrawerIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
                                             <div class="kb-drawer-title-group">
                                                 <div class="kb-drawer-title" id="kbDrawerTitle">文档标题</div>
                                                 <div class="kb-drawer-subtitle" id="kbDrawerSubtitle">文档信息</div>
@@ -7321,7 +7620,7 @@
                                     </div>
                                     <div class="skills-list" id="skillsGrid"></div>
                                     <div class="sp-empty-state" id="skillsEmptyState" style="display:none;">
-                                        <div class="sp-empty-icon">🧩</div>
+                                        <div class="sp-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 9a2 2 0 1 0-3.4-1.6 2 2 0 0 0-2-2A2 2 0 1 0 8.6 4.6 2 2 0 0 0 5 7v3a2 2 0 1 0-1.6 3.4 2 2 0 0 0 2 2 2 2 0 1 0 3.4 1.6 2 2 0 0 0 2 2 2 2 0 1 0 3.4-1.6 2 2 0 0 0 2-2A2 2 0 1 0 21 10z"/></svg></div>
                                         <div class="sp-empty-title">暂无匹配的技能</div>
                                         <div class="sp-empty-text">试试清空搜索或切换筛选条件，或者创建一个新的自定义技能。</div>
                                     </div>
@@ -7330,7 +7629,7 @@
 
                             <aside class="skill-detail-drawer" id="skillDetailDrawer">
                                 <div class="skill-drawer-empty" id="skillDrawerEmpty">
-                                    <div class="skill-drawer-empty-icon">⚙️</div>
+                                    <div class="skill-drawer-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
                                     <div class="skill-drawer-empty-title">选择一个技能</div>
                                     <div class="skill-drawer-empty-text">在左侧选择一个 Skill，右侧会展示概览、脚本文件和 SKILL.md 内容。</div>
                                 </div>
@@ -7394,7 +7693,7 @@
                                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                                     </div>
                                     <div>
-                                        <div class="sp-stat-label">内置工具</div>
+                                        <div class="sp-stat-label" data-i18n="tools.builtinTools">内置工具</div>
                                         <div class="sp-stat-value" id="statBuiltinTools">0</div>
                                     </div>
                                 </div>
@@ -7403,7 +7702,7 @@
                                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                                     </div>
                                     <div>
-                                        <div class="sp-stat-label">MCP 工具</div>
+                                        <div class="sp-stat-label" data-i18n="tools.mcpTools">MCP 工具</div>
                                         <div class="sp-stat-value" id="statMcpTools">0</div>
                                     </div>
                                 </div>
@@ -7412,7 +7711,7 @@
                                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>
                                     </div>
                                     <div>
-                                        <div class="sp-stat-label">自定义工具</div>
+                                        <div class="sp-stat-label" data-i18n="tools.customTools">自定义工具</div>
                                         <div class="sp-stat-value" id="statCustomTools">0</div>
                                     </div>
                                 </div>
@@ -7422,14 +7721,14 @@
                                 <div class="sp-section-header">
                                     <div class="sp-section-title">
                                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>
-                                        自定义工具
+                                        <span data-i18n="tools.customToolsTitle">自定义工具</span>
                                         <span class="sp-count" id="customToolsCount">0</span>
                                     </div>
                                     <div class="sp-section-hint">上传 Python 文件，函数自动注册为工具（在受限子进程沙箱中执行）</div>
                                 </div>
                                 <div class="skills-list" id="customToolsGrid"></div>
                                 <div class="sp-empty-state" id="customToolsEmpty" style="display:none;">
-                                    <div class="sp-empty-icon">🧰</div>
+                                    <div class="sp-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 13h20"/></svg></div>
                                     <div class="sp-empty-title">暂无自定义工具</div>
                                     <div class="sp-empty-text">点击右上角「添加工具」上传一个 Python 文件。</div>
                                 </div>
@@ -7439,8 +7738,8 @@
                                 <div class="sp-section-header">
                                     <div class="sp-section-title">
                                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                                        内置 &amp; MCP 工具
-                                        <span class="sp-section-hint" style="margin-left:8px;">只读</span>
+                                        <span data-i18n="tools.readonlyTitle">内置 &amp; MCP 工具</span>
+                                        <span class="sp-section-hint" style="margin-left:8px;" data-i18n="common.readonly">只读</span>
                                     </div>
                                 </div>
                                 <div class="skills-list" id="readonlyToolsGrid"></div>
@@ -7453,14 +7752,14 @@
                                 <div class="sp-section-header">
                                     <div class="sp-section-title">
                                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                                        MCP Server
+                                        <span data-i18n="mcp.serverTitle">MCP Server</span>
                                         <span class="sp-count" id="mcpServersCount">0</span>
                                     </div>
                                     <div class="sp-section-hint">全局配置只读；你添加的可启停/编辑/删除</div>
                                 </div>
                                 <div class="skills-list" id="mcpServersGrid"></div>
                                 <div class="sp-empty-state" id="mcpServersEmpty" style="display:none;">
-                                    <div class="sp-empty-icon">🔌</div>
+                                    <div class="sp-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></svg></div>
                                     <div class="sp-empty-title">还没有 MCP Server</div>
                                     <div class="sp-empty-text">点击右上角「添加 MCP Server」，填写本地命令或远程 URL。</div>
                                 </div>
@@ -7535,7 +7834,7 @@
                 <div class="config-container">
                     <div class="config-content">
                         <div class="config-header">
-                            <h1>⚙️ 模型配置</h1>
+                            <h1>模型配置</h1>
                             <p>配置 LLM、Embedding 和工具 API</p>
                         </div>
 
@@ -7678,7 +7977,7 @@
                             </div>
                                 <div class="config-tip">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                                校对功能已适配专用纠错模型，返回格式固定为 `<think>分析</think>` 加纠正文本，如未单独配置将复用通用 LLM 配置
+                                <span>校对功能已适配专用纠错模型，返回格式固定为 <code>&lt;think&gt;分析&lt;/think&gt;</code> 加纠正文本；如未单独配置将复用通用 LLM 配置。</span>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">
@@ -9026,9 +9325,12 @@
     function filterAIResponse(content, removeHtmlImages = false) {
         if (!content || typeof content !== 'string') return content;
 
-        // 1. 移除代码块
-        content = content.replace(/```[\w]*\n?[\s\S]*?```/g, '');
-        content = content.replace(/```[\s\S]*/g, '');
+        // 1. 保护代码块：先抠出占位，清洗结束后原样还原（让代码像 Claude 一样完整展示，
+        //    同时不被下方噪声清洗误伤）。含流式时未闭合的尾部代码块。
+        const _blocks = [];
+        const _stash = (m) => { _blocks.push(m); return ` CODE${_blocks.length - 1} `; };
+        content = content.replace(/```[\s\S]*?```/g, _stash);
+        content = content.replace(/```[\s\S]*$/g, _stash);
 
         // 2. 移除 HTML img
         if (removeHtmlImages) {
@@ -9066,7 +9368,11 @@
             content = content.replace(pattern, '');
         }
 
-        return content.trim();
+        // 还原被保护的代码块
+        content = content.replace(/ CODE(\d+) /g, (m, i) => (_blocks[+i] !== undefined ? _blocks[+i] : m));
+
+        // 安全网：清除残留控制字符（含历史占位符），避免出现替换字符
+        return content.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim();
     }
 
     // 文档处理
@@ -9498,6 +9804,7 @@
 
         const originalText = restoreText ?? editor.dataset.originalText ?? textEl.dataset.rawText ?? '';
         editor.remove();
+        messageEl.classList.remove('is-editing');
         setMessageText(messageEl, originalText, 'user');
     }
 
@@ -9509,6 +9816,7 @@
         const newText = editor.value.replace(/\r\n/g, '\n');
         const innerEditor = messageEl.querySelector('.inline-editor');
         if (innerEditor) innerEditor.remove();
+        messageEl.classList.remove('is-editing');
         setMessageText(messageEl, newText, 'user');
         return newText;
     }
@@ -9531,15 +9839,28 @@
         editorWrap.className = 'inline-editor';
         editorWrap.dataset.originalText = originalText;
         editorWrap.innerHTML = `
-            <textarea class="inline-edit-textarea" spellcheck="false"></textarea>
+            <textarea class="inline-edit-textarea" spellcheck="false" placeholder="编辑你的消息…"></textarea>
             <div class="inline-edit-actions">
+                <span class="inline-edit-hint"><kbd>⌘</kbd><kbd>↵</kbd> 保存 · <kbd>Esc</kbd> 取消</span>
                 <button type="button" class="cancel-btn">取消</button>
-                <button type="button" class="save-btn">保存</button>
+                <button type="button" class="save-btn">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    保存
+                </button>
             </div>
         `;
 
+        userMessageEl.classList.add('is-editing');
+
         const textarea = editorWrap.querySelector('.inline-edit-textarea');
         textarea.value = originalText;
+
+        // 自动撑高，随内容增长
+        const autoGrow = () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 320) + 'px';
+        };
+        textarea.addEventListener('input', autoGrow);
 
         const cancelBtn = editorWrap.querySelector('.cancel-btn');
         const saveBtn = editorWrap.querySelector('.save-btn');
@@ -9569,6 +9890,7 @@
 
         textEl.innerHTML = '';
         textEl.appendChild(editorWrap);
+        autoGrow();
         textarea.focus();
         textarea.select();
     }
@@ -9628,6 +9950,38 @@
 
     }
 
+    // 给助手消息里的代码块加「语言标签 + 一键复制」头部
+    function enhanceCodeBlocks(container) {
+        if (!container) return;
+        container.querySelectorAll('pre').forEach(pre => {
+            if (pre.closest('.cm-codeblock')) return; // 已处理
+            const code = pre.querySelector('code');
+            let lang = '';
+            if (code) {
+                const m = (code.className || '').match(/language-([\w+-]+)/i);
+                if (m) lang = m[1];
+            }
+            const wrap = document.createElement('div');
+            wrap.className = 'cm-codeblock';
+            const header = document.createElement('div');
+            header.className = 'code-block-header';
+            header.innerHTML = `<span class="code-block-lang">${escapeHtml(lang || 'code')}</span>`
+                + `<button class="code-copy-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>复制</span></button>`;
+            pre.parentNode.insertBefore(wrap, pre);
+            wrap.appendChild(header);
+            wrap.appendChild(pre);
+            const btn = header.querySelector('.code-copy-btn');
+            btn.addEventListener('click', () => {
+                const text = (code ? code.innerText : pre.innerText) || '';
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.classList.add('copied');
+                    btn.querySelector('span').textContent = '已复制';
+                    setTimeout(() => { btn.classList.remove('copied'); btn.querySelector('span').textContent = '复制'; }, 1600);
+                });
+            });
+        });
+    }
+
     function addMessage(role, content, options = {}) {
         hideWelcomeScreen();
 
@@ -9682,6 +10036,7 @@
         }
 
         messagesWrapper.appendChild(div);
+        if (role === 'assistant') enhanceCodeBlocks(div);
         if (role === 'user') {
             div.__messageRole = 'user';
             lastUserMessageEl = div;
@@ -9729,6 +10084,9 @@
         const newRaw = currentRaw + token;
         finalEl.dataset.raw = newRaw;
 
+        // 答案开始流式 → 自动折叠思考过程（默认展示最终答案，过程可点开回看）
+        if (newRaw.trim()) collapseThinking(currentStreamingAnswer);
+
         // 流式时实时过滤 + 转义显示（去掉 SKILL.md、JSON、文件路径等）
         const filtered = filterAIResponse(newRaw, false);
         const escaped = filtered
@@ -9754,6 +10112,7 @@
                 finalEl.innerHTML = typeof marked !== 'undefined'
                     ? marked.parse(cleaned)
                     : escapeHtml(cleaned);
+                enhanceCodeBlocks(finalEl);
             } else {
                 finalEl.style.display = 'none';
             }
@@ -9761,28 +10120,8 @@
             if (!thinkingEl.querySelector('.thinking-process') || currentThinkingSteps.length === 0) {
                 thinkingEl.style.display = 'none';
             } else {
-                // 平滑过渡：先折叠，再淡出，最后隐藏
-                const header = thinkingEl.querySelector('.thinking-header');
-                const content = thinkingEl.querySelector('.thinking-content');
-                if (header && content) {
-                    header.classList.add('collapsed');
-                    content.classList.add('collapsed');
-
-                    // 延迟添加淡出动画，让折叠动画先完成
-                    setTimeout(() => {
-                        thinkingEl.style.transition = 'opacity 0.4s ease, max-height 0.4s ease';
-                        thinkingEl.style.opacity = '0';
-                        thinkingEl.style.maxHeight = '0';
-                        thinkingEl.style.overflow = 'hidden';
-
-                        setTimeout(() => {
-                            thinkingEl.style.display = 'none';
-                            thinkingEl.style.opacity = '1';
-                            thinkingEl.style.maxHeight = '';
-                            thinkingEl.style.transition = '';
-                        }, 400);
-                    }, 300);
-                }
+                // 折叠并保留思考过程（定格为可点开的「思考过程」药丸），不再隐藏删除
+                collapseThinking(currentStreamingAnswer);
             }
 
             const linkedUserEl = findLinkedUserMessageEl(currentStreamingAnswer);
@@ -9809,6 +10148,9 @@
                     });
                 });
             }
+
+            // 展示本轮生成的输出文件（下载卡，置于回复底部，仿 Claude）
+            appendOutputFileCards(currentStreamingAnswer, window.__turnStartTs || 0);
 
             currentStreamingAnswer = null;
             currentThinkingSteps = [];
@@ -9901,12 +10243,8 @@
         if (!thinkingEl.querySelector('.thinking-process')) {
             thinkingEl.innerHTML = `
                 <div class="thinking-process">
-                    <div class="thinking-header collapsed" onclick="toggleThinking(this)">
-                        <span class="thinking-toggle">▼</span>
-                        <span class="thinking-title">思考过程</span>
-                        <span class="thinking-badge">0 步</span>
-                    </div>
-                    <div class="thinking-content collapsed"></div>
+                    ${thinkingHeaderHtml('0 步', true)}
+                    <div class="thinking-content"></div>
                 </div>
             `;
         }
@@ -9957,12 +10295,8 @@
         const container = document.createElement('div');
         container.className = 'thinking-process';
         container.innerHTML = `
-            <div class="thinking-header" onclick="toggleThinking(this)">
-                <span class="thinking-toggle">▼</span>
-                <span class="thinking-title">思考过程</span>
-                <span class="thinking-badge">${steps.length} 步</span>
-            </div>
-            <div class="thinking-content"></div>
+            ${thinkingHeaderHtml(steps.length + ' 步', false)}
+            <div class="thinking-content collapsed"></div>
         `;
 
         const content = container.querySelector('.thinking-content');
@@ -9986,21 +10320,44 @@
 
     function toggleThinking(header) {
         const content = header.nextElementSibling;
-        const toggle = header.querySelector('.thinking-toggle');
-        const isCollapsed = content.classList.toggle('collapsed');
-        toggle.textContent = isCollapsed ? '▶' : '▼';
+        header.classList.toggle('collapsed');
+        if (content) content.classList.toggle('collapsed');
     }
 
+    // 折叠并定格「思考过程」（答案开始 / 生成完成时调用，仍保留可点开）
+    function collapseThinking(messageEl) {
+        if (!messageEl) return;
+        const header = messageEl.querySelector('.thinking-header');
+        if (!header || header.classList.contains('collapsed')) return;
+        const content = messageEl.querySelector('.thinking-content');
+        header.classList.add('collapsed');
+        header.classList.remove('is-thinking');
+        if (content) content.classList.add('collapsed');
+        const titleEl = header.querySelector('.thinking-title');
+        if (titleEl) titleEl.textContent = '思考过程';
+    }
+
+    // 统一的「思考」头部：thinking=true → 正在思考(展开+流光)，false → 思考过程(默认折叠)
+    function thinkingHeaderHtml(badgeText, thinking) {
+        return `<div class="thinking-header ${thinking ? 'is-thinking' : 'collapsed'}" onclick="toggleThinking(this)">`
+            + `<span class="thinking-spark"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-1 2.6-2.5 4.1-5 5 2.5.9 4 2.4 5 5 1-2.6 2.5-4.1 5-5-2.5-.9-4-2.4-5-5z"/></svg></span>`
+            + `<span class="thinking-title">${thinking ? '正在思考' : '思考过程'}</span>`
+            + `<span class="thinking-badge">${badgeText}</span>`
+            + `<svg class="thinking-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`
+            + `</div>`;
+    }
+
+    // 步骤图标：按类型返回彩色线性 SVG（替代 emoji，更贴近成熟产品质感）
     function getStepIcon(step) {
-        if (!step) return '⚙️';
-        const s = step.toLowerCase();
-        if (s.includes('init') || s.includes('开始')) return '🚀';
-        if (s.includes('summarize') || s.includes('生成答案')) return '✍️';
-        if (s.includes('tool') && s.includes('start')) return '🔧';
-        if (s.includes('tool') && s.includes('end')) return '✅';
-        if (s.includes('finish') || s.includes('结束')) return '🎯';
-        if (s.includes('error')) return '❌';
-        return '⚙️';
+        const s = (step || '').toLowerCase();
+        let color = '#64748b', path = '<circle cx="12" cy="12" r="3.2"/>';
+        if (s.includes('init') || s.includes('开始')) { color = '#3b82f6'; path = '<path d="M13 2L3 14h7l-1 8 10-12h-7z"/>'; }
+        else if (s.includes('summarize') || s.includes('生成答案') || s.includes('answer') || s.includes('生成')) { color = '#8b5cf6'; path = '<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>'; }
+        else if (s.includes('tool') && s.includes('end')) { color = '#19c37d'; path = '<path d="M20 6L9 17l-5-5"/>'; }
+        else if (s.includes('tool')) { color = '#3b82f6'; path = '<path d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6.4 6.4 2 2 6.4-6.4a4 4 0 0 0 5.6-5.6l-2.6 2.6-2-2 2.6-2.6z"/>'; }
+        else if (s.includes('finish') || s.includes('结束') || s.includes('done')) { color = '#19c37d'; path = '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>'; }
+        else if (s.includes('error') || s.includes('错误') || s.includes('fail')) { color = '#ef4444'; path = '<path d="M18 6L6 18M6 6l12 12"/>'; }
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
     }
 
     // ============ 发送消息 ============
@@ -10015,6 +10372,8 @@
             return;
         }
 
+        // 记录本轮起始时间，用于在回复结束后筛出"本轮生成的输出文件"
+        window.__turnStartTs = Date.now();
         lastSubmittedMessage = message;
         if (userMessageEl) {
             lastUserMessageEl = userMessageEl;
@@ -10192,6 +10551,69 @@
         return `<div class="msg-file-cards">${cards}</div>`;
     }
 
+    // ============ 本轮生成的输出文件（仿 Claude：回复底部下载卡） ============
+    function buildOutputFileCards(files) {
+        if (!files || !files.length) return '';
+        const cards = files.map(f => {
+            const icon = (typeof getFileIcon === 'function') ? getFileIcon(f.name) : '';
+            return `<button type="button" class="msg-file-card" data-out-path="${escapeHtml(f.path)}" data-out-name="${escapeHtml(f.name)}" title="下载 ${escapeHtml(f.name)}">
+                <span class="msg-file-card-icon">${icon}</span>
+                <span class="msg-file-card-info">
+                    <span class="msg-file-card-name">${escapeHtml(f.name)}</span>
+                    <span class="msg-file-card-size">${formatFileSize(f.size || 0)}</span>
+                </span>
+                <span class="msg-file-card-dl">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </span>
+            </button>`;
+        }).join('');
+        return `<div class="msg-output-files">
+            <div class="msg-output-files-label">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                已生成文件
+            </div>
+            <div class="msg-file-cards">${cards}</div>
+        </div>`;
+    }
+
+    async function appendOutputFileCards(msgEl, sinceTs) {
+        try {
+            if (!msgEl) return;
+            const token = localStorage.getItem('access_token');
+            const resp = await fetch(`${getApiUrl()}/output/files`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const files = (data.files || []).filter(f =>
+                !f.is_directory && f.modified_at &&
+                new Date(f.modified_at).getTime() >= (Number(sinceTs) - 3000));
+            if (!files.length) return;
+            const contentEl = msgEl.querySelector('.message-content');
+            if (!contentEl) return;
+            contentEl.insertAdjacentHTML('beforeend', buildOutputFileCards(files));
+            contentEl.querySelectorAll('.msg-file-card[data-out-path]').forEach(btn => {
+                btn.addEventListener('click', () => downloadOutputFile(btn.dataset.outPath, btn.dataset.outName));
+            });
+        } catch (e) { /* 文件卡为增强项，失败静默，不影响回答展示 */ }
+    }
+
+    async function downloadOutputFile(path, name) {
+        try {
+            const token = localStorage.getItem('access_token');
+            const resp = await fetch(`${getApiUrl()}/output/files/download?path=${encodeURIComponent(path)}`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            if (!resp.ok) { showToast('下载失败', 'error'); return; }
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = name || 'download';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+        } catch (e) { showToast('下载失败', 'error'); }
+    }
+
     // ============ 会话管理 ============
     async function loadSavedHistory() {
         try {
@@ -10362,6 +10784,19 @@
         });
     }
 
+    // 回到底部按钮：滚离底部时浮现
+    function updateScrollBottomBtn() {
+        const btn = document.getElementById('scrollToBottomBtn');
+        if (!btn || !messagesContainer) return;
+        const dist = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight;
+        btn.classList.toggle('visible', dist > 240);
+    }
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', updateScrollBottomBtn, { passive: true });
+        const _scrollBtn = document.getElementById('scrollToBottomBtn');
+        if (_scrollBtn) _scrollBtn.addEventListener('click', () => { scrollToBottom(); });
+    }
+
     function autoResizeTextarea() {
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 200) + 'px';
@@ -10370,7 +10805,10 @@
     function showToast(message, type = 'success') {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${message}</span>`;
+        const _ti = type === 'success'
+            ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
+            : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+        toast.innerHTML = `<span class="toast-ico">${_ti}</span><span>${message}</span>`;
         document.body.appendChild(toast);
         setTimeout(() => {
             toast.style.animation = 'slideIn 0.3s ease reverse';
@@ -10612,8 +11050,17 @@
             });
         });
 
+        // 欢迎页推荐提示词：点击卡片直接发送
+        function useSuggestion(el) {
+            const prompt = (el && el.dataset && el.dataset.prompt) || '';
+            if (!prompt) return;
+            if (messageInput) messageInput.value = prompt;
+            sendMessage(prompt);
+        }
+
         // 全局函数
         window.toggleThinking = toggleThinking;
+        window.useSuggestion = useSuggestion;
         window.removeAttachment = removeAttachment;
 
         // 启动
@@ -10741,7 +11188,7 @@ Use this skill when the user wants to..."></textarea>
     confirmModal.innerHTML = `
         <div class="modal">
             <div class="modal-body confirm-body">
-                <div class="confirm-icon">⚠️</div>
+                <div class="confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
                 <div class="confirm-title" id="confirmTitle">确认删除</div>
                 <div class="confirm-message" id="confirmMessage">确定要删除这个技能吗？此操作不可恢复。</div>
                 <div class="confirm-actions">

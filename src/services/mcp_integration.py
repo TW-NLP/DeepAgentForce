@@ -26,6 +26,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.services.tool_taxonomy import normalize_type
+
 logger = logging.getLogger(__name__)
 
 # stdio / http 连接各自允许透传的字段（其余忽略，避免把无关键塞给 client）。
@@ -118,8 +120,8 @@ def _extract_servers(blob: Dict[str, Any]) -> Dict[str, Any]:
     return flat
 
 
-def load_mcp_connections(settings: Any, tenant_uuid: Optional[str]) -> Dict[str, Dict[str, Any]]:
-    """汇总并规范化所有 MCP server 连接配置。
+def _merge_raw_servers(settings: Any, tenant_uuid: Optional[str]) -> Dict[str, Any]:
+    """汇总各来源的原始 server 配置（未规范化，保留 type/description 等附加字段）。
 
     合并顺序（后者覆盖同名）：
     1. ``DATA_DIR/mcp_servers.json``（全局共享）
@@ -139,13 +141,34 @@ def load_mcp_connections(settings: Any, tenant_uuid: Optional[str]) -> Dict[str,
         merged_raw.update(
             _extract_servers(_load_json(data_dir / f"mcp_servers_{tenant_uuid}.json"))
         )
+    return merged_raw
 
+
+def load_mcp_connections(settings: Any, tenant_uuid: Optional[str]) -> Dict[str, Dict[str, Any]]:
+    """汇总并规范化所有 MCP server 连接配置（供 MCP client 使用）。"""
     connections: Dict[str, Dict[str, Any]] = {}
-    for name, raw in merged_raw.items():
+    for name, raw in _merge_raw_servers(settings, tenant_uuid).items():
         conn = _normalize_connection(name, raw)
         if conn is not None:
             connections[name] = conn
     return connections
+
+
+def load_mcp_meta(settings: Any, tenant_uuid: Optional[str]) -> Dict[str, Dict[str, str]]:
+    """每个启用 server 的 Type / 服务描述，供分层披露（mcp_search）的重排使用。
+
+    与 :func:`load_mcp_connections` 同源合并，但保留 ``type``/``description``
+    这些不进连接配置的字段。被禁用的 server 跳过。
+    """
+    meta: Dict[str, Dict[str, str]] = {}
+    for name, raw in _merge_raw_servers(settings, tenant_uuid).items():
+        if not isinstance(raw, dict) or not _is_enabled(raw):
+            continue
+        meta[name] = {
+            "type": normalize_type(raw.get("type")),
+            "description": str(raw.get("description") or "").strip(),
+        }
+    return meta
 
 
 def _run_sync(coro):
@@ -161,18 +184,26 @@ def _run_sync(coro):
         return ex.submit(lambda: asyncio.run(coro)).result()
 
 
-async def _afetch_tools(connections: Dict[str, Dict[str, Any]]) -> List[Any]:
+async def _afetch_tools(
+    connections: Dict[str, Dict[str, Any]],
+    meta: Optional[Dict[str, Dict[str, str]]] = None,
+) -> List[Any]:
     from langchain_mcp_adapters.client import MultiServerMCPClient
 
+    meta = meta or {}
     client = MultiServerMCPClient(connections)
     # 逐 server 取，单个 server 失败不影响其余。
     tools: List[Any] = []
     for name in connections:
         try:
             server_tools = await client.get_tools(server_name=name)
+            m = meta.get(name, {})
             for t in server_tools:
                 # 加前缀避免不同 server 工具重名冲突，并保留可读性。
                 _prefix_tool(t, name)
+                # 把 service（=server 名）/ Type / 服务描述写进 metadata，
+                # 供 tool_disclosure 的 mcp_search 做 Type→Service→Tool 分层重排。
+                _annotate_tool(t, name, m.get("type", ""), m.get("description", ""))
             tools.extend(server_tools)
             logger.info("[MCP] server '%s' 提供 %d 个工具", name, len(server_tools))
         except Exception as e:  # noqa: BLE001
@@ -187,6 +218,18 @@ def _prefix_tool(tool: Any, server: str) -> None:
         if not original.startswith(f"mcp__{server}__"):
             tool.name = f"mcp__{server}__{original}"
     except Exception:  # noqa: BLE001 - 某些工具 name 只读则保持原样
+        pass
+
+
+def _annotate_tool(tool: Any, server: str, type_slug: str, service_description: str) -> None:
+    """把 service / Type / 服务描述写进工具 metadata（分层披露重排用，容错）。"""
+    try:
+        md = dict(getattr(tool, "metadata", None) or {})
+        md["mcp_service"] = server
+        md["mcp_type"] = type_slug or ""
+        md["mcp_service_description"] = service_description or ""
+        tool.metadata = md
+    except Exception:  # noqa: BLE001 - metadata 只读则忽略
         pass
 
 
@@ -205,9 +248,15 @@ def collect_mcp_tools(settings: Any, tenant_uuid: Optional[str]) -> List[Any]:
         logger.debug("[MCP] 未配置任何 server，跳过")
         return []
 
+    try:
+        meta = load_mcp_meta(settings, tenant_uuid)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[MCP] 加载 server Type/描述失败，按空处理: %s", e)
+        meta = {}
+
     logger.info("[MCP] 准备连接 %d 个 server: %s", len(connections), list(connections))
     try:
-        return _run_sync(_afetch_tools(connections))
+        return _run_sync(_afetch_tools(connections, meta))
     except Exception as e:  # noqa: BLE001
         logger.warning("[MCP] 获取工具失败，按无 MCP 处理: %s", e)
         return []
@@ -276,6 +325,9 @@ class McpConfigStore:
             "env": raw.get("env", {}),
             "url": raw.get("url", ""),
             "headers": raw.get("headers", {}),
+            # 分层披露：Type（归一化到固定类目表）+ 服务描述
+            "type": normalize_type(raw.get("type")),
+            "description": str(raw.get("description") or ""),
         }
 
     def upsert_server(
@@ -306,6 +358,13 @@ class McpConfigStore:
         for key in ("command", "args", "env", "cwd", "url", "headers", "transport"):
             if key in config and config[key] not in (None, "", [], {}):
                 out[key] = config[key]
+        # 分层披露：Type 归一化到固定类目表；服务描述为自由文本。
+        type_slug = normalize_type(config.get("type"))
+        if type_slug:
+            out["type"] = type_slug
+        desc = str(config.get("description") or "").strip()
+        if desc:
+            out["description"] = desc
         if "disabled" in config:
             out["disabled"] = bool(config["disabled"])
         return out

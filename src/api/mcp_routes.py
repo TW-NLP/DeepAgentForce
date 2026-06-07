@@ -36,6 +36,9 @@ class McpServerInfo(BaseModel):
     env: Dict[str, str] = Field(default_factory=dict)
     url: str = ""
     headers: Dict[str, str] = Field(default_factory=dict)
+    # 分层披露：Type（固定类目表）+ 服务描述
+    type: str = ""
+    description: str = ""
 
 
 class McpListResponse(BaseModel):
@@ -52,6 +55,9 @@ class McpServerConfig(BaseModel):
     env: Dict[str, str] = Field(default_factory=dict)
     url: Optional[str] = ""
     headers: Dict[str, str] = Field(default_factory=dict)
+    # 分层披露：Type（固定类目表里的 slug）+ 服务描述（自由文本）
+    type: str = ""
+    description: str = ""
 
 
 class McpToggleRequest(BaseModel):
@@ -91,6 +97,11 @@ def _config_payload(cfg: McpServerConfig) -> Dict[str, Any]:
         payload["url"] = (cfg.url or "").strip()
         if cfg.headers:
             payload["headers"] = cfg.headers
+    # 分层披露字段（store 侧会做 Type 归一化与空值清理）
+    if cfg.type:
+        payload["type"] = cfg.type
+    if cfg.description:
+        payload["description"] = cfg.description
     return payload
 
 

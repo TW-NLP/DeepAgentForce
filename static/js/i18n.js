@@ -61,7 +61,8 @@
       'header.page.config': '模型配置',
 
       // ── Chat ─────────────────────────────────────────────────────────────────
-      'chat.welcome': '你好，我是 DeepAgentForce\n帮你读文档、查知识、做分析。',
+      'chat.welcome': '你好，我是 DeepAgentForce',
+      'chat.welcomeSub': '读文档、查知识、用工具、做分析 —— 试试下面的例子，或直接开始提问。',
       'chat.placeholder': '输入消息...',
 
       // ── Knowledge base ────────────────────────────────────────────────────────
@@ -110,12 +111,20 @@
       'skills.filterBuiltin': '内置',
       'skills.filterCustom': '自定义',
       'skills.listTitle': '技能列表',
+      // 工具 / MCP 子页（区块标题 + 统计标签）
+      'tools.customToolsTitle': '自定义工具',
+      'tools.readonlyTitle': '内置 & MCP 工具',
+      'tools.builtinTools': '内置工具',
+      'tools.mcpTools': 'MCP 工具',
+      'tools.customTools': '自定义工具',
+      'mcp.serverTitle': 'MCP Server',
+      'common.readonly': '只读',
       'skills.listHint': '点击任意技能查看详情',
       'skills.emptyTitle': '暂无匹配的技能',
       'skills.emptyText': '试试清空搜索或切换筛选条件，或者创建一个新的自定义技能。',
 
       // ── Config page ───────────────────────────────────────────────────────────
-      'config.title': '⚙️ 模型配置',
+      'config.title': '模型配置',
 
       // ── Login ─────────────────────────────────────────────────────────────────
       'login.pageTitle': '登录 - DeepAgentForce',
@@ -204,7 +213,8 @@
       'header.page.config': 'Settings',
 
       // ── Chat ─────────────────────────────────────────────────────────────────
-      'chat.welcome': "Hi, I'm DeepAgentForce.\nI can read documents, search your knowledge base, and analyze data.",
+      'chat.welcome': "Hi, I'm DeepAgentForce",
+      'chat.welcomeSub': 'Read documents, search knowledge, use tools, analyze data — try an example below, or just ask.',
       'chat.placeholder': 'Type a message...',
 
       // ── Knowledge base ────────────────────────────────────────────────────────
@@ -253,12 +263,20 @@
       'skills.filterBuiltin': 'Built-in',
       'skills.filterCustom': 'Custom',
       'skills.listTitle': 'Skill List',
+      // Tools / MCP subpanels (section titles + stat labels)
+      'tools.customToolsTitle': 'Custom Tools',
+      'tools.readonlyTitle': 'Built-in & MCP Tools',
+      'tools.builtinTools': 'Built-in Tools',
+      'tools.mcpTools': 'MCP Tools',
+      'tools.customTools': 'Custom Tools',
+      'mcp.serverTitle': 'MCP Server',
+      'common.readonly': 'Read-only',
       'skills.listHint': 'Click any skill to view details',
       'skills.emptyTitle': 'No matching skills',
       'skills.emptyText': 'Try clearing the search or switching filters, or create a new custom skill.',
 
       // ── Config page ───────────────────────────────────────────────────────────
-      'config.title': '⚙️ Settings',
+      'config.title': 'Settings',
 
       // ── Login ─────────────────────────────────────────────────────────────────
       'login.pageTitle': 'Sign In - DeepAgentForce',
@@ -328,9 +346,7 @@
     // Knowledge page
     ['#knowledgePage .kb-header-text h1', 'kb.title'],
     ['#knowledgePage .kb-header-text p', 'kb.subtitle'],
-    ['#knowledgePage .stat-label:nth-of-type(1)', 'kb.docCount'],
-    ['#knowledgePage .stat-label:nth-of-type(2)', 'kb.chunkCount'],
-    ['#knowledgePage .stat-label:nth-of-type(3)', 'kb.totalSize'],
+    // 知识库统计标签改用各自的 data-i18n（nth-of-type 会误把三个标签都当成第 1 个）
     ['#knowledgePage .kb-insight-label', 'kb.fileDistribution'],
     ['.kb-type-pill.muted', 'kb.noCategory'],
     ['.upload-text', 'kb.dropText'],
@@ -357,15 +373,17 @@
     ['[data-skill-filter="all"]', 'skills.filterAll'],
     ['[data-skill-filter="builtin"]', 'skills.filterBuiltin'],
     ['[data-skill-filter="custom"]', 'skills.filterCustom'],
-    ['.sp-section-title', 'skills.listTitle'],
+    // ⚠️ 限定到「技能」子页：否则会把「工具/MCP」子页的同名区块标题、统计标签
+    //    一并改写成技能文案（工具页/ MCP 页的标题/标签另由各自的 data-i18n 提供）。
+    ['.sp-subpanel[data-subpanel="skills"] .sp-section-title', 'skills.listTitle'],
     ['#skillListHint', 'skills.listHint'],
     ['#skillsEmptyState .sp-empty-title', 'skills.emptyTitle'],
     ['#skillsEmptyState .sp-empty-text', 'skills.emptyText'],
-    // Stat labels (skills page)
-    ['.sp-stat.green .sp-stat-label', 'skills.installed'],
-    ['.sp-stat.blue .sp-stat-label', 'skills.scripts'],
-    ['.sp-stat.orange .sp-stat-label', 'skills.builtin'],
-    ['.sp-stat.purple .sp-stat-label', 'skills.custom'],
+    // Stat labels (skills subpanel only)
+    ['.sp-subpanel[data-subpanel="skills"] .sp-stat.green .sp-stat-label', 'skills.installed'],
+    ['.sp-subpanel[data-subpanel="skills"] .sp-stat.blue .sp-stat-label', 'skills.scripts'],
+    ['.sp-subpanel[data-subpanel="skills"] .sp-stat.orange .sp-stat-label', 'skills.builtin'],
+    ['.sp-subpanel[data-subpanel="skills"] .sp-stat.purple .sp-stat-label', 'skills.custom'],
     // Subtabs
     ['[data-subtab="skills"]', 'skills.tabSkills'],
     ['[data-subtab="tools"]', 'skills.tabTools'],

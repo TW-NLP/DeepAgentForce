@@ -32,11 +32,13 @@ class ToolMeta(BaseModel):
     category: str = ""
     category_label: str = ""
     source: str = "builtin"  # builtin | custom | mcp
+    type: str = ""  # 分层披露 Type（固定类目表 slug）
 
 
 class CustomToolFile(BaseModel):
     tool_id: str
     source: str = "custom"
+    type: str = ""  # 分层披露 Type（固定类目表 slug）
     size_bytes: int = 0
     modified_at: str = ""
     tools: List[Dict[str, str]] = Field(default_factory=list)
@@ -93,12 +95,14 @@ async def list_tools(request: Request):
             from src.services.mcp_integration import collect_mcp_tools
             for t in collect_mcp_tools(settings, tenant_uuid):
                 server = t.name.split("__")[1] if t.name.startswith("mcp__") else "mcp"
+                md = getattr(t, "metadata", None) or {}
                 mcp.append(ToolMeta(
                     name=t.name,
                     description=(t.description or "").strip().split("\n")[0],
                     category=server,
                     category_label=f"MCP·{server}",
                     source="mcp",
+                    type=md.get("mcp_type", ""),
                 ))
         except Exception as e:  # noqa: BLE001
             logger.warning("列举 MCP 工具失败: %s", e)
@@ -110,6 +114,13 @@ async def list_tools(request: Request):
     except Exception as e:
         logger.error(f"列举工具失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tools/types", tags=["工具管理"])
+async def list_tool_types():
+    """返回固定的 Type 类目表（MCP server 与自定义工具共用，供前端下拉）。"""
+    from src.services.tool_taxonomy import TOOL_TYPES
+    return {"success": True, "types": TOOL_TYPES}
 
 
 @router.get("/tools/template", tags=["工具管理"])
@@ -146,13 +157,16 @@ async def save_custom_tool(
     tool_id: str = Form(...),
     code: str = Form(...),
     force: bool = Form(False),
+    tool_type: str = Form(""),
     request: Request = None,
 ):
-    """新增/覆盖一个自定义 Python 工具（粘贴代码）。"""
+    """新增/覆盖一个自定义 Python 工具（粘贴代码）。``tool_type`` 为固定类目表里的 Type。"""
     tenant_uuid = get_tenant_uuid_from_request(request)
     if tenant_uuid is None:
         raise HTTPException(status_code=401, detail="需要登录才能保存自定义工具")
-    result = _custom_manager(request).save_tool(tenant_uuid, tool_id, code, force=force)
+    result = _custom_manager(request).save_tool(
+        tenant_uuid, tool_id, code, force=force, tool_type=tool_type
+    )
     if not result["success"]:
         return SimpleResponse(success=False, message=result["message"],
                               errors=result.get("errors", []))
@@ -163,9 +177,10 @@ async def save_custom_tool(
 async def upload_custom_tool(
     file: UploadFile = File(...),
     force: bool = Form(False),
+    tool_type: str = Form(""),
     request: Request = None,
 ):
-    """上传 .py 文件作为自定义工具（文件名即 tool_id）。"""
+    """上传 .py 文件作为自定义工具（文件名即 tool_id）。``tool_type`` 为固定类目表里的 Type。"""
     tenant_uuid = get_tenant_uuid_from_request(request)
     if tenant_uuid is None:
         raise HTTPException(status_code=401, detail="需要登录才能上传自定义工具")
@@ -177,7 +192,9 @@ async def upload_custom_tool(
         code = (await file.read()).decode("utf-8")
     except Exception as e:
         return SimpleResponse(success=False, message=f"读取文件失败：{e}")
-    result = _custom_manager(request).save_tool(tenant_uuid, tool_id, code, force=force)
+    result = _custom_manager(request).save_tool(
+        tenant_uuid, tool_id, code, force=force, tool_type=tool_type
+    )
     if not result["success"]:
         return SimpleResponse(success=False, message=result["message"],
                               errors=result.get("errors", []))

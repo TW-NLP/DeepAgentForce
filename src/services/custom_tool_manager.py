@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import logging
 import re
 from datetime import datetime
@@ -27,8 +28,19 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from src.services.sandbox import SandboxRunner, SandboxError
+from src.services.tool_taxonomy import normalize_type
 
 logger = logging.getLogger(__name__)
+
+
+def _annotate_custom(tool: Any, type_slug: str) -> None:
+    """把 Type 写进自定义工具的 metadata（tool_search 重排用，容错）。"""
+    try:
+        md = dict(getattr(tool, "metadata", None) or {})
+        md["custom_type"] = type_slug or ""
+        tool.metadata = md
+    except Exception:  # noqa: BLE001 - metadata 只读则忽略
+        pass
 
 # 文件名/工具 id 允许的字符
 _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
@@ -81,6 +93,30 @@ class CustomToolManager:
     @staticmethod
     def _valid_id(tool_id: str) -> bool:
         return bool(tool_id) and bool(_SAFE_ID_RE.match(tool_id))
+
+    # ------------------------------------------------------------------
+    # 元数据（Type 等，按租户存于 <tenant>/_meta.json，按 tool_id 索引）
+    # ------------------------------------------------------------------
+    def _meta_file(self, tenant_uuid: Optional[str]) -> Path:
+        return self._tenant_dir(tenant_uuid) / "_meta.json"
+
+    def _read_meta(self, tenant_uuid: Optional[str]) -> Dict[str, Dict[str, Any]]:
+        path = self._meta_file(tenant_uuid)
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except Exception:  # noqa: BLE001 - 元数据坏掉不应影响工具加载
+            return {}
+
+    def _write_meta(self, tenant_uuid: Optional[str], meta: Dict[str, Dict[str, Any]]) -> None:
+        path = self._meta_file(tenant_uuid)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def get_tool_type(self, tenant_uuid: Optional[str], tool_id: str) -> str:
+        return normalize_type(self._read_meta(tenant_uuid).get(tool_id, {}).get("type"))
 
     # ------------------------------------------------------------------
     # 校验
@@ -145,8 +181,9 @@ class CustomToolManager:
         tool_id: str,
         code: str,
         force: bool = False,
+        tool_type: str = "",
     ) -> Dict[str, Any]:
-        """保存（新增或覆盖）一个自定义工具文件。"""
+        """保存（新增或覆盖）一个自定义工具文件。``tool_type`` 为固定类目表里的 Type。"""
         if tenant_uuid is None:
             return {"success": False, "message": "需要登录才能保存自定义工具"}
         tool_id = (tool_id or "").strip()
@@ -178,11 +215,18 @@ class CustomToolManager:
             return {"success": False, "message": f"导入失败：{e}"}
 
         path.write_text(code, encoding="utf-8")
+
+        # 记录 Type（归一化到固定类目表，非法/缺失则记空 Type）。
+        meta = self._read_meta(tenant_uuid)
+        meta[tool_id] = {"type": normalize_type(tool_type)}
+        self._write_meta(tenant_uuid, meta)
+
         return {
             "success": True,
             "message": f"已保存自定义工具 '{tool_id}'（含 {len(specs)} 个工具）",
             "tool_id": tool_id,
             "tool_names": [s["name"] for s in specs],
+            "type": meta[tool_id]["type"],
             "warnings": check.get("warnings", []),
         }
 
@@ -195,6 +239,10 @@ class CustomToolManager:
         if not path.exists():
             return {"success": False, "message": f"工具 '{tool_id}' 不存在"}
         path.unlink()
+        meta = self._read_meta(tenant_uuid)
+        if tool_id in meta:
+            meta.pop(tool_id)
+            self._write_meta(tenant_uuid, meta)
         return {"success": True, "message": f"已删除自定义工具 '{tool_id}'"}
 
     def get_tool_code(self, tenant_uuid: Optional[str], tool_id: str) -> Optional[str]:
@@ -210,6 +258,7 @@ class CustomToolManager:
         d = self._tenant_dir(tenant_uuid)
         if not d.exists():
             return []
+        meta = self._read_meta(tenant_uuid)
         out: List[Dict[str, Any]] = []
         for path in sorted(d.glob("*.py")):
             tool_id = path.stem
@@ -217,6 +266,7 @@ class CustomToolManager:
             entry: Dict[str, Any] = {
                 "tool_id": tool_id,
                 "source": "custom",
+                "type": normalize_type(meta.get(tool_id, {}).get("type")),
                 "size_bytes": stat.st_size,
                 "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
                 "tools": [],
@@ -244,10 +294,15 @@ class CustomToolManager:
         d = self._tenant_dir(tenant_uuid)
         if not d.exists():
             return []
+        meta = self._read_meta(tenant_uuid)
         all_tools: List[Any] = []
         for path in sorted(d.glob("*.py")):
             try:
-                all_tools.extend(self.runner.build_proxy_tools(path))
+                proxies = self.runner.build_proxy_tools(path)
+                ttype = normalize_type(meta.get(path.stem, {}).get("type"))
+                for t in proxies:
+                    _annotate_custom(t, ttype)
+                all_tools.extend(proxies)
             except Exception as e:  # noqa: BLE001
                 logger.warning("[CustomTool] 加载 %s 失败，跳过: %s", path.name, e)
         return all_tools
