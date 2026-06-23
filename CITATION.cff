@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it using the metadata from this file."
+title: "DeepAgentForce: A Production-Grade Multi-Tenant Agent Harness with Progressive Disclosure of Skills, Tools and MCP"
+type: software
+authors:
+  - family-names: Tian
+    given-names: Wei
+repository-code: "https://github.com/TW-NLP/DeepAgentForce"
+url: "https://github.com/TW-NLP/DeepAgentForce"
+license: Apache-2.0
+year: 2026

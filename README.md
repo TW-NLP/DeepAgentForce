@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/LangGraph-Latest-blueviolet?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/MCP-Supported-orange?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker"/>
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/License-Apache_2.0-green?style=for-the-badge"/>
 </p>
 
 ---
@@ -420,9 +420,30 @@ docker compose down -v
 
 ---
 
+## Citation
+
+If DeepAgentForce helps your work, please cite it:
+
+```bibtex
+@software{tian2026deepagentforce,
+  title  = {DeepAgentForce: A Production-Grade Multi-Tenant Agent Harness with Progressive Disclosure of Skills, Tools and MCP},
+  author = {Tian, Wei},
+  year   = {2026},
+  url    = {https://github.com/TW-NLP/DeepAgentForce}
+}
+```
+
+---
+
+## Contributing
+
+Contributions of all kinds are welcome — bug reports, documentation, new skills/tools/MCP integrations, and features. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the Issue / Pull Request workflow and code style before submitting.
+
+---
+
 ## License
 
-MIT — free to use, modify, and distribute commercially.
+Released under the [Apache-2.0 License](LICENSE) — free for academic research and commercial use; please retain the copyright and license notice.
 
 ---
 
@@ -436,8 +457,11 @@ MIT — free to use, modify, and distribute commercially.
 ---
 
 ## Star History
-<p align="center">
-  <a href="https://github.com/TW-NLP/DeepAgentForce">
-    <img src="https://img.shields.io/github/stars/TW-NLP/DeepAgentForce?style=social"/>
-  </a>
-</p>
+
+<div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/TW-NLP/DeepAgentForce?style=social)](https://github.com/TW-NLP/DeepAgentForce/stargazers)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=TW-NLP/DeepAgentForce&type=Date)](https://star-history.com/#TW-NLP/DeepAgentForce&Date)
+
+</div>

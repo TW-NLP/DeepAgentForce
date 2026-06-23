@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/LangGraph-Latest-blueviolet?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/MCP-已支持-orange?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker"/>
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/License-Apache_2.0-green?style=for-the-badge"/>
 </p>
 
 ---
@@ -417,9 +417,30 @@ docker compose down -v
 
 ---
 
-## License
+## Citation（引用）
 
-MIT — 可自由使用、修改和分发，商用无忧。
+如果 DeepAgentForce 对您的工作有帮助，欢迎引用：
+
+```bibtex
+@software{tian2026deepagentforce,
+  title  = {DeepAgentForce: A Production-Grade Multi-Tenant Agent Harness with Progressive Disclosure of Skills, Tools and MCP},
+  author = {Tian, Wei},
+  year   = {2026},
+  url    = {https://github.com/TW-NLP/DeepAgentForce}
+}
+```
+
+---
+
+## Contributing（贡献指南）
+
+欢迎任何形式的贡献：报告 Issue、完善文档、新增 Skill / Tool / MCP 集成、修复 Bug、提交新特性等。提交前请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md),了解 Issue / Pull Request 的提交规范与代码风格要求。
+
+---
+
+## License（开源协议）
+
+本项目基于 [Apache-2.0 License](LICENSE) 开源,可自由用于学术研究与商业用途,使用时请保留版权与协议声明。
 
 ---
 
@@ -432,8 +453,12 @@ MIT — 可自由使用、修改和分发，商用无忧。
 
 ---
 
-<p align="center">
-  <a href="https://github.com/TW-NLP/DeepAgentForce">
-    <img src="https://img.shields.io/github/stars/TW-NLP/DeepAgentForce?style=social"/>
-  </a>
-</p>
+## Star History
+
+<div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/TW-NLP/DeepAgentForce?style=social)](https://github.com/TW-NLP/DeepAgentForce/stargazers)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=TW-NLP/DeepAgentForce&type=Date)](https://star-history.com/#TW-NLP/DeepAgentForce&Date)
+
+</div>
